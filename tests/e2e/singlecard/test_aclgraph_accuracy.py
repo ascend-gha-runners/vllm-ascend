@@ -22,7 +22,7 @@ from tests.e2e.singlecard.utils import (PROMPTS_LONG, PROMPTS_SHORT,
                                         LLMTestCase, gen_and_valid)
 
 CASE_QWEN_ACLGRAPH = LLMTestCase(
-    model="/shared-data/vllm-ascend/Qwen/Qwen3-0.6B",
+    model="/shared-data/vllm-ascend/deepseek-ai/DeepSeek-V2-Lite",
     prompts=PROMPTS_SHORT,
     golden_answers=[
         " Lina. I'm a 22-year-old student from China. I'm interested in studying in the US. I want to know if there are any",
