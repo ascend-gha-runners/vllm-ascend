@@ -29,7 +29,6 @@ on:
 jobs:
   e2e-2-cards-light:
     name: multicard-2-light
-    if: ${{ inputs.type == 'light' }}
     runs-on: linux-arm64-npu-1
     strategy:
       matrix:
