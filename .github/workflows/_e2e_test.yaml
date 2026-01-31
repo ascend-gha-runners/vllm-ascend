@@ -27,11 +27,15 @@ on:
         type: boolean
 
 jobs:
-  e2e-2-cards:
-    name: multicard-2
+  e2e-2-cards-light:
+    name: multicard-2-light
+    if: ${{ inputs.type == 'light' }}
     runs-on: linux-arm64-npu-1
+    strategy:
+      matrix:
+        part: [0]
     container:
-      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.3.rc1-a3-ubuntu22.04-py3.11
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.0-a3-ubuntu22.04-py3.11
       env:
         VLLM_LOGGING_LEVEL: ERROR
         VLLM_USE_MODELSCOPE: True
@@ -44,7 +48,6 @@ jobs:
         run: |
           npu-smi info
           cat /usr/local/Ascend/ascend-toolkit/latest/"$(uname -i)"-linux/ascend_toolkit_install.info
-
       - name: Config mirrors
         run: |
           sed -Ei 's@(ports|archive).ubuntu.com@cache-service.nginx-pypi-cache.svc.cluster.local:8081@g' /etc/apt/sources.list
@@ -52,12 +55,10 @@ jobs:
           pip config set global.trusted-host cache-service.nginx-pypi-cache.svc.cluster.local
           apt-get update -y
           apt install git -y
-
       - name: Install system dependencies
         run: |
           apt-get -y install `cat packages.txt`
           apt-get -y install gcc g++ cmake libnuma-dev clang-15
-
           update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 20
           update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20
           mkdir -p /root/.cache/modelscope/hub/models/Qwen/
@@ -111,7 +112,6 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
           AWS_REGION: cn-southwest-2
-
       - name: Checkout vllm-project/vllm repo
         uses: actions/checkout@v6
         with:
@@ -124,7 +124,6 @@ jobs:
         working-directory: ./vllm-empty
         run: |
           VLLM_TARGET_DEVICE=empty pip install -e .
-
       - name: Install vllm-project/vllm-ascend
         env:
           PIP_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
@@ -134,22 +133,9 @@ jobs:
           export SCCACHE_DEBUG=1
           pip install -r requirements-dev.txt
           pip install -v -e .
-          sccache --show-stats
           sleep 43200
-
       - name: Run vllm-project/vllm-ascend test (light)
         env:
           VLLM_WORKER_MULTIPROC_METHOD: spawn
-        if: ${{ inputs.type == 'light' }}
         run: |
-          pytest -sv --durations=0 tests/e2e/multicard/2-cards/test_qwen3_moe.py::test_qwen3_moe_distributed_mp_tp2_ep
-          pytest -sv --durations=0 tests/e2e/multicard/2-cards/test_offline_inference_distributed.py::test_deepseek3_2_w8a8_pruning_mtp_tp2_ep
-
-      - name: Run vllm-project/vllm-ascend test (full)
-        env:
-          VLLM_WORKER_MULTIPROC_METHOD: spawn
-        if: ${{ inputs.type == 'full' }}
-        run: |
-          # this test fail with triton. Fix me.
-          # pytest -sv --durations=0 tests/e2e/multicard/2-cards/test_aclgraph_capture_replay.py
-          pytest -sv --durations=0 tests/e2e/multicard/2-cards/test_data_parallel.py
+          python3 .github/workflows/scripts/run_suite.py --suite e2e-2card-light --auto-partition-id ${{ matrix.part }} --auto-partition-size 1
