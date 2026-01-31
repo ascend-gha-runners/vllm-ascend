@@ -22,7 +22,7 @@ from tests.e2e.singlecard.utils import (PROMPTS_LONG, PROMPTS_SHORT,
                                         LLMTestCase, gen_and_valid)
 
 CASE_QWEN_ACLGRAPH = LLMTestCase(
-    model="Qwen/Qwen3-0.6B",
+    model="/shared-data/vllm-ascend/Qwen/Qwen3-0.6B",
     prompts=PROMPTS_SHORT,
     golden_answers=[
         " Lina. I'm a 22-year-old student from China. I'm interested in studying in the US. I want to know if there are any",
@@ -33,7 +33,7 @@ CASE_QWEN_ACLGRAPH = LLMTestCase(
 )
 
 CASE_DS_ACLGRAPH = LLMTestCase(
-    model="vllm-ascend/DeepSeek-V2-Lite-W8A8",
+    model="/shared-data/vllm-ascend/vllm-ascend/DeepSeek-V2-Lite-W8A8",
     quantization="ascend",
     prompts=PROMPTS_SHORT,
     golden_answers=[
@@ -45,7 +45,7 @@ CASE_DS_ACLGRAPH = LLMTestCase(
 )
 
 CASE_QWEN_FULL = LLMTestCase(
-    model="Qwen/Qwen3-0.6B",
+    model="/shared-data/vllm-ascend/Qwen/Qwen3-0.6B",
     prompts=PROMPTS_SHORT,
     golden_answers=[
         " Lina. I'm a 22-year-old student from China. I'm interested in studying in the US. I want to know if there are any",
@@ -56,7 +56,7 @@ CASE_QWEN_FULL = LLMTestCase(
 )
 
 CASE_DS_FULL = LLMTestCase(
-    model="vllm-ascend/DeepSeek-V2-Lite-W8A8",
+    model="/shared-data/vllm-ascend/vllm-ascend/DeepSeek-V2-Lite-W8A8",
     quantization="ascend",
     prompts=PROMPTS_SHORT,
     golden_answers=[
@@ -68,7 +68,7 @@ CASE_DS_FULL = LLMTestCase(
 )
 
 CASE_QWEN_FULL_DECODE_ONLY = LLMTestCase(
-    model="Qwen/Qwen3-0.6B",
+    model="/shared-data/vllm-ascend/Qwen/Qwen3-0.6B",
     prompts=PROMPTS_LONG,
     golden_answers=[
         ' \n\nTo solve this problem, we need to use the Law of Sines and Law of Cosines. Let me start by drawing triangle $ABC$ with the',
@@ -77,7 +77,7 @@ CASE_QWEN_FULL_DECODE_ONLY = LLMTestCase(
     ])
 
 CASE_DS_FULL_DECODE_ONLY = LLMTestCase(
-    model="vllm-ascend/DeepSeek-V2-Lite-W8A8",
+    model="/shared-data/vllm-ascend/vllm-ascend/DeepSeek-V2-Lite-W8A8",
     quantization="ascend",
     prompts=PROMPTS_LONG,
     golden_answers=[
@@ -87,7 +87,7 @@ CASE_DS_FULL_DECODE_ONLY = LLMTestCase(
     ])
 
 CASE_QWEN_EX = LLMTestCase(
-    model="Qwen/Qwen3-0.6B",
+    model="/shared-data/vllm-ascend/Qwen/Qwen3-0.6B",
     prompts=PROMPTS_LONG,
     golden_answers=[
         ' \n\nTo solve this problem, we need to use the Law of Sines and Law of Cosines. Let me start by drawing triangle $ABC$ with the',
@@ -95,7 +95,7 @@ CASE_QWEN_EX = LLMTestCase(
         ' \n\nTo solve this problem, we can use the following approach: Let $ \\alpha $ be the common real root of the two equations. Then, we can'
     ])
 
-CASE_DS_EX = LLMTestCase(model="vllm-ascend/DeepSeek-V2-Lite-W8A8",
+CASE_DS_EX = LLMTestCase(model="/shared-data/vllm-ascend/vllm-ascend/DeepSeek-V2-Lite-W8A8",
                          quantization="ascend",
                          prompts=PROMPTS_LONG,
                          golden_answers=[
