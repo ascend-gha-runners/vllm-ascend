@@ -64,8 +64,7 @@ jobs:
           SCCACHE_REGION: cn-southwest-2
           SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE: true
           SCCACHE_LOG: debug
-          SCCACHE_CACHE_EXPLICIT_LANGUAGE: 1
-          CCACHE_SLOPPINESS: time_macros,lang_flags
+          SCCACHE_IGNORE_FLAGS: -x
         run: |
           FILENAME="sccache-v0.13.0-aarch64-unknown-linux-musl.tar.gz"
           CACHE_DIR="/shared-data/sccache"
@@ -124,7 +123,7 @@ jobs:
       - name: Install vllm-project/vllm-ascend
         env:
           PIP_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
-          CCACHE_SLOPPINESS: time_macros,lang_flags
+          SCCACHE_IGNORE_FLAGS: -x
         run: |
           export SCCACHE_COMPILER="clang" 
           export SCCACHE_LOG_LEVEL="debug"
