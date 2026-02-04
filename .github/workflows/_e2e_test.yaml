@@ -72,7 +72,7 @@ jobs:
           cat /usr/local/Ascend/ascend-toolkit/latest/"$(uname -i)"-linux/ascend_toolkit_install.info
           ls -la packages.txt || echo "packages.txt NOT FOUND"
           ls -la .github/workflows/_e2e_test.yaml || echo "_e2e_test.yaml NOT FOUND"
-          echo "Hash is: ${{ hashFiles('packages.txt', '.github/workflows/_e2e_test.yaml') }}"
+          echo "Hash is: ${{ hashFiles('packages.txt') }}"
       # Step 1: Cache apt packages with OBS
       - name: Cache apt packages with OBS
         uses: runs-on/cache@v4
@@ -80,7 +80,7 @@ jobs:
           path: |
             /var/cache/apt/archives
             /var/lib/apt/lists
-          key: apt-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('packages.txt', '.github/workflows/_e2e_test.yaml') }}-v1
+          key: apt-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.github/workflows/_e2e_test.yaml') }}-v2
           restore-keys: |
             apt-${{ runner.os }}-${{ runner.arch }}-
         env:

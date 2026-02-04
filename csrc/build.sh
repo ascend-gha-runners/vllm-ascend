@@ -100,51 +100,14 @@ function gen_bisheng(){
     pushd ${gen_bisheng_dir}
     $(> bisheng)
     echo "#!/bin/bash" >> bisheng
-    echo "# Bisheng wrapper with sccache - filters -x flags for better caching" >> bisheng
-    echo "" >> bisheng
-    echo "# Export sccache environment variables if not already set" >> bisheng
-    echo 'if [ -n "${SCCACHE_IGNORE_FLAGS}" ]; then' >> bisheng
-    echo '    export SCCACHE_IGNORE_FLAGS' >> bisheng
-    echo 'else' >> bisheng
-    echo '    export SCCACHE_IGNORE_FLAGS="-x"' >> bisheng
-    echo 'fi' >> bisheng
-    echo 'if [ -n "${SCCACHE_CACHE_EXPLICIT_LANGUAGE}" ]; then' >> bisheng
-    echo '    export SCCACHE_CACHE_EXPLICIT_LANGUAGE' >> bisheng
-    echo 'else' >> bisheng
-    echo '    export SCCACHE_CACHE_EXPLICIT_LANGUAGE="1"' >> bisheng
-    echo 'fi' >> bisheng
-    echo "" >> bisheng
-    echo "# Filter out -x flags to improve sccache caching" >> bisheng
-    echo "# sccache cannot cache compilations with -x flags by default" >> bisheng
-    echo "filtered_args=()" >> bisheng
-    echo "skip_next=0" >> bisheng
-    echo "for arg in \"\$@\"; do" >> bisheng
-    echo "    if [ \"\$skip_next\" -eq 1 ]; then" >> bisheng
-    echo "        skip_next=0" >> bisheng
-    echo "        continue" >> bisheng
-    echo "    fi" >> bisheng
-    echo "    case \"\$arg\" in" >> bisheng
-    echo "        -x)" >> bisheng
-    echo "            # Skip -x flag and its following argument (language specifier)" >> bisheng
-    echo "            skip_next=1" >> bisheng
-    echo "            ;;" >> bisheng
-    echo "        -x*)" >> bisheng
-    echo "            # Skip -x with attached argument (e.g., -xc, -xc++)" >> bisheng
-    echo "            ;;" >> bisheng
-    echo "        *)" >> bisheng
-    echo "            filtered_args+=(\"\$arg\")" >> bisheng
-    echo "            ;;" >> bisheng
-    echo "    esac" >> bisheng
-    echo "done" >> bisheng
-    echo "" >> bisheng
-    echo "# Log filtered command for debugging if verbose mode is enabled" >> bisheng
-    echo "if [ \"\${VERBOSE:-false}\" = \"true\" ] || [ -n \"\${SCCACHE_LOG}\" ]; then" >> bisheng
-    echo '    echo "[bisheng wrapper] Original command: '"\${ccache_program} \${BISHENG_REAL_PATH}"' $@"' >> bisheng
-    echo '    echo "[bisheng wrapper] Filtered command: '"\${ccache_program} \${BISHENG_REAL_PATH}"' ${filtered_args[@]}"' >> bisheng
-    echo "fi" >> bisheng
-    echo "" >> bisheng
-    echo "# Execute sccache with bisheng and filtered arguments" >> bisheng
-    echo "exec \"${ccache_program}\" \"${BISHENG_REAL_PATH}\" \"\${filtered_args[@]}\"" >> bisheng
+    echo "ccache_args=""\"""${ccache_program} ${BISHENG_REAL_PATH}""\"" >> bisheng
+    echo "args=""$""@" >> bisheng
+
+    if [ "${VERBOSE}" == "true" ];then
+        echo "echo ""\"""$""{ccache_args} ""$""args""\"" >> bisheng
+    fi
+
+    echo "eval ""\"""$""{ccache_args} ""$""args""\"" >> bisheng
     chmod +x bisheng
 
     export PATH=${gen_bisheng_dir}:$PATH
