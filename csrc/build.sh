@@ -100,11 +100,18 @@ function gen_bisheng(){
     pushd ${gen_bisheng_dir}
     $(> bisheng)
     echo "#!/bin/bash" >> bisheng
+    # Pass through sccache environment variables for better caching
+    echo "# Pass sccache environment variables" >> bisheng
+    echo "export SCCACHE_IGNORE_FLAGS=\"\${SCCACHE_IGNORE_FLAGS:--x}\"" >> bisheng
+    echo "export SCCACHE_LOG=\"\${SCCACHE_LOG:-debug}\"" >> bisheng
+    echo "export SCCACHE_CACHE_EXPLICIT_LANGUAGE=\"\${SCCACHE_CACHE_EXPLICIT_LANGUAGE:-1}\"" >> bisheng
+    echo "export SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE=\"\${SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE:-true}\"" >> bisheng
     echo "ccache_args=""\"""${ccache_program} ${BISHENG_REAL_PATH}""\"" >> bisheng
     echo "args=""$""@" >> bisheng
 
     if [ "${VERBOSE}" == "true" ];then
-        echo "echo ""\"""$""{ccache_args} ""$""args""\"" >> bisheng
+        echo "echo \"Running: \${ccache_args} \${args}\"" >> bisheng
+        echo "echo \"SCCACHE_IGNORE_FLAGS=\${SCCACHE_IGNORE_FLAGS}\"" >> bisheng
     fi
 
     echo "eval ""\"""$""{ccache_args} ""$""args""\"" >> bisheng
@@ -112,6 +119,9 @@ function gen_bisheng(){
 
     export PATH=${gen_bisheng_dir}:$PATH
     popd
+    
+    log "Info: Generated bisheng wrapper with sccache support"
+    log "Info: SCCACHE_IGNORE_FLAGS will be set to: \${SCCACHE_IGNORE_FLAGS:--x}"
 }
 
 function build_package(){
