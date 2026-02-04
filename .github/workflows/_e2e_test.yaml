@@ -40,6 +40,14 @@ jobs:
         VLLM_LOGGING_LEVEL: ERROR
         VLLM_USE_MODELSCOPE: True
         HF_HUB_OFFLINE: 1
+        # Sccache environment variables for better caching
+        SCCACHE_IGNORE_FLAGS: -x
+        SCCACHE_LOG: debug
+        SCCACHE_CACHE_EXPLICIT_LANGUAGE: 1
+        SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE: true
+        SCCACHE_BUCKET: obs-guiiyang1-ascend-test
+        SCCACHE_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
+        SCCACHE_REGION: cn-southwest-2
     steps:
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v6
