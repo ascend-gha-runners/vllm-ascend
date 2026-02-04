@@ -106,22 +106,52 @@ function gen_bisheng(){
     echo "export SCCACHE_LOG=\"\${SCCACHE_LOG:-debug}\"" >> bisheng
     echo "export SCCACHE_CACHE_EXPLICIT_LANGUAGE=\"\${SCCACHE_CACHE_EXPLICIT_LANGUAGE:-1}\"" >> bisheng
     echo "export SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE=\"\${SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE:-true}\"" >> bisheng
-    echo "ccache_args=""\"""${ccache_program} ${BISHENG_REAL_PATH}""\"" >> bisheng
-    echo "args=""$""@" >> bisheng
+    
+    # Smart wrapper that handles -x flag for sccache compatibility
+    echo "# Smart wrapper to improve sccache caching" >> bisheng
+    echo "args_array=()" >> bisheng
+    echo "skip_next=false" >> bisheng
+    echo "for arg in \"\$@\"; do" >> bisheng
+    echo "  if \$skip_next; then" >> bisheng
+    echo "    skip_next=false" >> bisheng
+    echo "    continue" >> bisheng
+    echo "  fi" >> bisheng
+    echo "  case \"\$arg\" in" >> bisheng
+    echo "    -x)" >> bisheng
+    echo "      # Skip -x flag and its argument to improve sccache caching" >> bisheng
+    echo "      skip_next=true" >> bisheng
+    echo "      ;;" >> bisheng
+    echo "    -x*)" >> bisheng
+    echo "      # Skip -x with attached argument (e.g., -xc, -xc++)" >> bisheng
+    echo "      ;;" >> bisheng
+    echo "    *)" >> bisheng
+    echo "      args_array+=(\"\$arg\")" >> bisheng
+    echo "      ;;" >> bisheng
+    echo "  esac" >> bisheng
+    echo "done" >> bisheng
+    
+    echo "ccache_args=\"${ccache_program} ${BISHENG_REAL_PATH}\"" >> bisheng
+    echo "if [ \"\${#args_array[@]}\" -eq 0 ]; then" >> bisheng
+    echo "  final_args=\"\"" >> bisheng
+    echo "else" >> bisheng
+    echo "  printf -v final_args '%s ' \"\${args_array[@]}\"" >> bisheng
+    echo "  final_args=\"\${final_args% }\"  # Remove trailing space" >> bisheng
+    echo "fi" >> bisheng
 
     if [ "${VERBOSE}" == "true" ];then
-        echo "echo \"Running: \${ccache_args} \${args}\"" >> bisheng
+        echo "echo \"Original command: ${BISHENG_REAL_PATH} \$@\"" >> bisheng
+        echo "echo \"Filtered command: \${ccache_args} \${final_args}\"" >> bisheng
         echo "echo \"SCCACHE_IGNORE_FLAGS=\${SCCACHE_IGNORE_FLAGS}\"" >> bisheng
     fi
 
-    echo "eval ""\"""$""{ccache_args} ""$""args""\"" >> bisheng
+    echo "eval \"\${ccache_args} \${final_args}\"" >> bisheng
     chmod +x bisheng
 
     export PATH=${gen_bisheng_dir}:$PATH
     popd
     
-    log "Info: Generated bisheng wrapper with sccache support"
-    log "Info: SCCACHE_IGNORE_FLAGS will be set to: \${SCCACHE_IGNORE_FLAGS:--x}"
+    log "Info: Generated smart bisheng wrapper with -x flag filtering"
+    log "Info: This should improve sccache cache hit rate significantly"
 }
 
 function build_package(){
