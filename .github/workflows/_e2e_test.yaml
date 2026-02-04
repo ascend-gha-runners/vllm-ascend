@@ -41,12 +41,18 @@ jobs:
         VLLM_USE_MODELSCOPE: True
         HF_HUB_OFFLINE: 1
         # Sccache environment variables for better caching
+        # Critical: Ignore -x flags to cache bisheng compilations
+        SCCACHE_IGNORE_FLAGS: -x
         SCCACHE_LOG: debug
         SCCACHE_CACHE_EXPLICIT_LANGUAGE: 1
         SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE: true
         SCCACHE_BUCKET: obs-guiiyang1-ascend-test
         SCCACHE_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
         SCCACHE_REGION: cn-southwest-2
+        # Additional sccache optimizations
+        SCCACHE_DIRECT: true
+        SCCACHE_MAX_FRAME_LENGTH: 104857600
+        SCCACHE_IDLE_TIMEOUT: 0
     steps:
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v6
@@ -57,6 +63,9 @@ jobs:
           ref: ${{ inputs.vllm }}
           path: ./vllm-empty
           fetch-depth: 1
+      - name: disable apt clean
+        run: |
+          rm -f /etc/apt/apt.conf.d/docker-clean
       - name: Check npu and CANN info
         run: |
           npu-smi info
@@ -106,7 +115,11 @@ jobs:
           SCCACHE_REGION: cn-southwest-2
           SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE: true
           SCCACHE_LOG: debug
+          SCCACHE_IGNORE_FLAGS: -x
           SCCACHE_CACHE_EXPLICIT_LANGUAGE: 1
+          SCCACHE_DIRECT: true
+          SCCACHE_MAX_FRAME_LENGTH: 104857600
+          SCCACHE_IDLE_TIMEOUT: 0
         run: |
           FILENAME="sccache-v0.13.0-aarch64-unknown-linux-musl.tar.gz"
           CACHE_DIR="/shared-data/sccache"
@@ -156,15 +169,25 @@ jobs:
           SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE: true
           AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
-          # Sccache compiler settings
+          # Sccache compiler settings - critical for caching bisheng compilations
+          SCCACHE_IGNORE_FLAGS: -x
           SCCACHE_COMPILER: clang
           SCCACHE_LOG: debug
           SCCACHE_DEBUG: 1
           SCCACHE_CACHE_EXPLICIT_LANGUAGE: 1
+          # Sccache optimizations
+          SCCACHE_DIRECT: true
+          SCCACHE_MAX_FRAME_LENGTH: 104857600
+          SCCACHE_IDLE_TIMEOUT: 0
+          # Set SOURCE_DATE_EPOCH for reproducible builds
+          SOURCE_DATE_EPOCH: 1
         run: |
           pip install -r requirements-dev.txt
           pip install -v -e .
+          echo "=== Final sccache statistics ==="
           sccache --show-stats
+          echo "=== Checking for non-cacheable compilations ==="
+          sccache --show-stats | grep -i "non-cacheable" || echo "No non-cacheable stats line found"
 
 #      - name: Run vllm-project/vllm-ascend test
 #        env:
