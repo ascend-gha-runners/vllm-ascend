@@ -43,10 +43,20 @@ jobs:
     steps:
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v6
+      - name: Checkout vllm-project/vllm repo
+        uses: actions/checkout@v6
+        with:
+          repository: vllm-project/vllm
+          ref: ${{ inputs.vllm }}
+          path: ./vllm-empty
+          fetch-depth: 1
       - name: Check npu and CANN info
         run: |
           npu-smi info
           cat /usr/local/Ascend/ascend-toolkit/latest/"$(uname -i)"-linux/ascend_toolkit_install.info
+          ls -la packages.txt || echo "packages.txt NOT FOUND"
+          ls -la .github/workflows/_e2e_test_optimized.yaml || echo "_e2e_test_optimized.yaml NOT FOUND"
+          echo "Hash is: ${{ hashFiles('packages.txt', '.github/workflows/_e2e_test_optimized.yaml') }}"
       # Step 1: Cache apt packages with OBS
       - name: Cache apt packages with OBS
         uses: runs-on/cache@v4
@@ -123,14 +133,6 @@ jobs:
 
           update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 20
           update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20
-
-      - name: Checkout vllm-project/vllm repo
-        uses: actions/checkout@v6
-        with:
-          repository: vllm-project/vllm
-          ref: ${{ inputs.vllm }}
-          path: ./vllm-empty
-          fetch-depth: 1
 
       - name: Install vllm-project/vllm from source
         working-directory: ./vllm-empty
