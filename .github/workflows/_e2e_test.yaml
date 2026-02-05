@@ -243,18 +243,18 @@ jobs:
           CCACHE_COMPRESSLEVEL: 6
           CCACHE_SLOPPINESS: time_macros,include_file_ctime,include_file_mtime,file_stat_matches
           # 编译器包装器配置
-          CC: "ccache gcc"
-          CXX: "ccache g++"
+          #CC: "ccache gcc"
+          #CXX: "ccache g++"
           # Set SOURCE_DATE_EPOCH for reproducible builds
           SOURCE_DATE_EPOCH: 1
           PLATFORM: ascend
         run: |
           start_time=$(date +%s)
-          uv pip install --system -v -r requirements-dev.txt
+          uv pip install --system -r requirements-dev.txt
           end_time=$(date +%s)
           duration=$((end_time - start_time))
           echo "==========install requirements总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
-          #uv pip install --system -v -e .
+          uv pip install --system -v -e .
           echo "=== Final ccache statistics ==="
           ccache -s
 #          #uv pip install --system -v -e .
