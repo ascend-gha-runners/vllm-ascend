@@ -53,6 +53,8 @@ jobs:
         SCCACHE_DIRECT: true
         SCCACHE_MAX_FRAME_LENGTH: 104857600
         SCCACHE_IDLE_TIMEOUT: 0
+        UV_INDEX_URL: http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
+        UV_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
     steps:
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v6
@@ -97,14 +99,14 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
           AWS_REGION: cn-southwest-2
-      - name: Cache dependencies
+      - name: Cache uv dependencies
         uses: runs-on/cache@v4
         with:
           path: |
-            ~/.cache/pip
-          key: ascend-${{ runner.os }}-pip-vllm-${{ hashFiles('requirements-dev.txt', './vllm-empty/pyproject.toml', './vllm-empty/requirements/**/*.txt') }}-v1
+            ~/.cache/uv
+          key: ascend-${{ runner.os }}-uv-vllm-v1-${{ hashFiles('requirements-dev.txt', 'requirements.txt') }}
           restore-keys: |
-            ascend-${{ runner.os }}-pip-vllm-
+            ascend-${{ runner.os }}-uv-vllm-v1-
         env:
           # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
           RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
@@ -145,6 +147,51 @@ jobs:
           sccache --start-server
           sccache --show-stats
 
+      - name: Install uv (if not pre-installed)
+        env:
+          # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
+          SCCACHE_BUCKET: obs-guiiyang1-ascend-test
+          SCCACHE_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
+          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
+          SCCACHE_REGION: cn-southwest-2
+          SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE: true
+          SCCACHE_LOG: debug
+          SCCACHE_IGNORE_FLAGS: -x
+          SCCACHE_CACHE_EXPLICIT_LANGUAGE: 1
+          SCCACHE_DIRECT: true
+          SCCACHE_MAX_FRAME_LENGTH: 104857600
+          SCCACHE_IDLE_TIMEOUT: 0
+        run: |
+          UV_VERSION="0.9.30"
+          FILENAME="uv-${UV_VERSION}-aarch64-unknown-linux-musl.tar.gz"
+          DOWNLOAD_FILENAME="uv-aarch64-unknown-linux-musl.tar.gz"
+          CACHE_DIR="/shared-data/uv"
+          if [ -f "$CACHE_DIR/$FILENAME" ]; then
+            echo "Found cached uv package successfully"
+          else
+            echo "uv package not found in cache. Downloading..."
+            mkdir -p "$CACHE_DIR"
+            apt update && apt install -y curl
+            curl --connect-timeout 30 --retry 3 -L "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-aarch64-unknown-linux-musl.tar.gz" -o "$CACHE_DIR/$DOWNLOAD_FILENAME"
+            mv "$CACHE_DIR/$DOWNLOAD_FILENAME" "$CACHE_DIR/$FILENAME"
+          fi
+          mkdir -p /tmp/uv
+          tar -xzf "$CACHE_DIR/$FILENAME" -C /tmp/uv
+          mv /tmp/uv/uv /usr/local/bin/
+          chmod +x /usr/local/bin/uv
+          echo "=== uv version ==="
+          uv --version
+          echo "=== uv configuration ==="
+          uv cache dir
+
+      - name: Debug uv cache
+        run: |
+          echo "=== Checking uv cache directory ==="
+          ls -la ~/.cache/uv 2>/dev/null || echo "uv cache directory does not exist"
+          du -sh ~/.cache/uv 2>/dev/null || echo "Cannot get uv cache size"
+          uv cache dir || true
+
       - name: Install system dependencies
         run: |
           start_time=$(date +%s)
@@ -159,7 +206,7 @@ jobs:
       - name: Install vllm-project/vllm from source
         working-directory: ./vllm-empty
         run: |
-          VLLM_TARGET_DEVICE=empty pip install -e .
+          VLLM_TARGET_DEVICE=empty uv pip install -e .
 
       - name: Install vllm-project/vllm-ascend
         env:
@@ -185,11 +232,11 @@ jobs:
           SOURCE_DATE_EPOCH: 1
         run: |
           start_time=$(date +%s)
-          pip install -v -r requirements-dev.txt
+          uv pip install -v -r requirements-dev.txt
           end_time=$(date +%s)
           duration=$((end_time - start_time))
           echo "==========install requirements总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
-          pip install -v -e .
+          uv pip install -v -e .
           echo "=== Final sccache statistics ==="
           sccache --show-stats
           echo "=== Checking for non-cacheable compilations ==="
