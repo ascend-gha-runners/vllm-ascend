@@ -92,37 +92,37 @@ jobs:
           sleep 120
           echo "Hash is: ${{ hashFiles('packages.txt') }}"
       # Step 1: Cache apt packages with OBS
-      - name: Cache apt packages with OBS
-        uses: runs-on/cache@v4
-        with:
-          path: |
-            /var/cache/apt/archives
-            /var/lib/apt/lists
-          key: apt-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.github/workflows/_e2e_test.yaml') }}-v2
-          restore-keys: |
-            apt-${{ runner.os }}-${{ runner.arch }}-
-        env:
-          # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
-          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
-          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
-          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
-          AWS_REGION: cn-southwest-2
-      - name: Cache uv dependencies
-        uses: runs-on/cache@v4
-        with:
-          path: |
-            ~/.cache/uv
-          key: ascend-${{ runner.os }}-uv-vllm-v1-${{ hashFiles('requirements-dev.txt', 'requirements.txt') }}
-          restore-keys: |
-            ascend-${{ runner.os }}-uv-vllm-v1-
-        env:
-          # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
-          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
-          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
-          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
-          AWS_REGION: cn-southwest-2
+#      - name: Cache apt packages with OBS
+#        uses: runs-on/cache@v4
+#        with:
+#          path: |
+#            /var/cache/apt/archives
+#            /var/lib/apt/lists
+#          key: apt-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.github/workflows/_e2e_test.yaml') }}-v2
+#          restore-keys: |
+#            apt-${{ runner.os }}-${{ runner.arch }}-
+#        env:
+#          # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
+#          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
+#          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
+#          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
+#          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
+#          AWS_REGION: cn-southwest-2
+#      - name: Cache uv dependencies
+#        uses: runs-on/cache@v4
+#        with:
+#          path: |
+#            ~/.cache/uv
+#          key: ascend-${{ runner.os }}-uv-vllm-v1-${{ hashFiles('requirements-dev.txt', 'requirements.txt') }}
+#          restore-keys: |
+#            ascend-${{ runner.os }}-uv-vllm-v1-
+#        env:
+#          # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
+#          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
+#          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
+#          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
+#          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
+#          AWS_REGION: cn-southwest-2
       - name: Install sccache (if not pre-installed)
         env:
           # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
@@ -207,13 +207,6 @@ jobs:
           echo "=== uv configuration ==="
           uv cache dir
 
-      - name: Debug uv cache
-        run: |
-          echo "=== Checking uv cache directory ==="
-          ls -la ~/.cache/uv 2>/dev/null || echo "uv cache directory does not exist"
-          du -sh ~/.cache/uv 2>/dev/null || echo "Cannot get uv cache size"
-          uv cache dir || true
-
       - name: Install system dependencies
         run: |
           start_time=$(date +%s)
@@ -227,10 +220,6 @@ jobs:
 
       - name: Install vllm-project/vllm from source
         working-directory: ./vllm-empty
-        env:
-          # 确保使用 ccache 包装器
-          CC: "ccache gcc"
-          CXX: "ccache g++"
         run: |
           VLLM_TARGET_DEVICE=empty uv pip install --system -e .
 
@@ -255,7 +244,7 @@ jobs:
           end_time=$(date +%s)
           duration=$((end_time - start_time))
           echo "==========install requirements总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
-          uv pip install --system -v -e .
+          uv pip install --system -e .
           echo "=== Final ccache statistics ==="
           ccache -s
 #          #uv pip install --system -v -e .
@@ -263,7 +252,6 @@ jobs:
 #          sccache --show-stats
 #          echo "=== Checking for non-cacheable compilations ==="
 #          sccache --show-stats | grep -i "non-cacheable" || echo "No non-cacheable stats line found"
-
 
       - name: Cleanup old ccache caches
         if: always()
