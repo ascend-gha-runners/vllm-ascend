@@ -237,7 +237,7 @@ jobs:
           end_time=$(date +%s)
           duration=$((end_time - start_time))
           echo "==========install requirements总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
-          uv pip install --system -v -e .
+          #uv pip install --system -v -e .
           echo "=== Final sccache statistics ==="
           sccache --show-stats
           echo "=== Checking for non-cacheable compilations ==="
