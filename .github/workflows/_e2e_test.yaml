@@ -40,25 +40,12 @@ jobs:
         VLLM_LOGGING_LEVEL: ERROR
         VLLM_USE_MODELSCOPE: True
         HF_HUB_OFFLINE: 1
-        SCCACHE_IGNORE_FLAGS: -x
-        SCCACHE_LOG: debug
-        SCCACHE_CACHE_EXPLICIT_LANGUAGE: 1
-        SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE: true
-        SCCACHE_BUCKET: obs-guiiyang1-ascend-test
-        SCCACHE_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
-        SCCACHE_REGION: cn-southwest-2
         # Additional sccache optimizations
-        SCCACHE_DIRECT: true
         SCCACHE_MAX_FRAME_LENGTH: 104857600
         SCCACHE_IDLE_TIMEOUT: 0
-        # CCACHE 配置：使用共享盘和唯一缓存目录避免并发冲突
-        CCACHE_DIR: /shared-data/ccache-cache/${{ github.run_id }}-${{ github.run_attempt }}
-        CCACHE_MAXSIZE: 2G
-        CCACHE_COMPRESS: 1
-        CCACHE_COMPRESSLEVEL: 6
-        CCACHE_SLOPPINESS: time_macros,include_file_ctime,include_file_mtime,file_stat_matches
-        CCACHE_LOGFILE: /tmp/ccache.log
-        CCACHE_DEBUG: 1
+        # SCCACHE 配置：使用共享盘
+        SCCACHE_DIR: /shared-data/sccache-cache
+        SCCACHE_CACHE_SIZE: 50G
         # uv 配置
         UV_INDEX_URL: http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
         UV_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
@@ -90,53 +77,8 @@ jobs:
           ls -la packages.txt || echo "packages.txt NOT FOUND"
           ls -la .github/workflows/_e2e_test.yaml || echo "_e2e_test.yaml NOT FOUND"
           echo "Hash is: ${{ hashFiles('packages.txt') }}"
-      # Step 1: Cache apt packages with OBS
-#      - name: Cache apt packages with OBS
-#        uses: runs-on/cache@v4
-#        with:
-#          path: |
-#            /var/cache/apt/archives
-#            /var/lib/apt/lists
-#          key: apt-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.github/workflows/_e2e_test.yaml') }}-v2
-#          restore-keys: |
-#            apt-${{ runner.os }}-${{ runner.arch }}-
-#        env:
-#          # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
-#          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
-#          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
-#          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
-#          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
-#          AWS_REGION: cn-southwest-2
-#      - name: Cache uv dependencies
-#        uses: runs-on/cache@v4
-#        with:
-#          path: |
-#            ~/.cache/uv
-#          key: ascend-${{ runner.os }}-uv-vllm-v1-${{ hashFiles('requirements-dev.txt', 'requirements.txt') }}
-#          restore-keys: |
-#            ascend-${{ runner.os }}-uv-vllm-v1-
-#        env:
-#          # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
-#          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
-#          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
-#          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
-#          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
-#          AWS_REGION: cn-southwest-2
+
       - name: Install sccache (if not pre-installed)
-        env:
-          # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
-          SCCACHE_BUCKET: obs-guiiyang1-ascend-test
-          SCCACHE_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
-          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
-          SCCACHE_REGION: cn-southwest-2
-          SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE: true
-          SCCACHE_LOG: debug
-          SCCACHE_IGNORE_FLAGS: -x
-          SCCACHE_CACHE_EXPLICIT_LANGUAGE: 1
-          SCCACHE_DIRECT: true
-          SCCACHE_MAX_FRAME_LENGTH: 104857600
-          SCCACHE_IDLE_TIMEOUT: 0
         run: |
           FILENAME="sccache-v0.13.0-aarch64-unknown-linux-musl.tar.gz"
           CACHE_DIR="/shared-data/sccache"
@@ -154,33 +96,6 @@ jobs:
           chmod +x /usr/local/bin/sccache
           sccache --start-server
           sccache --show-stats
-      - name: Install and configure ccache
-        run: |
-          # 检查是否已安装 ccache
-          if command -v ccache >/dev/null 2>&1; then
-            echo "ccache already installed"
-            ccache --version
-          else
-            echo "Installing ccache..."
-            apt-get update
-            apt-get install -y ccache
-            ccache --version
-          fi
-
-          # 创建共享缓存目录（容器环境变量已设置唯一目录）
-          mkdir -p /shared-data/ccache-cache
-          chmod 777 /shared-data/ccache-cache
-
-          # 配置 ccache
-          ccache -M 2G
-          ccache -c
-
-          # 显示 ccache 配置
-          echo "=== CCACHE Configuration ==="
-          echo "CCACHE_DIR=$CCACHE_DIR"
-          echo "CCACHE_MAXSIZE=$CCACHE_MAXSIZE"
-          ccache -p
-          ccache -s
 
       - name: Install uv (if not pre-installed)
         run: |
@@ -225,15 +140,7 @@ jobs:
       - name: Install vllm-project/vllm-ascend
         env:
           PIP_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
-          # CCACHE 配置
-          CCACHE_DIR: /shared-data/ccache-cache/${{ github.run_id }}-${{ github.run_attempt }}
-          CCACHE_MAXSIZE: 2G
-          CCACHE_COMPRESS: 1
-          CCACHE_COMPRESSLEVEL: 6
-          CCACHE_SLOPPINESS: time_macros,include_file_ctime,include_file_mtime,file_stat_matches
           # 编译器包装器配置
-          #CC: "ccache gcc"
-          #CXX: "ccache g++"
           # Set SOURCE_DATE_EPOCH for reproducible builds
           SOURCE_DATE_EPOCH: 1
           PLATFORM: ascend
@@ -244,26 +151,8 @@ jobs:
           duration=$((end_time - start_time))
           echo "==========install requirements总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
           uv pip install --system -e .
-          echo "=== Final ccache statistics ==="
-          ccache -s
-#          #uv pip install --system -v -e .
-#          echo "=== Final sccache statistics ==="
-#          sccache --show-stats
-#          echo "=== Checking for non-cacheable compilations ==="
-#          sccache --show-stats | grep -i "non-cacheable" || echo "No non-cacheable stats line found"
+          sccache --show-stats
 
-      - name: Cleanup old ccache caches
-        if: always()
-        run: |
-          # 保留最近 3 天的缓存，删除更旧的
-          find /shared-data/ccache-cache -maxdepth 1 -type d -name "*-*" -mtime +3 -exec rm -rf {} \; 2>/dev/null || true
-
-          # 显示当前缓存使用情况
-          echo "=== Current ccache cache usage ==="
-          du -sh /shared-data/ccache-cache/* 2>/dev/null | head -10 || echo "No caches found"
-
-          # 清理空目录
-          find /shared-data/ccache-cache -type d -empty -delete 2>/dev/null || true
 
 #      - name: Run vllm-project/vllm-ascend test
 #        env:
