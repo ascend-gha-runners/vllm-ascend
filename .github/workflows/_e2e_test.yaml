@@ -63,6 +63,13 @@ jobs:
           ref: ${{ inputs.vllm }}
           path: ./vllm-empty
           fetch-depth: 1
+      - name: Config mirrors
+        run: |
+          sed -Ei 's@(ports|archive).ubuntu.com@cache-service.nginx-pypi-cache.svc.cluster.local:8081@g' /etc/apt/sources.list
+          pip config set global.index-url http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
+          pip config set global.trusted-host cache-service.nginx-pypi-cache.svc.cluster.local
+          apt-get update -y
+          apt install git -y
       - name: disable apt clean
         run: |
           rm -f /etc/apt/apt.conf.d/docker-clean
@@ -138,19 +145,14 @@ jobs:
           sccache --start-server
           sccache --show-stats
 
-      - name: Config mirrors
-        run: |
-          sed -Ei 's@(ports|archive).ubuntu.com@cache-service.nginx-pypi-cache.svc.cluster.local:8081@g' /etc/apt/sources.list
-          pip config set global.index-url http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
-          pip config set global.trusted-host cache-service.nginx-pypi-cache.svc.cluster.local
-          apt-get update -y
-          apt install git -y
-
       - name: Install system dependencies
         run: |
+          start_time=$(date +%s)
           apt-get -y install `cat packages.txt`
           apt-get -y install gcc g++ cmake libnuma-dev clang-15
-
+          end_time=$(date +%s)
+          duration=$((end_time - start_time))
+          echo "==========apt install总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
           update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 20
           update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20
 
@@ -182,7 +184,11 @@ jobs:
           # Set SOURCE_DATE_EPOCH for reproducible builds
           SOURCE_DATE_EPOCH: 1
         run: |
-          pip install -r requirements-dev.txt
+          start_time=$(date +%s)
+          pip install -v -r requirements-dev.txt
+          end_time=$(date +%s)
+          duration=$((end_time - start_time))
+          echo "==========install requirements总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
           pip install -v -e .
           echo "=== Final sccache statistics ==="
           sccache --show-stats
