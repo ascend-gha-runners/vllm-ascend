@@ -178,7 +178,7 @@ jobs:
           fi
           mkdir -p /tmp/uv
           tar -xzf "$CACHE_DIR/$FILENAME" -C /tmp/uv
-          mv /tmp/uv/uv /usr/local/bin/
+          mv /tmp/uv/uv-aarch64-unknown-linux-musl/uv /usr/local/bin/
           chmod +x /usr/local/bin/uv
           echo "=== uv version ==="
           uv --version
