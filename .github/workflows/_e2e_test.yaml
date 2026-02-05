@@ -131,6 +131,7 @@ jobs:
           echo "==========apt install总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
           update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 20
           update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20
+          sleep 600
 
       - name: Install vllm-project/vllm from source
         working-directory: ./vllm-empty
