@@ -206,7 +206,7 @@ jobs:
       - name: Install vllm-project/vllm from source
         working-directory: ./vllm-empty
         run: |
-          VLLM_TARGET_DEVICE=empty uv pip install -e .
+          VLLM_TARGET_DEVICE=empty uv pip install --system -e .
 
       - name: Install vllm-project/vllm-ascend
         env:
@@ -232,11 +232,11 @@ jobs:
           SOURCE_DATE_EPOCH: 1
         run: |
           start_time=$(date +%s)
-          uv pip install -v -r requirements-dev.txt
+          uv pip install --system -v -r requirements-dev.txt
           end_time=$(date +%s)
           duration=$((end_time - start_time))
           echo "==========install requirements总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
-          uv pip install -v -e .
+          uv pip install --system -v -e .
           echo "=== Final sccache statistics ==="
           sccache --show-stats
           echo "=== Checking for non-cacheable compilations ==="
