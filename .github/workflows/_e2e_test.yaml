@@ -50,6 +50,7 @@ jobs:
         UV_INDEX_URL: http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
         UV_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
         UV_INDEX_STRATEGY: unsafe-best-match
+        UV_NO_CACHE: 1
     steps:
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v6
@@ -99,27 +100,28 @@ jobs:
 
       - name: Install uv (if not pre-installed)
         run: |
-          UV_VERSION="0.9.30"
-          FILENAME="uv-${UV_VERSION}-aarch64-unknown-linux-musl.tar.gz"
-          DOWNLOAD_FILENAME="uv-aarch64-unknown-linux-musl.tar.gz"
-          CACHE_DIR="/shared-data/uv"
-          if [ -f "$CACHE_DIR/$FILENAME" ]; then
-            echo "Found cached uv package successfully"
-          else
-            echo "uv package not found in cache. Downloading..."
-            mkdir -p "$CACHE_DIR"
-            apt update && apt install -y curl
-            curl --connect-timeout 30 --retry 3 -L "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-aarch64-unknown-linux-musl.tar.gz" -o "$CACHE_DIR/$DOWNLOAD_FILENAME"
-            mv "$CACHE_DIR/$DOWNLOAD_FILENAME" "$CACHE_DIR/$FILENAME"
-          fi
-          mkdir -p /tmp/uv
-          tar -xzf "$CACHE_DIR/$FILENAME" -C /tmp/uv
-          mv /tmp/uv/uv-aarch64-unknown-linux-musl/uv /usr/local/bin/
-          chmod +x /usr/local/bin/uv
-          echo "=== uv version ==="
-          uv --version
-          echo "=== uv configuration ==="
-          uv cache dir
+          pip install uv
+#          UV_VERSION="0.9.30"
+#          FILENAME="uv-${UV_VERSION}-aarch64-unknown-linux-musl.tar.gz"
+#          DOWNLOAD_FILENAME="uv-aarch64-unknown-linux-musl.tar.gz"
+#          CACHE_DIR="/shared-data/uv"
+#          if [ -f "$CACHE_DIR/$FILENAME" ]; then
+#            echo "Found cached uv package successfully"
+#          else
+#            echo "uv package not found in cache. Downloading..."
+#            mkdir -p "$CACHE_DIR"
+#            apt update && apt install -y curl
+#            curl --connect-timeout 30 --retry 3 -L "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-aarch64-unknown-linux-musl.tar.gz" -o "$CACHE_DIR/$DOWNLOAD_FILENAME"
+#            mv "$CACHE_DIR/$DOWNLOAD_FILENAME" "$CACHE_DIR/$FILENAME"
+#          fi
+#          mkdir -p /tmp/uv
+#          tar -xzf "$CACHE_DIR/$FILENAME" -C /tmp/uv
+#          mv /tmp/uv/uv-aarch64-unknown-linux-musl/uv /usr/local/bin/
+#          chmod +x /usr/local/bin/uv
+#          echo "=== uv version ==="
+#          uv --version
+#          echo "=== uv configuration ==="
+#          uv cache dir
 
       - name: Install system dependencies
         run: |
@@ -131,7 +133,7 @@ jobs:
           echo "==========apt install总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
           update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 20
           update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20
-          sleep 600
+          #sleep 600
 
       - name: Install vllm-project/vllm from source
         working-directory: ./vllm-empty
@@ -144,10 +146,10 @@ jobs:
           # 编译器包装器配置
           # Set SOURCE_DATE_EPOCH for reproducible builds
           SOURCE_DATE_EPOCH: 1
-          PLATFORM: ascend
         run: |
           start_time=$(date +%s)
-          uv pip install --system --no-build-isolation -r requirements-dev.txt
+          pip install uc-manager
+          uv pip install --system -r requirements-dev.txt
           end_time=$(date +%s)
           duration=$((end_time - start_time))
           echo "==========install requirements总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
