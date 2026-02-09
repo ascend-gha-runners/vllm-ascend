@@ -98,20 +98,20 @@ function gen_bisheng(){
     fi
 
     pushd ${gen_bisheng_dir}
-    # 使用cat和heredoc创建包装脚本，避免使用eval
+    # 使用cat和heredoc创建包装脚本
+    # 关键：让sccache包装真实的bisheng编译器
     cat > bisheng << EOF
 #!/bin/bash
 # Bisheng wrapper script for sccache/ccache
 # This script wraps the bisheng compiler to work with caching tools
 
-export BISHENG_REAL_PATH="${BISHENG_REAL_PATH}"
-
 if [ "${VERBOSE}" == "true" ]; then
-    echo "Bisheng wrapper called with: \$@" >&2
+    echo "Bisheng wrapper: ${ccache_program} ${BISHENG_REAL_PATH} \$@" >&2
 fi
 
-# 使用exec直接执行编译器，让sccache能够正确识别和缓存
-exec "\${BISHENG_REAL_PATH}" "\$@"
+# 使用exec让sccache包装真实的bisheng编译器
+# 这样sccache可以正确识别和缓存编译结果
+exec "${ccache_program}" "${BISHENG_REAL_PATH}" "\$@"
 EOF
     chmod +x bisheng
 
