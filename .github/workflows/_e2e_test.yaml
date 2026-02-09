@@ -80,7 +80,7 @@ jobs:
           pip config set global.trusted-host cache-service.nginx-pypi-cache.svc.cluster.local
           apt-get update -y
           apt install git -y
-          apt-get install ccache
+          apt-get install ccache -y
           ccache -s
       - name: disable apt clean
         run: |
