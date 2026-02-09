@@ -60,7 +60,8 @@ jobs:
         UV_INDEX_URL: http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
         UV_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
         UV_INDEX_STRATEGY: unsafe-best-match
-        UV_NO_CACHE: 1
+        #UV_NO_CACHE: 1
+        UV_CACHE_DIR: /tmp/uv_cache
     steps:
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v6
@@ -88,7 +89,21 @@ jobs:
           ls -la packages.txt || echo "packages.txt NOT FOUND"
           ls -la .github/workflows/_e2e_test.yaml || echo "_e2e_test.yaml NOT FOUND"
           echo "Hash is: ${{ hashFiles('./packages.txt') }}"
-
+      - name: Cache dependencies
+        uses: runs-on/cache@v4
+        with:
+          path: |
+            /tmp/uv_cache
+          key: ascend-${{ runner.os }}-pip-vllm-v1-${{ hashFiles('**/requirements-dev.txt', './vllm-empty/pyproject.toml', './vllm-empty/requirements/**/*.txt') }}
+          restore-keys: |
+            ascend-${{ runner.os }}-pip-vllm-v1
+        env:
+          # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
+          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
+          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
+          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
+          AWS_REGION: cn-southwest-2
 #      - name: Install sccache (if not pre-installed)
 #        run: |
 #          FILENAME="sccache-v0.13.0-aarch64-unknown-linux-musl.tar.gz"
@@ -162,11 +177,14 @@ jobs:
         run: |
           start_time=$(date +%s)
           pip install uc-manager
+          end_time0=$(date +%s)
+          duration=$((end_time0 - start_time))
+          echo "==========install uc-manager总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
           uv pip install --system -r requirements-dev.txt
           end_time=$(date +%s)
           duration=$((end_time - start_time))
           echo "==========install requirements总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
-          uv pip install --system -v -e .
+          uv pip install --system --no-build-isolation -e .
           #sccache --show-stats
           end_time1=$(date +%s)
           duration=$((end_time1 - end_time))
