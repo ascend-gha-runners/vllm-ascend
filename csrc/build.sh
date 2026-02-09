@@ -112,6 +112,7 @@ if [ "${VERBOSE}" == "true" ]; then
 fi
 
 # Use exec with ccache to cache compilation results
+echo "Bisheng wrapper called with: \$@" >&2
 exec "${ccache_program}" "\${BISHENG_REAL_PATH}" "\$@"
 EOF
     chmod +x bisheng

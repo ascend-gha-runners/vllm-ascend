@@ -197,6 +197,8 @@ jobs:
           duration=$((end_time1 - end_time))
           echo "==========build总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
           ccache -s
+          ccache --verbose
+          sleep 6000
 #      - name: Run vllm-project/vllm-ascend test
 #        env:
 #          PYTORCH_NPU_ALLOC_CONF: max_split_size_mb:256
