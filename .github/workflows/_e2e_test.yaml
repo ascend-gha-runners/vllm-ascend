@@ -80,6 +80,8 @@ jobs:
           pip config set global.trusted-host cache-service.nginx-pypi-cache.svc.cluster.local
           apt-get update -y
           apt install git -y
+          apt-get install ccache
+          ccache -s
       - name: disable apt clean
         run: |
           rm -f /etc/apt/apt.conf.d/docker-clean
@@ -124,7 +126,7 @@ jobs:
       - name: Install uv (if not pre-installed)
         run: |
           pip install uv
-          uv pip install --system ccache
+          #uv pip install --system sccache
           #sccache --start-server
           #sccache --show-stats
 #          UV_VERSION="0.9.30"
@@ -187,7 +189,7 @@ jobs:
           end_time1=$(date +%s)
           duration=$((end_time1 - end_time))
           echo "==========build总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
-          sccache --show-stats
+          ccache -s
 #      - name: Run vllm-project/vllm-ascend test
 #        env:
 #          PYTORCH_NPU_ALLOC_CONF: max_split_size_mb:256
