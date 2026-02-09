@@ -55,7 +55,6 @@ jobs:
         SCCACHE_DIRECT: true
         SCCACHE_IGNORE_SERVER_IO_ERROR: 1
         SCCACHE_COMPILER_WRAPPER: 1
-        SCCACHE_DIRECT_SKIP_PREPROCESSOR: 1
         #SCCACHE_CACHE_SIZE: 50G
         # uv 配置
         UV_INDEX_URL: http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
