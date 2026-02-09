@@ -52,9 +52,9 @@ jobs:
         #SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE: true
         SCCACHE_REDIS: redis://10.0.0.98:6379
         SCCACHE_LOG: debug
-        SCCACHE_DIRECT: true
-        SCCACHE_IGNORE_SERVER_IO_ERROR: 1
-        SCCACHE_COMPILER_WRAPPER: 1
+        #SCCACHE_DIRECT: true
+        #SCCACHE_IGNORE_SERVER_IO_ERROR: 1
+        #SCCACHE_COMPILER_WRAPPER: 1
         #SCCACHE_CACHE_SIZE: 50G
         # uv 配置
         UV_INDEX_URL: http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple

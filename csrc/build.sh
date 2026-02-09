@@ -99,19 +99,38 @@ function gen_bisheng(){
 
     pushd ${gen_bisheng_dir}
     # 使用cat和heredoc创建包装脚本
-    # 关键：让sccache包装真实的bisheng编译器
+    # 关键：过滤掉-x选项，让sccache可以缓存
     cat > bisheng << EOF
 #!/bin/bash
 # Bisheng wrapper script for sccache/ccache
 # This script wraps the bisheng compiler to work with caching tools
 
+# 过滤掉-x选项，因为sccache不缓存带-x选项的编译
+# bisheng可以根据文件扩展名自动识别语言类型
+filtered_args=()
+skip_next=false
+
+for arg in "\$@"; do
+    if [ "\$skip_next" = true ]; then
+        skip_next=false
+        continue
+    fi
+
+    if [ "\$arg" = "-x" ]; then
+        # 跳过-x选项和它的参数
+        skip_next=true
+        continue
+    fi
+
+    filtered_args+=("\$arg")
+done
+
 if [ "${VERBOSE}" == "true" ]; then
-    echo "Bisheng wrapper: ${ccache_program} ${BISHENG_REAL_PATH} \$@" >&2
+    echo "Bisheng wrapper: ${ccache_program} ${BISHENG_REAL_PATH} \${filtered_args[@]}" >&2
 fi
 
 # 使用exec让sccache包装真实的bisheng编译器
-# 这样sccache可以正确识别和缓存编译结果
-exec "${ccache_program}" "${BISHENG_REAL_PATH}" "\$@"
+exec "${ccache_program}" "${BISHENG_REAL_PATH}" "\${filtered_args[@]}"
 EOF
     chmod +x bisheng
 
@@ -202,6 +221,7 @@ if [ -n "${ccache_system}" ];then
         log "  SCCACHE_CACHE_SIZE=${SCCACHE_CACHE_SIZE}"
         log "  SCCACHE_COMPILER_WRAPPER=${SCCACHE_COMPILER_WRAPPER}"
         log "  SCCACHE_IGNORE_SERVER_IO_ERROR=${SCCACHE_IGNORE_SERVER_IO_ERROR}"
+        log "  Note: -x option will be filtered in bisheng wrapper to enable caching"
 
         # 显示当前统计信息
         ${ccache_system} --show-stats 2>/dev/null || true
