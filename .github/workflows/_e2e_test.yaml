@@ -60,8 +60,8 @@ jobs:
         UV_INDEX_URL: http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
         UV_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
         UV_INDEX_STRATEGY: unsafe-best-match
-        #UV_NO_CACHE: 1
-        UV_CACHE_DIR: /tmp/uv_cache
+        UV_NO_CACHE: 1
+        #UV_CACHE_DIR: /tmp/uv_cache
         UV_LINK_MODE: symlink
     steps:
       - name: Checkout vllm-project/vllm-ascend repo
@@ -90,39 +90,21 @@ jobs:
           ls -la packages.txt || echo "packages.txt NOT FOUND"
           ls -la .github/workflows/_e2e_test.yaml || echo "_e2e_test.yaml NOT FOUND"
           echo "Hash is: ${{ hashFiles('./packages.txt') }}"
-      - name: Cache dependencies
-        uses: runs-on/cache@v4
-        with:
-          path: |
-            /tmp/uv_cache
-          key: ascend-${{ runner.os }}-pip-vllm-v1-${{ hashFiles('**/requirements-dev.txt', './vllm-empty/pyproject.toml', './vllm-empty/requirements/**/*.txt') }}
-          restore-keys: |
-            ascend-${{ runner.os }}-pip-vllm-v1
-        env:
-          # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
-          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
-          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
-          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
-          AWS_REGION: cn-southwest-2
-#      - name: Install sccache (if not pre-installed)
-#        run: |
-#          FILENAME="sccache-v0.13.0-aarch64-unknown-linux-musl.tar.gz"
-#          CACHE_DIR="/shared-data/sccache"
-#          if [ -f "$CACHE_DIR/$FILENAME" ]; then
-#            echo "Found cached sccache package successfully"
-#          else
-#            echo "sccache package not found in cache. Downloading..."
-#            mkdir -p "$CACHE_DIR"
-#            apt update && apt install -y curl
-#            curl --connect-timeout 30 --retry 3 -L https://github.com/mozilla/sccache/releases/download/v0.13.0/sccache-v0.13.0-aarch64-unknown-linux-musl.tar.gz -o "$CACHE_DIR/$FILENAME"
-#          fi
-#          mkdir -p /tmp/sccache
-#          tar -xzf "$CACHE_DIR/$FILENAME" -C /tmp/sccache
-#          mv /tmp/sccache/sccache-v0.13.0-aarch64-unknown-linux-musl/sccache /usr/local/bin/
-#          chmod +x /usr/local/bin/sccache
-#          sccache --start-server
-#          sccache --show-stats
+#      - name: Cache dependencies
+#        uses: runs-on/cache@v4
+#        with:
+#          path: |
+#            /tmp/uv_cache
+#          key: ascend-${{ runner.os }}-pip-vllm-v1-${{ hashFiles('**/requirements-dev.txt', './vllm-empty/pyproject.toml', './vllm-empty/requirements/**/*.txt') }}
+#          restore-keys: |
+#            ascend-${{ runner.os }}-pip-vllm-v1
+#        env:
+#          # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
+#          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
+#          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
+#          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
+#          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
+#          AWS_REGION: cn-southwest-2
 
       - name: Install uv (if not pre-installed)
         run: |
@@ -164,10 +146,10 @@ jobs:
           update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20
           #sleep 600
 
-      - name: Install vllm-project/vllm from source
-        working-directory: ./vllm-empty
-        run: |
-          VLLM_TARGET_DEVICE=empty uv pip install --system -e .
+#      - name: Install vllm-project/vllm from source
+#        working-directory: ./vllm-empty
+#        run: |
+#          VLLM_TARGET_DEVICE=empty uv pip install --system -e .
 
       - name: Install vllm-project/vllm-ascend
         env:
