@@ -99,38 +99,21 @@ function gen_bisheng(){
 
     pushd ${gen_bisheng_dir}
     # 使用cat和heredoc创建包装脚本
-    # 关键：过滤掉-x选项，让sccache可以缓存
+    # 不过滤-x选项，因为移除后会导致编译错误
+    # 接受sccache的Non-cacheable限制
     cat > bisheng << EOF
 #!/bin/bash
 # Bisheng wrapper script for sccache/ccache
 # This script wraps the bisheng compiler to work with caching tools
 
-# 过滤掉-x选项，因为sccache不缓存带-x选项的编译
-# bisheng可以根据文件扩展名自动识别语言类型
-filtered_args=()
-skip_next=false
-
-for arg in "\$@"; do
-    if [ "\$skip_next" = true ]; then
-        skip_next=false
-        continue
-    fi
-
-    if [ "\$arg" = "-x" ]; then
-        # 跳过-x选项和它的参数
-        skip_next=true
-        continue
-    fi
-
-    filtered_args+=("\$arg")
-done
-
 if [ "${VERBOSE}" == "true" ]; then
-    echo "Bisheng wrapper: ${ccache_program} ${BISHENG_REAL_PATH} \${filtered_args[@]}" >&2
+    echo "Bisheng wrapper: ${ccache_program} ${BISHENG_REAL_PATH} \$@" >&2
 fi
 
 # 使用exec让sccache包装真实的bisheng编译器
-exec "${ccache_program}" "${BISHENG_REAL_PATH}" "\${filtered_args[@]}"
+# 注意：bisheng使用-x选项，这会导致sccache标记为Non-cacheable
+# 但这是bisheng编译器的要求，无法移除
+exec "${ccache_program}" "${BISHENG_REAL_PATH}" "\$@"
 EOF
     chmod +x bisheng
 
@@ -202,32 +185,29 @@ CUSTOM_OPTION="${CUSTOM_OPTION} -DCUSTOM_ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_
 set_env
 clean
 
-ccache_system=$(which sccache 2>/dev/null || which ccache 2>/dev/null || true)
+ccache_system=$(which ccache 2>/dev/null || true)
 if [ -n "${ccache_system}" ];then
     CUSTOM_OPTION="${CUSTOM_OPTION} -DENABLE_CCACHE=ON -DCUSTOM_CCACHE=${ccache_system}"
 
-    # 为sccache配置专用环境变量
-    if [[ "${ccache_system}" == *"sccache"* ]]; then
-        log "Info: Using sccache for compilation caching"
+    log "Info: Using ccache for compilation caching"
 
-        # 配置sccache环境变量
-        export SCCACHE_DIRECT=${SCCACHE_DIRECT:-true}                    # 启用直接模式
-        export SCCACHE_IGNORE_SERVER_IO_ERROR=${SCCACHE_IGNORE_SERVER_IO_ERROR:-1}  # 忽略服务器IO错误
-        export SCCACHE_CACHE_SIZE=${SCCACHE_CACHE_SIZE:-10G}             # 缓存大小
-        export SCCACHE_COMPILER_WRAPPER=${SCCACHE_COMPILER_WRAPPER:-1}   # 编译器包装器检测
+    # 配置ccache使用固定目录（持久化缓存）
+    export CCACHE_DIR=/tmp/ccache
+    export CCACHE_MAXSIZE=20G
+    export CCACHE_SLOPPINESS=time_macros,include_file_mtime,include_file_ctime
+    export CCACHE_COMPRESS=true
+    export CCACHE_COMPRESSLEVEL=6
+    export CCACHE_NOHASHDIR=true
 
-        log "Info: sccache configuration:"
-        log "  SCCACHE_DIRECT=${SCCACHE_DIRECT}"
-        log "  SCCACHE_CACHE_SIZE=${SCCACHE_CACHE_SIZE}"
-        log "  SCCACHE_COMPILER_WRAPPER=${SCCACHE_COMPILER_WRAPPER}"
-        log "  SCCACHE_IGNORE_SERVER_IO_ERROR=${SCCACHE_IGNORE_SERVER_IO_ERROR}"
-        log "  Note: -x option will be filtered in bisheng wrapper to enable caching"
+    # 确保缓存目录存在
+    mkdir -p ${CCACHE_DIR}
 
-        # 显示当前统计信息
-        ${ccache_system} --show-stats 2>/dev/null || true
-    else
-        log "Info: Using ccache for compilation caching"
-    fi
+    log "Info: ccache configuration:"
+    log "  CCACHE_DIR=${CCACHE_DIR}"
+    log "  CCACHE_MAXSIZE=${CCACHE_MAXSIZE}"
+    log "  CCACHE_SLOPPINESS=${CCACHE_SLOPPINESS}"
+    log "  CCACHE_COMPRESS=${CCACHE_COMPRESS}"
+    log "  Note: ccache handles -x option better than sccache"
 
     gen_bisheng ${ccache_system}
 fi
@@ -239,14 +219,7 @@ build_package
 # 显示缓存统计信息
 if [ -n "${ccache_system}" ];then
     log "Info: Build completed. Cache statistics:"
-    if [[ "${ccache_system}" == *"sccache"* ]]; then
-        ${ccache_system} --show-stats
-        log "Info: To see detailed cache analysis, run: sccache --show-stats"
-        log "Info: To analyze non-cacheable calls, enable debug logging:"
-        log "      export SCCACHE_LOG=trace"
-        log "      export SCCACHE_ERROR_LOG=/tmp/sccache.log"
-    else
-        ${ccache_system} -s
-        log "Info: To see detailed cache analysis, run: ccache -s"
-    fi
+    ${ccache_system} -s
+    log "Info: Cache directory: ${CCACHE_DIR}"
+    log "Info: Cache is persistent and will be reused in next build"
 fi
