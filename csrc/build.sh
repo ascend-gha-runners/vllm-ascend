@@ -98,23 +98,16 @@ function gen_bisheng(){
     fi
 
     pushd ${gen_bisheng_dir}
-    # 使用cat和heredoc创建包装脚本
-    # 不过滤-x选项，因为移除后会导致编译错误
-    # 接受sccache的Non-cacheable限制
-    cat > bisheng << EOF
-#!/bin/bash
-# Bisheng wrapper script for sccache/ccache
-# This script wraps the bisheng compiler to work with caching tools
+    $(> bisheng)
+    echo "#!/bin/bash" >> bisheng
+    echo "ccache_args=""\"""${ccache_program} ${BISHENG_REAL_PATH}""\"" >> bisheng
+    echo "args=""$""@" >> bisheng
 
-if [ "${VERBOSE}" == "true" ]; then
-    echo "Bisheng wrapper: ${ccache_program} ${BISHENG_REAL_PATH} \$@" >&2
-fi
+    if [ "${VERBOSE}" == "true" ];then
+        echo "echo ""\"""$""{ccache_args} ""$""args""\"" >> bisheng
+    fi
 
-# 使用exec让sccache包装真实的bisheng编译器
-# 注意：bisheng使用-x选项，这会导致sccache标记为Non-cacheable
-# 但这是bisheng编译器的要求，无法移除
-exec "${ccache_program}" "${BISHENG_REAL_PATH}" "\$@"
-EOF
+    echo "eval ""\"""$""{ccache_args} ""$""args""\"" >> bisheng
     chmod +x bisheng
 
     export PATH=${gen_bisheng_dir}:$PATH
@@ -185,41 +178,12 @@ CUSTOM_OPTION="${CUSTOM_OPTION} -DCUSTOM_ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_
 set_env
 clean
 
-ccache_system=$(which ccache 2>/dev/null || true)
+ccache_system=$(which ccache || true)
 if [ -n "${ccache_system}" ];then
     CUSTOM_OPTION="${CUSTOM_OPTION} -DENABLE_CCACHE=ON -DCUSTOM_CCACHE=${ccache_system}"
-
-    log "Info: Using ccache for compilation caching"
-
-    # 配置ccache使用固定目录（持久化缓存）
-    export CCACHE_DIR=/tmp/ccache
-    export CCACHE_MAXSIZE=20G
-    export CCACHE_SLOPPINESS=time_macros,include_file_mtime,include_file_ctime
-    export CCACHE_COMPRESS=true
-    export CCACHE_COMPRESSLEVEL=6
-    export CCACHE_NOHASHDIR=true
-
-    # 确保缓存目录存在
-    mkdir -p ${CCACHE_DIR}
-
-    log "Info: ccache configuration:"
-    log "  CCACHE_DIR=${CCACHE_DIR}"
-    log "  CCACHE_MAXSIZE=${CCACHE_MAXSIZE}"
-    log "  CCACHE_SLOPPINESS=${CCACHE_SLOPPINESS}"
-    log "  CCACHE_COMPRESS=${CCACHE_COMPRESS}"
-    log "  Note: ccache handles -x option better than sccache"
-
     gen_bisheng ${ccache_system}
 fi
 
 cd ${BUILD_DIR}
 cmake_config
 build_package
-
-# 显示缓存统计信息
-if [ -n "${ccache_system}" ];then
-    log "Info: Build completed. Cache statistics:"
-    ${ccache_system} -s
-    log "Info: Cache directory: ${CCACHE_DIR}"
-    log "Info: Cache is persistent and will be reused in next build"
-fi

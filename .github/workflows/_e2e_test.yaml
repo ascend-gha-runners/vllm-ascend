@@ -63,6 +63,13 @@ jobs:
         UV_NO_CACHE: 1
         #UV_CACHE_DIR: /tmp/uv_cache
         #UV_LINK_MODE: symlink
+
+        CCACHE_DIR: /tmp/ccache
+        CCACHE_MAXSIZE: 20G
+        CCACHE_SLOPPINESS: time_macros,include_file_mtime,include_file_ctime
+        CCACHE_COMPRESS: true
+        CCACHE_COMPRESSLEVEL: 6
+        CCACHE_NOHASHDIR: true
     steps:
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v6
