@@ -41,15 +41,16 @@ jobs:
         VLLM_USE_MODELSCOPE: True
         HF_HUB_OFFLINE: 1
         # Additional sccache optimizations
-        #SCCACHE_MAX_FRAME_LENGTH: 104857600
-        #SCCACHE_IDLE_TIMEOUT: 0
+        SCCACHE_MAX_FRAME_LENGTH: 104857600
+        SCCACHE_IDLE_TIMEOUT: 0
         # SCCACHE 配置：使用共享盘
-        SCCACHE_BUCKET: obs-guiiyang1-ascend-test
-        SCCACHE_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
-        AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
-        SCCACHE_REGION: cn-southwest-2
-        SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE: true
+        #SCCACHE_BUCKET: obs-guiiyang1-ascend-test
+        #SCCACHE_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
+        #AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
+        #AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
+        #SCCACHE_REGION: cn-southwest-2
+        #SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE: true
+        SCCACHE_REDIS: redis://10.0.0.98:6379
         SCCACHE_LOG: debug
         #SCCACHE_CACHE_SIZE: 50G
         # uv 配置
