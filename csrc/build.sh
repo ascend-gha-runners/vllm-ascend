@@ -98,16 +98,21 @@ function gen_bisheng(){
     fi
 
     pushd ${gen_bisheng_dir}
-    $(> bisheng)
-    echo "#!/bin/bash" >> bisheng
-    echo "ccache_args=""\"""${ccache_program} ${BISHENG_REAL_PATH}""\"" >> bisheng
-    echo "args=""$""@" >> bisheng
+    # 使用cat和heredoc创建包装脚本，避免使用eval
+    cat > bisheng << EOF
+#!/bin/bash
+# Bisheng wrapper script for sccache/ccache
+# This script wraps the bisheng compiler to work with caching tools
 
-    if [ "${VERBOSE}" == "true" ];then
-        echo "echo ""\"""$""{ccache_args} ""$""args""\"" >> bisheng
-    fi
+export BISHENG_REAL_PATH="${BISHENG_REAL_PATH}"
 
-    echo "eval ""\"""$""{ccache_args} ""$""args""\"" >> bisheng
+if [ "${VERBOSE}" == "true" ]; then
+    echo "Bisheng wrapper called with: \$@" >&2
+fi
+
+# 使用exec直接执行编译器，让sccache能够正确识别和缓存
+exec "\${BISHENG_REAL_PATH}" "\$@"
+EOF
     chmod +x bisheng
 
     export PATH=${gen_bisheng_dir}:$PATH
@@ -181,9 +186,47 @@ clean
 ccache_system=$(which sccache 2>/dev/null || which ccache 2>/dev/null || true)
 if [ -n "${ccache_system}" ];then
     CUSTOM_OPTION="${CUSTOM_OPTION} -DENABLE_CCACHE=ON -DCUSTOM_CCACHE=${ccache_system}"
+
+    # 为sccache配置专用环境变量
+    if [[ "${ccache_system}" == *"sccache"* ]]; then
+        log "Info: Using sccache for compilation caching"
+
+        # 配置sccache环境变量
+        export SCCACHE_DIRECT=${SCCACHE_DIRECT:-true}                    # 启用直接模式
+        export SCCACHE_IGNORE_SERVER_IO_ERROR=${SCCACHE_IGNORE_SERVER_IO_ERROR:-1}  # 忽略服务器IO错误
+        export SCCACHE_CACHE_SIZE=${SCCACHE_CACHE_SIZE:-10G}             # 缓存大小
+        export SCCACHE_COMPILER_WRAPPER=${SCCACHE_COMPILER_WRAPPER:-1}   # 编译器包装器检测
+
+        log "Info: sccache configuration:"
+        log "  SCCACHE_DIRECT=${SCCACHE_DIRECT}"
+        log "  SCCACHE_CACHE_SIZE=${SCCACHE_CACHE_SIZE}"
+        log "  SCCACHE_COMPILER_WRAPPER=${SCCACHE_COMPILER_WRAPPER}"
+        log "  SCCACHE_IGNORE_SERVER_IO_ERROR=${SCCACHE_IGNORE_SERVER_IO_ERROR}"
+
+        # 显示当前统计信息
+        ${ccache_system} --show-stats 2>/dev/null || true
+    else
+        log "Info: Using ccache for compilation caching"
+    fi
+
     gen_bisheng ${ccache_system}
 fi
 
 cd ${BUILD_DIR}
 cmake_config
 build_package
+
+# 显示缓存统计信息
+if [ -n "${ccache_system}" ];then
+    log "Info: Build completed. Cache statistics:"
+    if [[ "${ccache_system}" == *"sccache"* ]]; then
+        ${ccache_system} --show-stats
+        log "Info: To see detailed cache analysis, run: sccache --show-stats"
+        log "Info: To analyze non-cacheable calls, enable debug logging:"
+        log "      export SCCACHE_LOG=trace"
+        log "      export SCCACHE_ERROR_LOG=/tmp/sccache.log"
+    else
+        ${ccache_system} -s
+        log "Info: To see detailed cache analysis, run: ccache -s"
+    fi
+fi
