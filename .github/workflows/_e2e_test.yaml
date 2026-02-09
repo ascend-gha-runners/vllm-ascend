@@ -77,30 +77,33 @@ jobs:
           cat /usr/local/Ascend/ascend-toolkit/latest/"$(uname -i)"-linux/ascend_toolkit_install.info
           ls -la packages.txt || echo "packages.txt NOT FOUND"
           ls -la .github/workflows/_e2e_test.yaml || echo "_e2e_test.yaml NOT FOUND"
-          echo "Hash is: ${{ hashFiles('packages.txt') }}"
+          echo "Hash is: ${{ hashFiles('./packages.txt') }}"
 
-      - name: Install sccache (if not pre-installed)
-        run: |
-          FILENAME="sccache-v0.13.0-aarch64-unknown-linux-musl.tar.gz"
-          CACHE_DIR="/shared-data/sccache"
-          if [ -f "$CACHE_DIR/$FILENAME" ]; then
-            echo "Found cached sccache package successfully"
-          else
-            echo "sccache package not found in cache. Downloading..."
-            mkdir -p "$CACHE_DIR"
-            apt update && apt install -y curl
-            curl --connect-timeout 30 --retry 3 -L https://github.com/mozilla/sccache/releases/download/v0.13.0/sccache-v0.13.0-aarch64-unknown-linux-musl.tar.gz -o "$CACHE_DIR/$FILENAME"
-          fi
-          mkdir -p /tmp/sccache
-          tar -xzf "$CACHE_DIR/$FILENAME" -C /tmp/sccache
-          mv /tmp/sccache/sccache-v0.13.0-aarch64-unknown-linux-musl/sccache /usr/local/bin/
-          chmod +x /usr/local/bin/sccache
-          sccache --start-server
-          sccache --show-stats
+#      - name: Install sccache (if not pre-installed)
+#        run: |
+#          FILENAME="sccache-v0.13.0-aarch64-unknown-linux-musl.tar.gz"
+#          CACHE_DIR="/shared-data/sccache"
+#          if [ -f "$CACHE_DIR/$FILENAME" ]; then
+#            echo "Found cached sccache package successfully"
+#          else
+#            echo "sccache package not found in cache. Downloading..."
+#            mkdir -p "$CACHE_DIR"
+#            apt update && apt install -y curl
+#            curl --connect-timeout 30 --retry 3 -L https://github.com/mozilla/sccache/releases/download/v0.13.0/sccache-v0.13.0-aarch64-unknown-linux-musl.tar.gz -o "$CACHE_DIR/$FILENAME"
+#          fi
+#          mkdir -p /tmp/sccache
+#          tar -xzf "$CACHE_DIR/$FILENAME" -C /tmp/sccache
+#          mv /tmp/sccache/sccache-v0.13.0-aarch64-unknown-linux-musl/sccache /usr/local/bin/
+#          chmod +x /usr/local/bin/sccache
+#          sccache --start-server
+#          sccache --show-stats
 
       - name: Install uv (if not pre-installed)
         run: |
           pip install uv
+          #uv tool install sccache
+          #sccache --start-server
+          #sccache --show-stats
 #          UV_VERSION="0.9.30"
 #          FILENAME="uv-${UV_VERSION}-aarch64-unknown-linux-musl.tar.gz"
 #          DOWNLOAD_FILENAME="uv-aarch64-unknown-linux-musl.tar.gz"
@@ -154,9 +157,10 @@ jobs:
           duration=$((end_time - start_time))
           echo "==========install requirements总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
           uv pip install --system -e .
-          sccache --show-stats
-
-
+          #sccache --show-stats
+          end_time1=$(date +%s)
+          duration=$((end_time1 - end_time))
+          echo "==========build总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
 #      - name: Run vllm-project/vllm-ascend test
 #        env:
 #          PYTORCH_NPU_ALLOC_CONF: max_split_size_mb:256
