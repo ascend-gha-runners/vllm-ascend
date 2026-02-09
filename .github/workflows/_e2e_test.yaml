@@ -41,8 +41,8 @@ jobs:
         VLLM_USE_MODELSCOPE: True
         HF_HUB_OFFLINE: 1
         # Additional sccache optimizations
-        SCCACHE_MAX_FRAME_LENGTH: 104857600
-        SCCACHE_IDLE_TIMEOUT: 0
+        #SCCACHE_MAX_FRAME_LENGTH: 104857600
+        #SCCACHE_IDLE_TIMEOUT: 0
         # SCCACHE 配置：使用共享盘
         SCCACHE_BUCKET: obs-guiiyang1-ascend-test
         SCCACHE_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
@@ -50,7 +50,8 @@ jobs:
         AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
         SCCACHE_REGION: cn-southwest-2
         SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE: true
-        SCCACHE_CACHE_SIZE: 50G
+        SCCACHE_LOG: debug
+        #SCCACHE_CACHE_SIZE: 50G
         # uv 配置
         UV_INDEX_URL: http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
         UV_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
