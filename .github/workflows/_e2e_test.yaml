@@ -62,6 +62,7 @@ jobs:
         UV_INDEX_STRATEGY: unsafe-best-match
         #UV_NO_CACHE: 1
         UV_CACHE_DIR: /tmp/uv_cache
+        UV_LINK_MODE: symlink
     steps:
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v6
