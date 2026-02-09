@@ -44,7 +44,12 @@ jobs:
         SCCACHE_MAX_FRAME_LENGTH: 104857600
         SCCACHE_IDLE_TIMEOUT: 0
         # SCCACHE 配置：使用共享盘
-        SCCACHE_DIR: /shared-data/sccache-cache
+        SCCACHE_BUCKET: obs-guiiyang1-ascend-test
+        SCCACHE_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
+        AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
+        SCCACHE_REGION: cn-southwest-2
+        SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE: true
         SCCACHE_CACHE_SIZE: 50G
         # uv 配置
         UV_INDEX_URL: http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
@@ -101,9 +106,9 @@ jobs:
       - name: Install uv (if not pre-installed)
         run: |
           pip install uv
-          #uv tool install sccache
-          #sccache --start-server
-          #sccache --show-stats
+          uv tool install sccache
+          sccache --start-server
+          sccache --show-stats
 #          UV_VERSION="0.9.30"
 #          FILENAME="uv-${UV_VERSION}-aarch64-unknown-linux-musl.tar.gz"
 #          DOWNLOAD_FILENAME="uv-aarch64-unknown-linux-musl.tar.gz"
@@ -161,6 +166,7 @@ jobs:
           end_time1=$(date +%s)
           duration=$((end_time1 - end_time))
           echo "==========build总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
+          sccache --show-stats
 #      - name: Run vllm-project/vllm-ascend test
 #        env:
 #          PYTORCH_NPU_ALLOC_CONF: max_split_size_mb:256
