@@ -137,12 +137,13 @@ if (BUILD_OPEN_PROJECT)
     endif ()
 
     # Build phase
-    #   CCACHE configuration
+    #   CCACHE configuration (supports both ccache and sccache)
     if (ENABLE_CCACHE)
         if (CUSTOM_CCACHE)
             set(CCACHE_PROGRAM ${CUSTOM_CCACHE})
         else()
-            find_program(CCACHE_PROGRAM ccache)
+            # Try to find sccache first, then fall back to ccache
+            find_program(CCACHE_PROGRAM NAMES sccache ccache)
         endif ()
         if (CCACHE_PROGRAM)
             set(CMAKE_C_COMPILER_LAUNCHER   ${CCACHE_PROGRAM} CACHE PATH "C cache Compiler")
