@@ -192,7 +192,7 @@ jobs:
           end_time=$(date +%s)
           duration=$((end_time - start_time))
           echo "==========install requirements总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
-          uv pip install --system --no-build-isolation -e .
+          uv pip install --system --no-build-isolation -v -e .
           #sccache --show-stats
           end_time1=$(date +%s)
           duration=$((end_time1 - end_time))
