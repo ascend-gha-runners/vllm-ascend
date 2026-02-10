@@ -65,12 +65,12 @@ jobs:
         #UV_CACHE_DIR: /tmp/uv_cache
         #UV_LINK_MODE: symlink
 
-        CCACHE_DIR: /tmp/ccache
-        CCACHE_MAXSIZE: 20G
-        CCACHE_SLOPPINESS: time_macros,include_file_mtime,include_file_ctime
-        CCACHE_COMPRESS: true
-        CCACHE_COMPRESSLEVEL: 6
-        CCACHE_NOHASHDIR: true
+        #CCACHE_DIR: /tmp/ccache
+        #CCACHE_MAXSIZE: 20G
+        #CCACHE_SLOPPINESS: time_macros,include_file_mtime,include_file_ctime
+        #CCACHE_COMPRESS: true
+        #CCACHE_COMPRESSLEVEL: 6
+        #CCACHE_NOHASHDIR: true
     steps:
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v6
@@ -88,8 +88,6 @@ jobs:
           pip config set global.trusted-host cache-service.nginx-pypi-cache.svc.cluster.local
           apt-get update -y
           apt install git -y
-          apt-get install ccache -y
-          ccache -s
       - name: disable apt clean
         run: |
           rm -f /etc/apt/apt.conf.d/docker-clean
@@ -115,21 +113,21 @@ jobs:
 #          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
 #          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
 #          AWS_REGION: cn-southwest-2
-      - name: Cache dependencies
-        uses: runs-on/cache@v4
-        with:
-          path: |
-            /tmp/ccache
-          key: ascend-${{ runner.os }}-ccache-vllm-v1-${{ hashFiles('**/requirements-dev.txt', './vllm-empty/pyproject.toml', './vllm-empty/requirements/**/*.txt') }}
-          restore-keys: |
-            ascend-${{ runner.os }}-ccache-vllm-v1
-        env:
-          # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
-          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
-          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
-          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
-          AWS_REGION: cn-southwest-2
+#      - name: Cache dependencies
+#        uses: runs-on/cache@v4
+#        with:
+#          path: |
+#            /tmp/ccache
+#          key: ascend-${{ runner.os }}-ccache-vllm-v1-${{ hashFiles('**/requirements-dev.txt', './vllm-empty/pyproject.toml', './vllm-empty/requirements/**/*.txt') }}
+#          restore-keys: |
+#            ascend-${{ runner.os }}-ccache-vllm-v1
+#        env:
+#          # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
+#          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
+#          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
+#          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
+#          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
+#          AWS_REGION: cn-southwest-2
 
       - name: Install uv (if not pre-installed)
         run: |
@@ -171,10 +169,10 @@ jobs:
           update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20
           #sleep 600
 
-#      - name: Install vllm-project/vllm from source
-#        working-directory: ./vllm-empty
-#        run: |
-#          VLLM_TARGET_DEVICE=empty uv pip install --system -e .
+      - name: Install vllm-project/vllm from source
+        working-directory: ./vllm-empty
+        run: |
+          VLLM_TARGET_DEVICE=empty uv pip install --system -e .
 
       - name: Install vllm-project/vllm-ascend
         env:
@@ -197,8 +195,7 @@ jobs:
           end_time1=$(date +%s)
           duration=$((end_time1 - end_time))
           echo "==========build总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
-          ccache -s -v
-          sleep 6000
+          sccache -s
 #      - name: Run vllm-project/vllm-ascend test
 #        env:
 #          PYTORCH_NPU_ALLOC_CONF: max_split_size_mb:256
