@@ -113,7 +113,6 @@ function build() {
 
     # Build cmake command arguments
     CMAKE_ARGS=(
-        "${PATH_TO_SOURCE}"
         -DBUILD_OPEN_PROJECT="${BUILD_OPEN_PROJECT}"
         -DPREPARE_BUILD=ON
         -DCUSTOM_ASCEND_CANN_PACKAGE_PATH="${ASCEND_CANN_PACKAGE_PATH}"
@@ -139,8 +138,8 @@ function build() {
         CMAKE_ARGS+=(-DCUSTOM_CCACHE="${CUSTOM_CCACHE}")
     fi
 
-    # Execute cmake command
-    cmake "${CMAKE_ARGS[@]}"
+    # Execute cmake command with source path at the end
+    cmake "${CMAKE_ARGS[@]}" "${PATH_TO_SOURCE}"
 
     make ${JOB_NUM} prepare_build
 }
