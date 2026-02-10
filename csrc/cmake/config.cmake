@@ -145,8 +145,15 @@ if (BUILD_OPEN_PROJECT)
             find_program(CCACHE_PROGRAM ccache)
         endif ()
         if (CCACHE_PROGRAM)
-            set(CMAKE_C_COMPILER_LAUNCHER   ${CCACHE_PROGRAM})
-            set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
+            set(CMAKE_C_COMPILER_LAUNCHER   ${CCACHE_PROGRAM} CACHE PATH "C cache Compiler")
+            set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM} CACHE PATH "CXX cache Compiler")
+
+            # Avoid using __DATE__ and __TIME__ macros which break caching
+            # These macros change on every compilation, preventing cache hits
+            add_compile_definitions(
+                __DATE__="redacted"
+                __TIME__="redacted"
+            )
         endif ()
     endif ()
 

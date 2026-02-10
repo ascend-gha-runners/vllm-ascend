@@ -98,74 +98,16 @@ function gen_bisheng(){
     fi
 
     pushd ${gen_bisheng_dir}
-    # Use cat and heredoc to create wrapper script, avoiding eval
-    # This allows ccache to properly identify and cache compiler calls
-    cat > bisheng << EOF
-#!/bin/bash
-# Bisheng wrapper script for ccache
-# This script wraps the bisheng compiler to work with caching tools
+    $(> bisheng)
+    echo "#!/bin/bash" >> bisheng
+    echo "ccache_args=""\"""${ccache_program} ${BISHENG_REAL_PATH}""\"" >> bisheng
+    echo "args=""$""@" >> bisheng
 
-export BISHENG_REAL_PATH="${BISHENG_REAL_PATH}"
-
-echo "[Bisheng Wrapper] Original args: \$@" >&2
-
-if [ "${VERBOSE}" == "true" ]; then
-    echo "Bisheng wrapper called with: \$@" >&2
-fi
-
-# Check if arguments contain +x
-has_plus_x=false
-for arg in "\$@"; do
-    if [[ "\$arg" == *"+x"* ]]; then
-        has_plus_x=true
-        break
-    fi
-done
-
-# If +x is present, use bisheng++ and filter out -x arguments
-if [ "\$has_plus_x" = true ]; then
-    echo "[Bisheng Wrapper] Detected +x in arguments, switching to bisheng++" >&2
-
-    # Find bisheng++ in PATH
-    BISHENG_PLUSPLUS_PATH=\$(which bisheng++ || true)
-
-    # Verify bisheng++ exists
-    if [ -z "\${BISHENG_PLUSPLUS_PATH}" ]; then
-        echo "[Bisheng Wrapper] Error: bisheng++ not found in PATH" >&2
-        echo "[Bisheng Wrapper] Falling back to standard bisheng with original args" >&2
-        exec "${ccache_program}" "\${BISHENG_REAL_PATH}" "\$@"
+    if [ "${VERBOSE}" == "true" ];then
+        echo "echo ""\"""$""{ccache_args} ""$""args""\"" >> bisheng
     fi
 
-    # Filter out -x arguments
-    filtered_args=()
-    skip_next=false
-    for arg in "\$@"; do
-        if [ "\$skip_next" = true ]; then
-            skip_next=false
-            continue
-        fi
-        if [ "\$arg" = "-x" ]; then
-            skip_next=true
-            continue
-        fi
-        filtered_args+=("\$arg")
-    done
-
-    echo "[Bisheng Wrapper] Filtered args: \${filtered_args[@]}" >&2
-    echo "[Bisheng Wrapper] Using compiler: \${BISHENG_PLUSPLUS_PATH}" >&2
-
-    if [ "${VERBOSE}" == "true" ]; then
-        echo "Using bisheng++ with filtered args: \${filtered_args[@]}" >&2
-    fi
-
-    exec "${ccache_program}" "\${BISHENG_PLUSPLUS_PATH}" "\${filtered_args[@]}"
-else
-    echo "[Bisheng Wrapper] No +x detected, using standard bisheng" >&2
-    echo "[Bisheng Wrapper] Using compiler: \${BISHENG_REAL_PATH}" >&2
-    # Use exec with ccache to cache compilation results
-    exec "${ccache_program}" "\${BISHENG_REAL_PATH}" "\$@"
-fi
-EOF
+    echo "eval ""\"""$""{ccache_args} ""$""args""\"" >> bisheng
     chmod +x bisheng
 
     export PATH=${gen_bisheng_dir}:$PATH
@@ -236,48 +178,12 @@ CUSTOM_OPTION="${CUSTOM_OPTION} -DCUSTOM_ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_
 set_env
 clean
 
-# Configure ccache for optimal performance
-export CCACHE_DIR=${CCACHE_DIR:-/tmp/ccache}
-export CCACHE_MAXSIZE=${CCACHE_MAXSIZE:-20G}
-export CCACHE_SLOPPINESS="time_macros,include_file_mtime,include_file_ctime,file_stat_matches,pch_defines,system_headers"
-export CCACHE_COMPRESS=true
-export CCACHE_COMPRESSLEVEL=6
-export CCACHE_NOHASHDIR=true
-# Allow caching of files compiled with -x option
-export CCACHE_DEPEND=true
-export CCACHE_BASEDIR=${CURRENT_DIR}
-# Tell ccache to treat bisheng as a GCC-compatible compiler
-export CCACHE_COMPILERTYPE=gcc
-# Disable compiler check to allow caching with bisheng
-export CCACHE_COMPILERCHECK=none
-
 ccache_system=$(which ccache || true)
 if [ -n "${ccache_system}" ];then
-    log "Info: Using ccache for compilation caching"
-    log "Info: ccache configuration:"
-    log "  CCACHE_DIR=${CCACHE_DIR}"
-    log "  CCACHE_MAXSIZE=${CCACHE_MAXSIZE}"
-    log "  CCACHE_SLOPPINESS=${CCACHE_SLOPPINESS}"
-    log "  CCACHE_COMPRESS=${CCACHE_COMPRESS}"
-
-    # Show current cache statistics
-    ${ccache_system} -s 2>/dev/null || true
-
-    # Note: We pass ccache to gen_bisheng which will create a wrapper that calls ccache
-    # We set ENABLE_CCACHE=OFF to prevent CMake from adding another layer of ccache via COMPILER_LAUNCHER
-    CUSTOM_OPTION="${CUSTOM_OPTION} -DENABLE_CCACHE=OFF"
+    CUSTOM_OPTION="${CUSTOM_OPTION} -DENABLE_CCACHE=ON -DCUSTOM_CCACHE=${ccache_system}"
     gen_bisheng ${ccache_system}
 fi
 
 cd ${BUILD_DIR}
 cmake_config
 build_package
-
-# Display cache statistics after build
-if [ -n "${ccache_system}" ];then
-    log "Info: Build completed. Cache statistics:"
-    ${ccache_system} -s
-    log "Info: Cache directory: ${CCACHE_DIR}"
-    log "Info: Cache is persistent and will be reused in next build"
-    log "Info: To see detailed cache analysis, run: ccache -s"
-fi
