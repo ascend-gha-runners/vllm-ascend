@@ -8,7 +8,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ======================================================================================================================
 
-CPU_NUM=$(($(cat /proc/cpuinfo | grep "^processor" | wc -l)*2))
+CPU_NUM=$(($(cat /proc/cpuinfo | grep "^processor" | wc -l)/2))
 JOB_NUM="-j${CPU_NUM}"
 
 while [[ $# -gt 0 ]]; do
@@ -110,35 +110,36 @@ function set_env() {
 
 function build() {
     cd ${PATH_TO_BUILD}
-    cmake "${PATH_TO_SOURCE}" \
-        -DBUILD_OPEN_PROJECT="${BUILD_OPEN_PROJECT}" \
+    # Build cmake command with optional ccache parameters
+    CMAKE_CMD="cmake ${PATH_TO_SOURCE} \
+        -DBUILD_OPEN_PROJECT=${BUILD_OPEN_PROJECT} \
         -DPREPARE_BUILD=ON \
-        -DCUSTOM_ASCEND_CANN_PACKAGE_PATH="${ASCEND_CANN_PACKAGE_PATH}" \
-        -DASCEND_AUTOGEN_DIR="${ASCEND_AUTOGEN_DIR}" \
-        -DASCEND_BINARY_OUT_DIR="${ASCEND_BINARY_OUT_DIR}" \
-        -DASCEND_IMPL_OUT_DIR="${ASCEND_IMPL_OUT_DIR}" \
-        -DOP_BUILD_TOOL="${OP_BUILD_TOOL}" \
-        -DASCEND_CMAKE_DIR="${ASCEND_CMAKE_DIR}" \
-        -DCHECK_COMPATIBLE="${CHECK_COMPATIBLE}" \
-        -DTILING_KEY="${CONVERT_TILING_KEY}" \
-        -DOPS_COMPILE_OPTIONS="${CONVERT_OPS_COMPILE_OPTIONS}" \
-        -DASCEND_COMPUTE_UNIT="${CONVERT_ASCEND_COMPUTE_UNIT}" \
-        -DOP_DEBUG_CONFIG="${OP_DEBUG_CONFIG}" \
-        -DASCEND_OP_NAME="${ASCEND_OP_NAME}" \
-        $( [ -n "${ENABLE_CCACHE}" ] && echo "-DENABLE_CCACHE=\"${ENABLE_CCACHE}\"" ) \
-        $( [ -n "${CUSTOM_CCACHE}" ] && echo "-DCUSTOM_CCACHE=\"${CUSTOM_CCACHE}\"" )
+        -DCUSTOM_ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH} \
+        -DASCEND_AUTOGEN_DIR=${ASCEND_AUTOGEN_DIR} \
+        -DASCEND_BINARY_OUT_DIR=${ASCEND_BINARY_OUT_DIR} \
+        -DASCEND_IMPL_OUT_DIR=${ASCEND_IMPL_OUT_DIR} \
+        -DOP_BUILD_TOOL=${OP_BUILD_TOOL} \
+        -DASCEND_CMAKE_DIR=${ASCEND_CMAKE_DIR} \
+        -DCHECK_COMPATIBLE=${CHECK_COMPATIBLE} \
+        -DTILING_KEY=\"${CONVERT_TILING_KEY}\" \
+        -DOPS_COMPILE_OPTIONS=\"${CONVERT_OPS_COMPILE_OPTIONS}\" \
+        -DASCEND_COMPUTE_UNIT=${CONVERT_ASCEND_COMPUTE_UNIT} \
+        -DOP_DEBUG_CONFIG=${OP_DEBUG_CONFIG} \
+        -DASCEND_OP_NAME=${ASCEND_OP_NAME}"
 
-    # Record build start time
-    local start_time=$(date +%s)
-    echo "Starting make prepare_build at $(date)"
+    # Add ccache parameters if provided
+    if [ -n "${ENABLE_CCACHE}" ]; then
+        CMAKE_CMD="${CMAKE_CMD} -DENABLE_CCACHE=${ENABLE_CCACHE}"
+    fi
+
+    if [ -n "${CUSTOM_CCACHE}" ]; then
+        CMAKE_CMD="${CMAKE_CMD} -DCUSTOM_CCACHE=${CUSTOM_CCACHE}"
+    fi
+
+    # Execute cmake command
+    eval ${CMAKE_CMD}
 
     make ${JOB_NUM} prepare_build
-
-    # Record build end time and calculate duration
-    local end_time=$(date +%s)
-    local duration=$((end_time - start_time))
-    echo "make prepare_build completed at $(date)"
-    echo "Build time: ${duration} seconds ($(($duration / 60)) minutes $(($duration % 60)) seconds)"
 }
 
 function main() {

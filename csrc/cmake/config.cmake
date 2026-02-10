@@ -95,9 +95,6 @@ else()
     set(ADD_OPS_COMPILE_OPTION_V2 OFF)
 endif()
 
-find_program(CCACHE_PROGRAM1 NAMES sccache ccache)
-set(CMAKE_C_COMPILER_LAUNCHER   ${CCACHE_PROGRAM1} CACHE PATH "C cache Compiler")
-set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM1} CACHE PATH "CXX cache Compiler")
 ########################################################################################################################
 # CMake Options, Default Parameters Setting
 #   Configure CMake options and default parameters according to the CMake build process
