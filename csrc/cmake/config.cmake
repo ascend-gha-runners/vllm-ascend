@@ -147,13 +147,6 @@ if (BUILD_OPEN_PROJECT)
         if (CCACHE_PROGRAM)
             set(CMAKE_C_COMPILER_LAUNCHER   ${CCACHE_PROGRAM} CACHE PATH "C cache Compiler")
             set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM} CACHE PATH "CXX cache Compiler")
-
-            # Avoid using __DATE__ and __TIME__ macros which break caching
-            # These macros change on every compilation, preventing cache hits
-            add_compile_definitions(
-                __DATE__="redacted"
-                __TIME__="redacted"
-            )
         endif ()
     endif ()
 
@@ -200,6 +193,15 @@ if (BUILD_OPEN_PROJECT)
 
         string(REPLACE ";" "::" EP_ASCEND_COMPUTE_UNIT "${ASCEND_COMPUTE_UNIT}")
 
+        # Prepare ccache parameters for prepare.sh
+        set(PREPARE_CCACHE_ARGS "")
+        if (ENABLE_CCACHE)
+            set(PREPARE_CCACHE_ARGS "${PREPARE_CCACHE_ARGS} --enable-ccache ON")
+            if (CUSTOM_CCACHE)
+                set(PREPARE_CCACHE_ARGS "${PREPARE_CCACHE_ARGS} --custom-ccache ${CUSTOM_CCACHE}")
+            endif ()
+        endif ()
+
         execute_process(COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/cmake/scripts/prepare.sh
                 -s ${CMAKE_CURRENT_SOURCE_DIR}
                 -b ${CMAKE_CURRENT_BINARY_DIR}/prepare_build
@@ -216,6 +218,7 @@ if (BUILD_OPEN_PROJECT)
                 --ascend-compute_unit ${EP_ASCEND_COMPUTE_UNIT}
                 --op_debug_config ${OP_DEBUG_CONFIG}
                 --ascend-op-name "${ASCEND_OP_NAME}"
+                ${PREPARE_CCACHE_ARGS}
                 RESULT_VARIABLE result
                 OUTPUT_STRIP_TRAILING_WHITESPACE
                 OUTPUT_VARIABLE PREPARE_BUILD_OUTPUT_VARIABLE)
