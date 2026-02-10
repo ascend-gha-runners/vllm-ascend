@@ -52,6 +52,7 @@ jobs:
         #SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE: true
         SCCACHE_REDIS: redis://10.0.0.98:6379
         SCCACHE_LOG: debug
+        SCCACHE_SLOPPINESS: time_macros,include_file_mtime,file_stat_matches,path_prefix_replacement
         #SCCACHE_DIRECT: true
         #SCCACHE_IGNORE_SERVER_IO_ERROR: 1
         #SCCACHE_COMPILER_WRAPPER: 1
@@ -133,7 +134,7 @@ jobs:
       - name: Install uv (if not pre-installed)
         run: |
           pip install uv
-          #uv pip install --system sccache
+          uv pip install --system sccache
           #sccache --start-server
           #sccache --show-stats
 #          UV_VERSION="0.9.30"
