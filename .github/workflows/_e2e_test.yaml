@@ -99,13 +99,22 @@ jobs:
           ls -la packages.txt || echo "packages.txt NOT FOUND"
           ls -la .github/workflows/_e2e_test.yaml || echo "_e2e_test.yaml NOT FOUND"
           echo "Hash is: ${{ hashFiles('./packages.txt') }}"
+          echo "hello" > testtt.txt
       - name: Cache dependencies
         env:
           # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
           DEBUG_HASH: ${{ hashFiles('**/requirements-dev.txt') }}
+          DEBUG_HASH1: ${{ hashFiles('**') }}
+          DEBUG_HASH2: ${{ hashFiles('csrc/**') }}
+          DEBUG_HASH3: ${{ hashFiles('testtt.txt') }}
+          DEBUG_HASH4: testwefdsf
         run: |
           ls requirements-dev.txt
-          echo "hash: $DEBUG_HASH"
+          echo "hash: '$DEBUG_HASH'"
+          echo "hash: '$DEBUG_HASH1'"
+          echo "hash: '$DEBUG_HASH2'"
+          echo "hash: '$DEBUG_HASH3'"
+          echo "hash: '$DEBUG_HASH4'"
 #      - name: Cache dependencies
 #        uses: runs-on/cache@v4
 #        with:
