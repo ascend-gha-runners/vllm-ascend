@@ -73,6 +73,13 @@ jobs:
         #CCACHE_COMPRESSLEVEL: 6
         #CCACHE_NOHASHDIR: true
     steps:
+      - name: Config mirrors
+        run: |
+          sed -Ei 's@(ports|archive).ubuntu.com@cache-service.nginx-pypi-cache.svc.cluster.local:8081@g' /etc/apt/sources.list
+          pip config set global.index-url http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
+          pip config set global.trusted-host cache-service.nginx-pypi-cache.svc.cluster.local
+          apt-get update -y
+          apt install git -y
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v6
       - name: Checkout vllm-project/vllm repo
@@ -82,16 +89,6 @@ jobs:
           ref: ${{ inputs.vllm }}
           path: ./vllm-empty
           fetch-depth: 1
-      - name: Config mirrors
-        run: |
-          sed -Ei 's@(ports|archive).ubuntu.com@cache-service.nginx-pypi-cache.svc.cluster.local:8081@g' /etc/apt/sources.list
-          pip config set global.index-url http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
-          pip config set global.trusted-host cache-service.nginx-pypi-cache.svc.cluster.local
-          apt-get update -y
-          apt install git -y
-      - name: disable apt clean
-        run: |
-          rm -f /etc/apt/apt.conf.d/docker-clean
       - name: Check npu and CANN info
         run: |
           npu-smi info
@@ -115,6 +112,7 @@ jobs:
           echo "hash: '$DEBUG_HASH2'"
           echo "hash: '$DEBUG_HASH3'"
           echo "hash: '$DEBUG_HASH4'"
+          sleep 300
 #      - name: Cache dependencies
 #        uses: runs-on/cache@v4
 #        with:
