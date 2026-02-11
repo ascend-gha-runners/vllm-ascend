@@ -106,7 +106,7 @@ jobs:
             /tmp/uv_cache
           key: ascend-${{ runner.os }}-pip-vllm-v1-${{ hashFiles('**/requirements-dev.txt') }}
           restore-keys: |
-            ascend-${{ runner.os }}-pip-vllm-v1
+            ascend-${{ runner.os }}-pip-vllm-v1-${{ hashFiles('**/requirements-dev.txt') }}
         env:
           # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
           RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
