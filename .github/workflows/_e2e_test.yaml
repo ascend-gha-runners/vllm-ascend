@@ -173,31 +173,31 @@ jobs:
 #          update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20
 #          #sleep 600
 #
-#      - name: Install vllm-project/vllm from source
-#        working-directory: ./vllm-empty
-#        run: |
-#          VLLM_TARGET_DEVICE=empty uv pip install --system -e .
-#
-#      - name: Install vllm-project/vllm-ascend
-#        env:
-#          PIP_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
-#          # 编译器包装器配置
-#          # Set SOURCE_DATE_EPOCH for reproducible builds
-#          SOURCE_DATE_EPOCH: 1
-#        run: |
-#          start_time=$(date +%s)
-#          pip install uc-manager
-#          end_time0=$(date +%s)
-#          duration=$((end_time0 - start_time))
-#          echo "==========install uc-manager总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
-#          uv pip install --system -r requirements-dev.txt
-#          end_time=$(date +%s)
-#          duration=$((end_time - start_time))
-#          echo "==========install requirements总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
-#          uv pip install --system --no-build-isolation -v -e .
-#          #sccache --show-stats
-#          end_time1=$(date +%s)
-#          duration=$((end_time1 - end_time))
-#          echo "==========build总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
-#          sccache -s
-#          #sleep 6000
+      - name: Install vllm-project/vllm from source
+        working-directory: ./vllm-empty
+        run: |
+          VLLM_TARGET_DEVICE=empty uv pip install --system -e .
+
+      - name: Install vllm-project/vllm-ascend
+        env:
+          PIP_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
+          # 编译器包装器配置
+          # Set SOURCE_DATE_EPOCH for reproducible builds
+          SOURCE_DATE_EPOCH: 1
+        run: |
+          start_time=$(date +%s)
+          pip install uc-manager
+          end_time0=$(date +%s)
+          duration=$((end_time0 - start_time))
+          echo "==========install uc-manager总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
+          uv pip install --system -r requirements-dev.txt
+          end_time=$(date +%s)
+          duration=$((end_time - start_time))
+          echo "==========install requirements总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
+          uv pip install --system --no-build-isolation -v -e .
+          #sccache --show-stats
+          end_time1=$(date +%s)
+          duration=$((end_time1 - end_time))
+          echo "==========build总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
+          sccache -s
+          sleep 6000
