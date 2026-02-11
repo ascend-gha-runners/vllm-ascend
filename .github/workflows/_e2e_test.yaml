@@ -113,22 +113,21 @@ jobs:
           echo "hash: '$DEBUG_HASH2'"
           echo "hash: '$DEBUG_HASH3'"
           echo "hash: '$DEBUG_HASH4'"
-          sleep 300
-#      - name: Cache dependencies
-#        uses: runs-on/cache@v4
-#        with:
-#          path: |
-#            /tmp/uv_cache
-#          key: ascend-${{ runner.os }}-pip-vllm-v1-${{ hashFiles('**/requirements-dev.txt') }}
-#          restore-keys: |
-#            ascend-${{ runner.os }}-pip-vllm-v1-${{ hashFiles('**/requirements-dev.txt') }}
-#        env:
-#          # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
-#          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
-#          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
-#          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
-#          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
-#          AWS_REGION: cn-southwest-2
+      - name: Cache dependencies
+        uses: runs-on/cache@v4
+        with:
+          path: |
+            /tmp/uv_cache
+          key: ascend-${{ runner.os }}-pip-vllm-v1-${{ hashFiles('**/requirements-dev.txt') }}
+          restore-keys: |
+            ascend-${{ runner.os }}-pip-vllm-v1-${{ hashFiles('**/requirements-dev.txt') }}
+        env:
+          # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
+          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
+          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
+          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
+          AWS_REGION: cn-southwest-2
 #      - name: Cache dependencies
 #        uses: runs-on/cache@v4
 #        with:
