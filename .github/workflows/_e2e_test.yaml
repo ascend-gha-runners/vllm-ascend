@@ -97,6 +97,7 @@ jobs:
           ls -la .github/workflows/_e2e_test.yaml || echo "_e2e_test.yaml NOT FOUND"
           echo "Hash is: ${{ hashFiles('./packages.txt') }}"
           echo "hello" > testtt.txt
+          git config --global --add safe.directory ./
       - name: Cache dependencies
         env:
           # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
