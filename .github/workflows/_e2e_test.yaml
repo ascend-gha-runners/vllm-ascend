@@ -133,7 +133,7 @@ jobs:
       - name: Install uv (if not pre-installed)
         run: |
           pip install uv
-          uv pip index --system versions sccache
+          uv pip index  versions sccache
           uv pip install --system sccache
           sccache --start-server
           #sccache --show-stats
