@@ -45,7 +45,7 @@ jobs:
         SCCACHE_IDLE_TIMEOUT: 0
         # SCCACHE 配置：使用共享盘
         SCCACHE_BUCKET: obs-guiiyang1-ascend-test
-        SCCACHE_ENDPOINT: obs.cn-southwest-2.myhuaweicloud.com
+        SCCACHE_ENDPOINT: https://obs-guiiyang1-ascend-test.obs.cn-southwest-2.myhuaweicloud.com
         AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
         SCCACHE_REGION: cn-southwest-2
