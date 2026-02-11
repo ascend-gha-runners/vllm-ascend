@@ -21,6 +21,7 @@ include(cmake/config.cmake)
 include(cmake/func.cmake)
 include(cmake/intf.cmake)
 
+
 if (BUILD_OPEN_PROJECT)
     set(_op_host_aclnn_link
             $<BUILD_INTERFACE:intf_pub>
