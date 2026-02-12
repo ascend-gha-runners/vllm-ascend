@@ -384,10 +384,6 @@ class cmake_build_ext(build_ext):
         overall_start = time.time()
         logging.info("[TIMING] ========== Starting build_extensions ==========")
 
-        if not envs.COMPILE_CUSTOM_KERNELS:
-            logging.info("[TIMING] COMPILE_CUSTOM_KERNELS is False, skipping build")
-            return
-
         # Ensure that CMake is present and working
         try:
             subprocess.check_output(["cmake", "--version"])
