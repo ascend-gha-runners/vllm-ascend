@@ -1,6 +1,20 @@
 cmake_minimum_required(VERSION 3.16)
 project(vllm_ascend_C)
 
+# SCCache/CCache支持
+option(ENABLE_CCACHE "Enable compiler cache (sccache/ccache)" ON)
+if(ENABLE_CCACHE)
+    # 优先查找sccache（支持分布式缓存），回退到ccache
+    find_program(CCACHE_PROGRAM NAMES sccache ccache)
+    if(CCACHE_PROGRAM)
+        set(CMAKE_C_COMPILER_LAUNCHER   ${CCACHE_PROGRAM} CACHE PATH "C cache Compiler")
+        set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM} CACHE PATH "CXX cache Compiler")
+        message(STATUS "Using compiler cache: ${CCACHE_PROGRAM}")
+    else()
+        message(WARNING "ENABLE_CCACHE is ON but neither sccache nor ccache found")
+    endif()
+endif()
+
 # include(CheckCXXcompilerFlag)
 # check_cxx_compiler_flag("-std=c++17", COMPILER_SUPPORTS_CXX17)
 set(CMAKE_CXX_STANDARD 17)
