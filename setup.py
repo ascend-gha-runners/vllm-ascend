@@ -516,9 +516,7 @@ except LookupError:
     # only checks out the commit. In this case, we set a dummy version.
     VERSION = "0.0.0"
 
-ext_modules = []
-if envs.COMPILE_CUSTOM_KERNELS:
-    ext_modules = [CMakeExtension(name="vllm_ascend.vllm_ascend_C")]
+ext_modules = [CMakeExtension(name="vllm_ascend.vllm_ascend_C")]
 
 
 def get_path(*filepath) -> str:
