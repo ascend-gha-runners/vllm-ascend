@@ -200,4 +200,4 @@ jobs:
           duration=$((end_time1 - end_time))
           echo "==========build总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
           sccache -s
-          sleep 6000
+          #sleep 6000
