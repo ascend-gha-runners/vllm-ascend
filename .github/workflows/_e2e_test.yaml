@@ -135,9 +135,8 @@ jobs:
       - name: Install uv (if not pre-installed)
         run: |
           pip install uv
-          pip index  versions sccache
-          uv pip install --system sccache
-          sccache --start-server
+          #uv pip install --system sccache
+          #sccache --start-server
           #sccache --show-stats
 #          UV_VERSION="0.9.30"
 #          FILENAME="uv-${UV_VERSION}-aarch64-unknown-linux-musl.tar.gz"
@@ -199,5 +198,5 @@ jobs:
           end_time1=$(date +%s)
           duration=$((end_time1 - end_time))
           echo "==========build总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
-          sccache -s
+          #sccache -s
           sleep 6000
