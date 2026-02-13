@@ -79,6 +79,7 @@ jobs:
           DIR_HASH=$(find ./csrc -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
           echo "DIR_HASH=$DIR_HASH" >> $GITHUB_OUTPUT
           echo "hash: $DIR_HASH"
+          sleep 500
       - name: Cache dependencies
         uses: runs-on/cache@v4
         with:
