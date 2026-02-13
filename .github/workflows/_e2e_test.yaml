@@ -28,7 +28,13 @@ on:
       contains_310:
         required: true
         type: boolean
-
+env:
+  UV_INDEX_URL: http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
+  UV_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
+  UV_INDEX_STRATEGY: unsafe-best-match
+  UV_NO_CACHE: 1
+  UV_PYTHON_DOWNLOADS: never
+  UV_SYSTEM_PYTHON: 1
 jobs:
   e2e-light:
     name: singlecard-light
@@ -43,38 +49,16 @@ jobs:
         VLLM_LOGGING_LEVEL: ERROR
         VLLM_USE_MODELSCOPE: True
         HF_HUB_OFFLINE: 1
-        # Additional sccache optimizations
-        # SCCACHE 配置：使用共享盘
-        SCCACHE_BUCKET: obs-guiiyang1-ascend-test
-        SCCACHE_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
-        AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
-        #AWS_S3_FORCE_PATH_STYLE: true
-        SCCACHE_REGION: cn-southwest-2
-        SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE: true
-        SCCACHE_MAX_FRAME_LENGTH: 104857600
-        SCCACHE_IDLE_TIMEOUT: 0
-        #SCCACHE_REDIS: redis://:${{ secrets.HW_REDIS_PWD }}@10.0.0.98:6379
-        #SCCACHE_SLOPPINESS: time_macros,include_file_mtime,file_stat_matches,path_prefix_replacement
-        #SCCACHE_DIRECT: true
-        #SCCACHE_IGNORE_SERVER_IO_ERROR: 1
-        #SCCACHE_COMPILER_WRAPPER: 1
-        SCCACHE_CACHE_SIZE: 10G
-        # uv 配置
-        UV_INDEX_URL: http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
-        UV_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
-        UV_INDEX_STRATEGY: unsafe-best-match
-        UV_NO_CACHE: 1
-        #UV_CACHE_DIR: /tmp/uv_cache
-        #UV_LINK_MODE: symlink
-
-        #CCACHE_DIR: /tmp/ccache
-        #CCACHE_MAXSIZE: 20G
-        #CCACHE_SLOPPINESS: time_macros,include_file_mtime,include_file_ctime
-        #CCACHE_COMPRESS: true
-        #CCACHE_COMPRESSLEVEL: 6
-        #CCACHE_NOHASHDIR: true
     steps:
+      - name: Checkout vllm-project/vllm-ascend repo
+        uses: actions/checkout@v6
+      - name: Checkout vllm-project/vllm repo
+        uses: actions/checkout@v6
+        with:
+          repository: vllm-project/vllm
+          ref: ${{ inputs.vllm }}
+          path: ./vllm-empty
+          fetch-depth: 1
       - name: Config mirrors
         run: |
           sed -Ei 's@(ports|archive).ubuntu.com@cache-service.nginx-pypi-cache.svc.cluster.local:8081@g' /etc/apt/sources.list
@@ -126,34 +110,12 @@ jobs:
 #          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
 #          AWS_REGION: cn-southwest-2
 
-      - name: Install uv (if not pre-installed)
-        run: |
-          pip install uv
-          #pip index  versions sccache
-          uv pip install --system sccache
-          sccache --start-server
-          sccache --show-stats
-#          UV_VERSION="0.9.30"
-#          FILENAME="uv-${UV_VERSION}-aarch64-unknown-linux-musl.tar.gz"
-#          DOWNLOAD_FILENAME="uv-aarch64-unknown-linux-musl.tar.gz"
-#          CACHE_DIR="/shared-data/uv"
-#          if [ -f "$CACHE_DIR/$FILENAME" ]; then
-#            echo "Found cached uv package successfully"
-#          else
-#            echo "uv package not found in cache. Downloading..."
-#            mkdir -p "$CACHE_DIR"
-#            apt update && apt install -y curl
-#            curl --connect-timeout 30 --retry 3 -L "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-aarch64-unknown-linux-musl.tar.gz" -o "$CACHE_DIR/$DOWNLOAD_FILENAME"
-#            mv "$CACHE_DIR/$DOWNLOAD_FILENAME" "$CACHE_DIR/$FILENAME"
-#          fi
-#          mkdir -p /tmp/uv
-#          tar -xzf "$CACHE_DIR/$FILENAME" -C /tmp/uv
-#          mv /tmp/uv/uv-aarch64-unknown-linux-musl/uv /usr/local/bin/
-#          chmod +x /usr/local/bin/uv
-#          echo "=== uv version ==="
-#          uv --version
-#          echo "=== uv configuration ==="
-#          uv cache dir
+      - name: Install cache tools
+        uses: ./.github/actions/install-cache-tools
+        with:
+          hw_obs_ak: ${{ secrets.HW_OBS_AK }}
+          hw_obs_sk: ${{ secrets.HW_OBS_SK }}
+
 #      - name: Install sccache (if not pre-installed)
 #        run: |
 #          FILENAME="sccache-v0.13.0-aarch64-unknown-linux-musl.tar.gz"
@@ -184,20 +146,10 @@ jobs:
 #          update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 20
 #          update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20
 #          #sleep 600
-
-      - name: Checkout vllm-project/vllm-ascend repo
-        uses: actions/checkout@v6
-      - name: Checkout vllm-project/vllm repo
-        uses: actions/checkout@v6
-        with:
-          repository: vllm-project/vllm
-          ref: ${{ inputs.vllm }}
-          path: ./vllm-empty
-          fetch-depth: 1
       - name: Install vllm-project/vllm from source
         working-directory: ./vllm-empty
         run: |
-          VLLM_TARGET_DEVICE=empty uv pip install --system -e .
+          VLLM_TARGET_DEVICE=empty uv pip install -e .
 
       - name: Install vllm-project/vllm-ascend
         env:
@@ -211,11 +163,11 @@ jobs:
           end_time0=$(date +%s)
           duration=$((end_time0 - start_time))
           echo "==========install uc-manager总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
-          uv pip install --system -r requirements-dev.txt
+          uv pip install -r requirements-dev.txt
           end_time=$(date +%s)
           duration=$((end_time - start_time))
           echo "==========install requirements总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
-          uv pip install --system --no-build-isolation -v -e .
+          uv pip install --no-build-isolation -v -e .
           #sccache --show-stats
           end_time1=$(date +%s)
           duration=$((end_time1 - end_time))
