@@ -40,7 +40,7 @@ env:
   AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
   SCCACHE_BUCKET: obs-guiiyang1-ascend-test
   SCCACHE_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
-  #SCCACHE_REGION: cn-southwest-2
+  SCCACHE_REGION: cn-southwest-2
   SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE: true
 
 jobs:
