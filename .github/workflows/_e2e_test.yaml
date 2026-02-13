@@ -45,16 +45,16 @@ jobs:
         HF_HUB_OFFLINE: 1
         # Additional sccache optimizations
         # SCCACHE 配置：使用共享盘
-        #SCCACHE_BUCKET: obs-guiiyang1-ascend-test
-        #SCCACHE_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
-        #AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
-        #AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
+        SCCACHE_BUCKET: obs-guiiyang1-ascend-test
+        SCCACHE_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
+        AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
         #AWS_S3_FORCE_PATH_STYLE: true
-        #SCCACHE_REGION: cn-southwest-2
-        #SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE: true
+        SCCACHE_REGION: cn-southwest-2
+        SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE: true
         SCCACHE_MAX_FRAME_LENGTH: 104857600
         SCCACHE_IDLE_TIMEOUT: 0
-        SCCACHE_REDIS: redis://:${{ secrets.HW_REDIS_PWD }}@10.0.0.98:6379
+        #SCCACHE_REDIS: redis://:${{ secrets.HW_REDIS_PWD }}@10.0.0.98:6379
         #SCCACHE_SLOPPINESS: time_macros,include_file_mtime,file_stat_matches,path_prefix_replacement
         #SCCACHE_DIRECT: true
         #SCCACHE_IGNORE_SERVER_IO_ERROR: 1
