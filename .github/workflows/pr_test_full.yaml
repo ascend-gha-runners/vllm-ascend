@@ -89,3 +89,4 @@ jobs:
       # 传递敏感的 secrets（必须和子 workflow 声明的名称一致）
       HW_OBS_AK: ${{ secrets.HW_OBS_AK }}
       HW_OBS_SK: ${{ secrets.HW_OBS_SK }}
+      HW_REDIS_PWD: ${{ secrets.HW_REDIS_PWD }}

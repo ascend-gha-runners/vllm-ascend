@@ -9,6 +9,9 @@ on:
       HW_OBS_SK:
         required: true
         description: "Huawei OBS Secret Key"
+      HW_REDIS_PWD:
+        required: true
+        description: "Huawei redis password"
     inputs:
       vllm:
         required: true
@@ -51,7 +54,7 @@ jobs:
         #SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE: true
         SCCACHE_MAX_FRAME_LENGTH: 104857600
         SCCACHE_IDLE_TIMEOUT: 0
-        SCCACHE_REDIS: redis://10.0.0.98:6379
+        SCCACHE_REDIS: redis://:${{ secrets.HW_REDIS_PWD }}@10.0.0.98:6379
         #SCCACHE_SLOPPINESS: time_macros,include_file_mtime,file_stat_matches,path_prefix_replacement
         #SCCACHE_DIRECT: true
         #SCCACHE_IGNORE_SERVER_IO_ERROR: 1
