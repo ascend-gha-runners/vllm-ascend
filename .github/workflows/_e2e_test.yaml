@@ -75,7 +75,7 @@ jobs:
           apt-get update -y
           apt install git -y
           pip install uv
-          uv venv
+          #uv venv
           uv pip install --system sccache
           sccache -s
 
