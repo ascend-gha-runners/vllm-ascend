@@ -79,15 +79,7 @@ jobs:
           pip config set global.trusted-host cache-service.nginx-pypi-cache.svc.cluster.local
           apt-get update -y
           apt install git -y
-      - name: Checkout vllm-project/vllm-ascend repo
-        uses: actions/checkout@v6
-      - name: Checkout vllm-project/vllm repo
-        uses: actions/checkout@v6
-        with:
-          repository: vllm-project/vllm
-          ref: ${{ inputs.vllm }}
-          path: ./vllm-empty
-          fetch-depth: 1
+
       - name: Check npu and CANN info
         run: |
           npu-smi info
@@ -189,7 +181,16 @@ jobs:
 #          update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 20
 #          update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20
 #          #sleep 600
-#
+
+      - name: Checkout vllm-project/vllm-ascend repo
+        uses: actions/checkout@v6
+      - name: Checkout vllm-project/vllm repo
+        uses: actions/checkout@v6
+        with:
+          repository: vllm-project/vllm
+          ref: ${{ inputs.vllm }}
+          path: ./vllm-empty
+          fetch-depth: 1
       - name: Install vllm-project/vllm from source
         working-directory: ./vllm-empty
         run: |
