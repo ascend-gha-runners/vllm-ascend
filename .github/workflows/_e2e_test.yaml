@@ -164,6 +164,7 @@ jobs:
           # Set SOURCE_DATE_EPOCH for reproducible builds
           SOURCE_DATE_EPOCH: 1
         run: |
+          sleep 6000
           start_time=$(date +%s)
           pip install uc-manager
           end_time0=$(date +%s)
@@ -179,4 +180,4 @@ jobs:
           duration=$((end_time1 - end_time))
           echo "==========build总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
           sccache -s
-          #sleep 6000
+          
