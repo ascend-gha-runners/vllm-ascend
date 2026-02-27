@@ -110,34 +110,34 @@ function set_env() {
 
 function build() {
     cd ${PATH_TO_BUILD}
-    # Build cmake command with optional ccache parameters
-    CMAKE_CMD="cmake ${PATH_TO_SOURCE} \
-        -DBUILD_OPEN_PROJECT=${BUILD_OPEN_PROJECT} \
-        -DPREPARE_BUILD=ON \
-        -DCUSTOM_ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH} \
-        -DASCEND_AUTOGEN_DIR=${ASCEND_AUTOGEN_DIR} \
-        -DASCEND_BINARY_OUT_DIR=${ASCEND_BINARY_OUT_DIR} \
-        -DASCEND_IMPL_OUT_DIR=${ASCEND_IMPL_OUT_DIR} \
-        -DOP_BUILD_TOOL=${OP_BUILD_TOOL} \
-        -DASCEND_CMAKE_DIR=${ASCEND_CMAKE_DIR} \
-        -DCHECK_COMPATIBLE=${CHECK_COMPATIBLE} \
-        -DTILING_KEY=\"${CONVERT_TILING_KEY}\" \
-        -DOPS_COMPILE_OPTIONS=\"${CONVERT_OPS_COMPILE_OPTIONS}\" \
-        -DASCEND_COMPUTE_UNIT=${CONVERT_ASCEND_COMPUTE_UNIT} \
-        -DOP_DEBUG_CONFIG=${OP_DEBUG_CONFIG} \
-        -DASCEND_OP_NAME=${ASCEND_OP_NAME}"
+    CMAKE_ARGS=(
+        "${PATH_TO_SOURCE}"
+        "-DBUILD_OPEN_PROJECT=${BUILD_OPEN_PROJECT}"
+        "-DPREPARE_BUILD=ON"
+        "-DCUSTOM_ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH}"
+        "-DASCEND_AUTOGEN_DIR=${ASCEND_AUTOGEN_DIR}"
+        "-DASCEND_BINARY_OUT_DIR=${ASCEND_BINARY_OUT_DIR}"
+        "-DASCEND_IMPL_OUT_DIR=${ASCEND_IMPL_OUT_DIR}"
+        "-DOP_BUILD_TOOL=${OP_BUILD_TOOL}"
+        "-DASCEND_CMAKE_DIR=${ASCEND_CMAKE_DIR}"
+        "-DCHECK_COMPATIBLE=${CHECK_COMPATIBLE}"
+        # 数组元素天然支持带空格的字符串，无需手动转义引号
+        "-DTILING_KEY=${CONVERT_TILING_KEY}"
+        "-DOPS_COMPILE_OPTIONS=${CONVERT_OPS_COMPILE_OPTIONS}"
+        "-DASCEND_COMPUTE_UNIT=${CONVERT_ASCEND_COMPUTE_UNIT}"
+        "-DOP_DEBUG_CONFIG=${OP_DEBUG_CONFIG}"
+        "-DASCEND_OP_NAME=${ASCEND_OP_NAME}"
+    )
 
-    # Add ccache parameters if provided
+    # ccache 参数仅在非空时追加，避免显式传空值覆盖 cmake 缓存
     if [ -n "${ENABLE_CCACHE}" ]; then
-        CMAKE_CMD="${CMAKE_CMD} -DENABLE_CCACHE=${ENABLE_CCACHE}"
+        CMAKE_ARGS+=("-DENABLE_CCACHE=${ENABLE_CCACHE}")
     fi
-
     if [ -n "${CUSTOM_CCACHE}" ]; then
-        CMAKE_CMD="${CMAKE_CMD} -DCUSTOM_CCACHE=${CUSTOM_CCACHE}"
+        CMAKE_ARGS+=("-DCUSTOM_CCACHE=${CUSTOM_CCACHE}")
     fi
 
-    # Execute cmake command
-    eval ${CMAKE_CMD}
+    cmake "${CMAKE_ARGS[@]}"
 
     make ${JOB_NUM} prepare_build
 }

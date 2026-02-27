@@ -92,19 +92,19 @@ jobs:
           else
             echo "Error: $INI_FILE not found" && exit 1
           fi
-      - name: Cache dependencies
-        uses: runs-on/cache@v4
-        with:
-          path: |
-            /tmp/uv_cache
-          key: ascend-${{ runner.os }}-pip-vllm-v1-${{ steps.get_dir_hash.outputs.DIR_HASH }}
-          restore-keys: |
-            ascend-${{ runner.os }}-pip-vllm-v1-${{ steps.get_dir_hash.outputs.DIR_HASH }}
-        env:
-          # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
-          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
-          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
-          AWS_REGION: cn-southwest-2
+#      - name: Cache dependencies
+#        uses: runs-on/cache@v4
+#        with:
+#          path: |
+#            /tmp/uv_cache
+#          key: ascend-${{ runner.os }}-pip-vllm-v1-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+#          restore-keys: |
+#            ascend-${{ runner.os }}-pip-vllm-v1-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+#        env:
+#          # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
+#          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
+#          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
+#          AWS_REGION: cn-southwest-2
 #      - name: Cache dependencies
 #        uses: runs-on/cache@v4
 #        with:
@@ -151,10 +151,10 @@ jobs:
 #          update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 20
 #          update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20
 #          #sleep 600
-      - name: Install vllm-project/vllm from source
-        working-directory: ./vllm-empty
-        run: |
-          VLLM_TARGET_DEVICE=empty uv pip install --no-build-isolation -e .
+#      - name: Install vllm-project/vllm from source
+#        working-directory: ./vllm-empty
+#        run: |
+#          VLLM_TARGET_DEVICE=empty uv pip install --no-build-isolation -e .
 
       - name: Install vllm-project/vllm-ascend
         env:
@@ -163,7 +163,6 @@ jobs:
           # Set SOURCE_DATE_EPOCH for reproducible builds
           SOURCE_DATE_EPOCH: 1
         run: |
-          sleep 6000
           start_time=$(date +%s)
           pip install uc-manager
           end_time0=$(date +%s)

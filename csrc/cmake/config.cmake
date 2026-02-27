@@ -195,11 +195,13 @@ if (BUILD_OPEN_PROJECT)
         string(REPLACE ";" "::" EP_ASCEND_COMPUTE_UNIT "${ASCEND_COMPUTE_UNIT}")
 
         # Prepare ccache parameters for prepare.sh
+        # 必须用 list(APPEND) 构造 CMake 列表（分号分隔），execute_process 才能将每个元素
+        # 作为独立参数传给 bash；若用空格拼接字符串，整个字符串会作为单一参数传入，bash 无法解析
         set(PREPARE_CCACHE_ARGS "")
         if (ENABLE_CCACHE)
-            set(PREPARE_CCACHE_ARGS "${PREPARE_CCACHE_ARGS} --enable-ccache ON")
+            list(APPEND PREPARE_CCACHE_ARGS --enable-ccache ON)
             if (CUSTOM_CCACHE)
-                set(PREPARE_CCACHE_ARGS "${PREPARE_CCACHE_ARGS} --custom-ccache ${CUSTOM_CCACHE}")
+                list(APPEND PREPARE_CCACHE_ARGS --custom-ccache "${CUSTOM_CCACHE}")
             endif ()
         endif ()
 
