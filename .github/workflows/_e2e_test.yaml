@@ -27,7 +27,6 @@ env:
   UV_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
   UV_INDEX_STRATEGY: unsafe-best-match
   UV_NO_CACHE: 1
-  UV_PYTHON_DOWNLOADS: never
   UV_SYSTEM_PYTHON: 1
 
   SCCACHE_BUCKET: obs-guiiyang1-ascend-test
@@ -155,7 +154,7 @@ jobs:
       - name: Install vllm-project/vllm from source
         working-directory: ./vllm-empty
         run: |
-          VLLM_TARGET_DEVICE=empty uv pip install -e .
+          VLLM_TARGET_DEVICE=empty uv pip install --no-build-isolation -e .
 
       - name: Install vllm-project/vllm-ascend
         env:
