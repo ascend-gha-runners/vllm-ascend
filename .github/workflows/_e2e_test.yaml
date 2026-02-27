@@ -84,7 +84,6 @@ jobs:
           echo "hash: $DIR_HASH"
       - name: Load OBS credentials from file
         run: |
-          sleep 100
           INI_FILE="/shared-data/obstest.ini"
           if [ -f "$INI_FILE" ]; then
             HW_OBS_AK=$(grep '^HW_OBS_AK=' "$INI_FILE" | cut -d'=' -f2-)
