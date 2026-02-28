@@ -43,7 +43,7 @@ jobs:
     with:
       vllm: 15d76f74e2fdb12a95ea00f0ca283acf6219a2b7
   changes:
-    runs-on: linux-aarch64-a2b3-0
+    runs-on: linux-arm64-npu-1
     outputs:
       e2e_tracker: ${{ steps.filter.outputs.e2e_tracker }}
       ut_tracker: ${{ steps.filter.outputs.ut_tracker }}
@@ -94,6 +94,9 @@ jobs:
       runner: linux-amd64-cpu-8-hk
       image: quay.nju.edu.cn/ascend/cann:8.5.0-910b-ubuntu22.04-py3.11
       type: pr
+    secrets:
+      HW_OBS_AK: ${{ secrets.HW_OBS_AK }}
+      HW_OBS_SK: ${{ secrets.HW_OBS_SK }}
 
   e2e-light:
     name: e2e-light
@@ -110,3 +113,6 @@ jobs:
       image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/vllm-ascend:main
       contains_310: ${{ needs.changes.outputs._310_tracker == 'true' }}
       type: light
+    secrets:
+      HW_OBS_AK: ${{ secrets.HW_OBS_AK }}
+      HW_OBS_SK: ${{ secrets.HW_OBS_SK }}
