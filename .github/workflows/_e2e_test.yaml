@@ -98,7 +98,7 @@ jobs:
       matrix:
         part: [0]
     container:
-      image: ${{ needs.select-image.outputs.image }}
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.0-a3-ubuntu22.04-py3.11
       env:
         VLLM_LOGGING_LEVEL: ERROR
         VLLM_USE_MODELSCOPE: True
@@ -156,22 +156,10 @@ jobs:
 
           IMAGE_SHA=$(git -C "${DEST}" log -1 --format=%H 2>/dev/null || echo "")
           cp -rT . "${DEST}/"
-          if [ -n "$IMAGE_SHA" ] && git cat-file -e "${IMAGE_SHA}" 2>/dev/null; then
-            C_CHANGES=$(git diff "${IMAGE_SHA}"..HEAD --name-only -- \
-              csrc/ cmake/ CMakeLists.txt setup.py requirements.txt requirements-dev.txt)
-            echo "[debug] C_CHANGES=${C_CHANGES:-<empty>}"
-          else
-            echo "[debug] IMAGE_SHA not found in local history (empty or unreachable), forcing reinstall"
-            C_CHANGES="yes"
-          fi
           pip install uc-manager
           uv pip install -r ${DEST}/requirements-dev.txt
-          if [ -n "$C_CHANGES" ]; then
-            echo "[debug] C code / build changes detected, reinstalling vllm-ascend..."
-            uv pip install -v -e "${DEST}/"
-          else
-            echo "[debug] No C code / build changes detected, skipping reinstall."
-          fi
+          echo "[debug] C code / build changes detected, reinstalling vllm-ascend..."
+          uv pip install -v -e "${DEST}/"
 
       - name: Run vllm-project/vllm-ascend test
         working-directory: /vllm-workspace/vllm-ascend
@@ -191,7 +179,7 @@ jobs:
       matrix:
         part: [0, 1]
     container:
-      image: ${{ needs.select-image.outputs.image }}
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.0-a3-ubuntu22.04-py3.11
       env:
         VLLM_LOGGING_LEVEL: ERROR
         VLLM_USE_MODELSCOPE: True
@@ -261,12 +249,8 @@ jobs:
           fi
           pip install uc-manager
           uv pip install -r ${DEST}/requirements-dev.txt
-          if [ -n "$C_CHANGES" ]; then
-            echo "[debug] C code / build changes detected, reinstalling vllm-ascend..."
-            uv pip install -v -e "${DEST}/"
-          else
-            echo "[debug] No C code / build changes detected, skipping reinstall."
-          fi
+          echo "[debug] C code / build changes detected, reinstalling vllm-ascend..."
+          uv pip install -v -e "${DEST}/"
 
       - name: Run e2e test
         working-directory: /vllm-workspace/vllm-ascend
@@ -286,7 +270,7 @@ jobs:
       matrix:
         part: [0]
     container:
-      image: ${{ needs.select-image.outputs.image_a3 }}
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.0-a3-ubuntu22.04-py3.11
       env:
         VLLM_LOGGING_LEVEL: ERROR
         VLLM_USE_MODELSCOPE: True
@@ -355,12 +339,8 @@ jobs:
           fi
           pip install uc-manager
           uv pip install -r ${DEST}/requirements-dev.txt
-          if [ -n "$C_CHANGES" ]; then
-            echo "[debug] C code / build changes detected, reinstalling vllm-ascend..."
-            uv pip install -v -e "${DEST}/"
-          else
-            echo "[debug] No C code / build changes detected, skipping reinstall."
-          fi
+          echo "[debug] C code / build changes detected, reinstalling vllm-ascend..."
+          uv pip install -v -e "${DEST}/"
 
       - name: Run vllm-project/vllm-ascend test (light)
         working-directory: /vllm-workspace/vllm-ascend
@@ -379,7 +359,7 @@ jobs:
       matrix:
         part: [0]
     container:
-      image: ${{ needs.select-image.outputs.image_a3 }}
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.0-a3-ubuntu22.04-py3.11
       env:
         VLLM_LOGGING_LEVEL: ERROR
         VLLM_USE_MODELSCOPE: True
@@ -448,12 +428,8 @@ jobs:
           fi
           pip install uc-manager
           uv pip install -r ${DEST}/requirements-dev.txt
-          if [ -n "$C_CHANGES" ]; then
-            echo "[debug] C code / build changes detected, reinstalling vllm-ascend..."
-            uv pip install -v -e "${DEST}/"
-          else
-            echo "[debug] No C code / build changes detected, skipping reinstall."
-          fi
+          echo "[debug] C code / build changes detected, reinstalling vllm-ascend..."
+          uv pip install -v -e "${DEST}/"
 
       - name: Run vllm-project/vllm-ascend test (full)
         working-directory: /vllm-workspace/vllm-ascend
@@ -481,7 +457,7 @@ jobs:
       matrix:
         part: [0]
     container:
-      image: ${{ needs.select-image.outputs.image_a3 }}
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.0-a3-ubuntu22.04-py3.11
       env:
         VLLM_LOGGING_LEVEL: ERROR
         VLLM_USE_MODELSCOPE: True
@@ -549,12 +525,8 @@ jobs:
           fi
           pip install uc-manager
           uv pip install -r ${DEST}/requirements-dev.txt
-          if [ -n "$C_CHANGES" ]; then
-            echo "[debug] C code / build changes detected, reinstalling vllm-ascend..."
-            uv pip install -v -e "${DEST}/"
-          else
-            echo "[debug] No C code / build changes detected, skipping reinstall."
-          fi
+          echo "[debug] C code / build changes detected, reinstalling vllm-ascend..."
+          uv pip install -v -e "${DEST}/"
 
       - name: Run vllm-project/vllm-ascend test for V1 Engine
         working-directory: /vllm-workspace/vllm-ascend
@@ -569,7 +541,7 @@ jobs:
     if: ${{ inputs.contains_310 }}
     needs: [select-image]
     container:
-      image: ${{ needs.select-image.outputs.image_310p }}
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.0-a3-ubuntu22.04-py3.11
       env:
         VLLM_LOGGING_LEVEL: ERROR
         VLLM_USE_MODELSCOPE: True
@@ -638,12 +610,8 @@ jobs:
           fi
           pip install uc-manager
           uv pip install -r ${DEST}/requirements-dev.txt
-          if [ -n "$C_CHANGES" ]; then
-            echo "[debug] C code / build changes detected, reinstalling vllm-ascend..."
-            uv pip install -v -e "${DEST}/"
-          else
-            echo "[debug] No C code / build changes detected, skipping reinstall."
-          fi
+          echo "[debug] C code / build changes detected, reinstalling vllm-ascend..."
+          uv pip install -v -e "${DEST}/"
 
       - name: Run vllm-project/vllm-ascend test
         working-directory: /vllm-workspace/vllm-ascend
@@ -659,7 +627,7 @@ jobs:
     if: ${{ inputs.contains_310 }}
     needs: [select-image]
     container:
-      image: ${{ needs.select-image.outputs.image_310p }}
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.0-a3-ubuntu22.04-py3.11
       env:
         VLLM_LOGGING_LEVEL: ERROR
         VLLM_USE_MODELSCOPE: True
@@ -728,12 +696,8 @@ jobs:
           fi
           pip install uc-manager
           uv pip install -r ${DEST}/requirements-dev.txt
-          if [ -n "$C_CHANGES" ]; then
-            echo "[debug] C code / build changes detected, reinstalling vllm-ascend..."
-            uv pip install -v -e "${DEST}/"
-          else
-            echo "[debug] No C code / build changes detected, skipping reinstall."
-          fi
+          echo "[debug] C code / build changes detected, reinstalling vllm-ascend..."
+          uv pip install -v -e "${DEST}/"
 
       - name: Run vllm-project/vllm-ascend test
         working-directory: /vllm-workspace/vllm-ascend
