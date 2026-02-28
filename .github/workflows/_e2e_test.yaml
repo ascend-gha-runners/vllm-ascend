@@ -84,7 +84,7 @@ jobs:
       - name: Install vllm-project/vllm from source
         working-directory: ./vllm-empty
         run: |
-          VLLM_TARGET_DEVICE=empty uv pip install -e .
+          VLLM_TARGET_DEVICE=empty uv pip install -e . --extra-index-url https://download.pytorch.org/whl/cpu/
 
       - name: Install vllm-project/vllm-ascend
         env:
@@ -154,7 +154,7 @@ jobs:
       - name: Install vllm-project/vllm from source
         working-directory: ./vllm-empty
         run: |
-          VLLM_TARGET_DEVICE=empty uv pip install -e .
+          VLLM_TARGET_DEVICE=empty uv pip install -e . --extra-index-url https://download.pytorch.org/whl/cpu/
 
       - name: Install vllm-project/vllm-ascend
         env:
@@ -223,7 +223,7 @@ jobs:
       - name: Install vllm-project/vllm from source
         working-directory: ./vllm-empty
         run: |
-          VLLM_TARGET_DEVICE=empty uv pip install -e .
+          VLLM_TARGET_DEVICE=empty uv pip install -e . --extra-index-url https://download.pytorch.org/whl/cpu/
 
       - name: Install vllm-project/vllm-ascend
         env:
@@ -290,7 +290,7 @@ jobs:
       - name: Install vllm-project/vllm from source
         working-directory: ./vllm-empty
         run: |
-          VLLM_TARGET_DEVICE=empty uv pip install -e .
+          VLLM_TARGET_DEVICE=empty uv pip install -e . --extra-index-url https://download.pytorch.org/whl/cpu/
 
       - name: Install vllm-project/vllm-ascend
         env:
@@ -365,7 +365,7 @@ jobs:
       - name: Install vllm-project/vllm from source
         working-directory: ./vllm-empty
         run: |
-          VLLM_TARGET_DEVICE=empty uv pip install -e .
+          VLLM_TARGET_DEVICE=empty uv pip install -e . --extra-index-url https://download.pytorch.org/whl/cpu/
 
       - name: Install vllm-project/vllm-ascend
         env:
@@ -425,7 +425,7 @@ jobs:
       - name: Install vllm-project/vllm from source
         working-directory: ./vllm-empty
         run: |
-          VLLM_TARGET_DEVICE=empty uv pip install -e .
+          VLLM_TARGET_DEVICE=empty uv pip install -e . --extra-index-url https://download.pytorch.org/whl/cpu/
 
       - name: Install vllm-project/vllm-ascend
         env:
@@ -486,7 +486,7 @@ jobs:
       - name: Install vllm-project/vllm from source
         working-directory: ./vllm-empty
         run: |
-          VLLM_TARGET_DEVICE=empty uv pip install -e .
+          VLLM_TARGET_DEVICE=empty uv pip install -e . --extra-index-url https://download.pytorch.org/whl/cpu/
 
       - name: Install vllm-project/vllm-ascend
         env:
