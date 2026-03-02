@@ -112,6 +112,9 @@ function build() {
     cd ${PATH_TO_BUILD}
     echo "DEBUG: ENABLE_CCACHE=${ENABLE_CCACHE}"
     echo "DEBUG: CCACHE_PROGRAM=${CCACHE_PROGRAM}"
+    
+    echo "=== Starting CMake configuration ==="
+    cmake_start=$(date +%s.%N)
     cmake ${PATH_TO_SOURCE} \
         -DBUILD_OPEN_PROJECT=${BUILD_OPEN_PROJECT} \
         -DPREPARE_BUILD=ON \
@@ -127,17 +130,27 @@ function build() {
         -DASCEND_COMPUTE_UNIT=${CONVERT_ASCEND_COMPUTE_UNIT} \
         -DOP_DEBUG_CONFIG=${OP_DEBUG_CONFIG} \
         -DASCEND_OP_NAME=${ASCEND_OP_NAME}
+    cmake_end=$(date +%s.%N)
+    cmake_duration=$(echo "$cmake_end - $cmake_start" | bc)
+    echo "=== CMake configuration completed in ${cmake_duration} seconds ==="
 #        -DENABLE_CCACHE=${ENABLE_CCACHE} \
 #        -DCUSTOM_CCACHE=${CCACHE_PROGRAM}
 
 #    if [ "${ENABLE_CCACHE}" = "ON" ] && [ -n "${CCACHE_PROGRAM}" ]; then
     sccache --zero-stats
-    export CMAKE_C_COMPILER_LAUNCHER=/usr/local/python3.11.14/bin/sccache
-    export CMAKE_CXX_COMPILER_LAUNCHER=/usr/local/python3.11.14/bin/sccache
+#    export CMAKE_C_COMPILER_LAUNCHER=/usr/local/python3.11.14/bin/sccache
+#    export CMAKE_CXX_COMPILER_LAUNCHER=/usr/local/python3.11.14/bin/sccache
 #        echo "DEBUG: Set CC=${CC}"
 #        echo "DEBUG: Set CXX=${CXX}"
 #    fi
+    
+    echo "=== Starting C++ code compilation (make prepare_build) ==="
+    make_start=$(date +%s.%N)
     make ${JOB_NUM} prepare_build
+    make_end=$(date +%s.%N)
+    make_duration=$(echo "$make_end - $make_start" | bc)
+    echo "=== C++ code compilation completed in ${make_duration} seconds ==="
+    
     sccache --show-stats
 }
 
