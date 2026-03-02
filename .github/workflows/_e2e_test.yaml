@@ -93,6 +93,7 @@ jobs:
           pip install uc-manager
           uv pip install -r requirements-dev.txt
           uv pip install -v -e .
+          sccache --show-stats
 
       - name: Run vllm-project/vllm-ascend test
         env:
@@ -164,6 +165,7 @@ jobs:
           pip install uc-manager
           uv pip install -r requirements-dev.txt
           uv pip install -v -e .
+          sccache --show-stats
 
 #      - name: Run e2e test
 #        env:
