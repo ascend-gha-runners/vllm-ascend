@@ -126,14 +126,14 @@ function build() {
         -DOPS_COMPILE_OPTIONS="${CONVERT_OPS_COMPILE_OPTIONS}" \
         -DASCEND_COMPUTE_UNIT=${CONVERT_ASCEND_COMPUTE_UNIT} \
         -DOP_DEBUG_CONFIG=${OP_DEBUG_CONFIG} \
-        -DASCEND_OP_NAME=${ASCEND_OP_NAME} \
-        -DENABLE_CCACHE=${ENABLE_CCACHE} \
-        -DCUSTOM_CCACHE=${CCACHE_PROGRAM}
+        -DASCEND_OP_NAME=${ASCEND_OP_NAME}
+#        -DENABLE_CCACHE=${ENABLE_CCACHE} \
+#        -DCUSTOM_CCACHE=${CCACHE_PROGRAM}
 
 #    if [ "${ENABLE_CCACHE}" = "ON" ] && [ -n "${CCACHE_PROGRAM}" ]; then
     sccache --zero-stats
-    export CMAKE_C_COMPILER_LAUNCHER="${CCACHE_PROGRAM}"
-    export CMAKE_CXX_COMPILER_LAUNCHER="${CCACHE_PROGRAM}"
+    export CMAKE_C_COMPILER_LAUNCHER=/usr/local/python3.11.14/bin/sccache
+    export CMAKE_CXX_COMPILER_LAUNCHER=/usr/local/python3.11.14/bin/sccache
 #        echo "DEBUG: Set CC=${CC}"
 #        echo "DEBUG: Set CXX=${CXX}"
 #    fi
