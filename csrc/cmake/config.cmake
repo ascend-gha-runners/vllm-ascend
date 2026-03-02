@@ -193,7 +193,25 @@ if (BUILD_OPEN_PROJECT)
         endif ()
 
         string(REPLACE ";" "::" EP_ASCEND_COMPUTE_UNIT "${ASCEND_COMPUTE_UNIT}")
-        message(STATUS "execute_process  CMAKE_CURRENT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR},ENABLE_CCACHE=${ENABLE_CCACHE},CUSTOM_CCACHE=${CUSTOM_CCACHE}")
+        message(STATUS "=== Starting prepare.sh execution ===")
+        message(STATUS "CMAKE_CURRENT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}")
+        message(STATUS "ENABLE_CCACHE=${ENABLE_CCACHE}, CUSTOM_CCACHE=${CUSTOM_CCACHE}")
+        message(STATUS "PATH_TO_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}")
+        message(STATUS "PATH_TO_BUILD=${CMAKE_CURRENT_BINARY_DIR}/prepare_build")
+        message(STATUS "ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH}")
+        message(STATUS "ASCEND_AUTOGEN_DIR=${ASCEND_AUTOGEN_DIR}")
+        message(STATUS "BUILD_OPEN_PROJECT=${BUILD_OPEN_PROJECT}")
+        message(STATUS "ASCEND_BINARY_OUT_DIR=${ASCEND_BINARY_OUT_DIR}")
+        message(STATUS "ASCEND_IMPL_OUT_DIR=${ASCEND_IMPL_OUT_DIR}")
+        message(STATUS "OP_BUILD_TOOL=${OP_BUILD_TOOL}")
+        message(STATUS "ASCEND_CMAKE_DIR=${ASCEND_CMAKE_DIR}")
+        message(STATUS "EP_TILING_KEY=${EP_TILING_KEY}")
+        message(STATUS "EP_OPS_COMPILE_OPTIONS=${EP_OPS_COMPILE_OPTIONS}")
+        message(STATUS "CHECK_COMPATIBLE=${CHECK_COMPATIBLE}")
+        message(STATUS "EP_ASCEND_COMPUTE_UNIT=${EP_ASCEND_COMPUTE_UNIT}")
+        message(STATUS "OP_DEBUG_CONFIG=${OP_DEBUG_CONFIG}")
+        message(STATUS "ASCEND_OP_NAME=${ASCEND_OP_NAME}")
+        message(STATUS "Executing: bash ${CMAKE_CURRENT_SOURCE_DIR}/cmake/scripts/prepare.sh ...")
         execute_process(COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/cmake/scripts/prepare.sh
                 -s ${CMAKE_CURRENT_SOURCE_DIR}
                 -b ${CMAKE_CURRENT_BINARY_DIR}/prepare_build
@@ -214,9 +232,19 @@ if (BUILD_OPEN_PROJECT)
                 --ccache-program ${CUSTOM_CCACHE}
                 RESULT_VARIABLE result
                 OUTPUT_STRIP_TRAILING_WHITESPACE
-                OUTPUT_VARIABLE PREPARE_BUILD_OUTPUT_VARIABLE)
+                OUTPUT_VARIABLE PREPARE_BUILD_OUTPUT_VARIABLE
+                ERROR_STRIP_TRAILING_WHITESPACE
+                ERROR_VARIABLE PREPARE_BUILD_ERROR_VARIABLE)
+        message(STATUS "=== prepare.sh execution completed ===")
+        message(STATUS "Result code: ${result}")
+        if (PREPARE_BUILD_OUTPUT_VARIABLE)
+            message(STATUS "prepare.sh output:\n${PREPARE_BUILD_OUTPUT_VARIABLE}")
+        endif()
+        if (PREPARE_BUILD_ERROR_VARIABLE)
+            message(STATUS "prepare.sh error:\n${PREPARE_BUILD_ERROR_VARIABLE}")
+        endif()
         if (result)
-            message(FATAL_ERROR "Error: ops prepare build failed.")
+            message(FATAL_ERROR "Error: ops prepare build failed with result code ${result}")
         endif ()
 
         file(REMOVE ${ASCEND_CUSTOM_OPTIONS})
