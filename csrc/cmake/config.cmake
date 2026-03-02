@@ -173,7 +173,8 @@ if (BUILD_OPEN_PROJECT)
     message(STATUS "TESTS_UT_OPS_TEST=${TESTS_UT_OPS_TEST}")
     message(STATUS "TESTS_EXAMPLE_OPS_TEST=${TESTS_EXAMPLE_OPS_TEST}")
 endif ()
-
+message(STATUS "PREPARE_BUILD=${PREPARE_BUILD}")
+message(STATUS "ENABLE_OPS_KERNEL=${ENABLE_OPS_KERNEL}")
 ########################################################################################################################
 # Preprocessing
 ########################################################################################################################
@@ -192,7 +193,7 @@ if (BUILD_OPEN_PROJECT)
         endif ()
 
         string(REPLACE ";" "::" EP_ASCEND_COMPUTE_UNIT "${ASCEND_COMPUTE_UNIT}")
-
+        message(STATUS "execute_process  CMAKE_CURRENT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR},ENABLE_CCACHE=${ENABLE_CCACHE},CUSTOM_CCACHE=${CUSTOM_CCACHE}")
         execute_process(COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/cmake/scripts/prepare.sh
                 -s ${CMAKE_CURRENT_SOURCE_DIR}
                 -b ${CMAKE_CURRENT_BINARY_DIR}/prepare_build
