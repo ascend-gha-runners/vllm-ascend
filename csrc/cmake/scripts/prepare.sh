@@ -110,6 +110,8 @@ function set_env() {
 
 function build() {
     cd ${PATH_TO_BUILD}
+    echo "DEBUG: ENABLE_CCACHE=${ENABLE_CCACHE}"
+    echo "DEBUG: CCACHE_PROGRAM=${CCACHE_PROGRAM}"
     cmake ${PATH_TO_SOURCE} \
         -DBUILD_OPEN_PROJECT=${BUILD_OPEN_PROJECT} \
         -DPREPARE_BUILD=ON \
@@ -128,6 +130,12 @@ function build() {
         -DENABLE_CCACHE=${ENABLE_CCACHE} \
         -DCUSTOM_CCACHE=${CCACHE_PROGRAM}
 
+    if [ "${ENABLE_CCACHE}" = "ON" ] && [ -n "${CCACHE_PROGRAM}" ]; then
+        export CC="${CCACHE_PROGRAM} ${CC}"
+        export CXX="${CCACHE_PROGRAM} ${CXX}"
+        echo "DEBUG: Set CC=${CC}"
+        echo "DEBUG: Set CXX=${CXX}"
+    fi
     make ${JOB_NUM} prepare_build
 }
 
