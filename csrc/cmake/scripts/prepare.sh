@@ -108,13 +108,31 @@ function set_env() {
     CONVERT_ASCEND_COMPUTE_UNIT="$(convert_string ${ASCEND_COMPUTE_UNIT})"
 }
 
+function get_time() {
+    if date +%s.%N >/dev/null 2>&1; then
+        date +%s.%N
+    else
+        date +%s
+    fi
+}
+
+function calc_duration() {
+    local start=$1
+    local end=$2
+    if command -v bc >/dev/null 2>&1; then
+        echo "$end - $start" | bc
+    else
+        echo "$((end - start))"
+    fi
+}
+
 function build() {
     cd ${PATH_TO_BUILD}
     echo "DEBUG: ENABLE_CCACHE=${ENABLE_CCACHE}"
     echo "DEBUG: CCACHE_PROGRAM=${CCACHE_PROGRAM}"
     
     echo "=== Starting CMake configuration ==="
-    cmake_start=$(date +%s.%N)
+    cmake_start=$(get_time)
     cmake ${PATH_TO_SOURCE} \
         -DBUILD_OPEN_PROJECT=${BUILD_OPEN_PROJECT} \
         -DPREPARE_BUILD=ON \
@@ -130,8 +148,8 @@ function build() {
         -DASCEND_COMPUTE_UNIT=${CONVERT_ASCEND_COMPUTE_UNIT} \
         -DOP_DEBUG_CONFIG=${OP_DEBUG_CONFIG} \
         -DASCEND_OP_NAME=${ASCEND_OP_NAME}
-    cmake_end=$(date +%s.%N)
-    cmake_duration=$(echo "$cmake_end - $cmake_start" | bc)
+    cmake_end=$(get_time)
+    cmake_duration=$(calc_duration "$cmake_start" "$cmake_end")
     echo "=== CMake configuration completed in ${cmake_duration} seconds ==="
 #        -DENABLE_CCACHE=${ENABLE_CCACHE} \
 #        -DCUSTOM_CCACHE=${CCACHE_PROGRAM}
@@ -145,10 +163,10 @@ function build() {
 #    fi
     
     echo "=== Starting C++ code compilation (make prepare_build) ==="
-    make_start=$(date +%s.%N)
+    make_start=$(get_time)
     make ${JOB_NUM} prepare_build
-    make_end=$(date +%s.%N)
-    make_duration=$(echo "$make_end - $make_start" | bc)
+    make_end=$(get_time)
+    make_duration=$(calc_duration "$make_start" "$make_end")
     echo "=== C++ code compilation completed in ${make_duration} seconds ==="
     
     sccache --show-stats
