@@ -209,6 +209,8 @@ if (BUILD_OPEN_PROJECT)
                 --ascend-compute_unit ${EP_ASCEND_COMPUTE_UNIT}
                 --op_debug_config ${OP_DEBUG_CONFIG}
                 --ascend-op-name "${ASCEND_OP_NAME}"
+                --enable-ccache ${ENABLE_CCACHE}
+                --ccache-program ${CCACHE_PROGRAM}
                 RESULT_VARIABLE result
                 OUTPUT_STRIP_TRAILING_WHITESPACE
                 OUTPUT_VARIABLE PREPARE_BUILD_OUTPUT_VARIABLE)

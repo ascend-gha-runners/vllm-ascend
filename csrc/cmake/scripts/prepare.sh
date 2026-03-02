@@ -73,6 +73,14 @@ while [[ $# -gt 0 ]]; do
         OP_DEBUG_CONFIG="$2"
         shift 2
         ;;
+    --enable-ccache)
+        ENABLE_CCACHE="$2"
+        shift 2
+        ;;
+    --ccache-program)
+        CCACHE_PROGRAM="$2"
+        shift 2
+        ;;
     *)
         break
         ;;
@@ -116,7 +124,9 @@ function build() {
         -DOPS_COMPILE_OPTIONS="${CONVERT_OPS_COMPILE_OPTIONS}" \
         -DASCEND_COMPUTE_UNIT=${CONVERT_ASCEND_COMPUTE_UNIT} \
         -DOP_DEBUG_CONFIG=${OP_DEBUG_CONFIG} \
-        -DASCEND_OP_NAME=${ASCEND_OP_NAME}
+        -DASCEND_OP_NAME=${ASCEND_OP_NAME} \
+        -DENABLE_CCACHE=${ENABLE_CCACHE} \
+        -DCUSTOM_CCACHE=${CCACHE_PROGRAM}
 
     make ${JOB_NUM} prepare_build
 }
