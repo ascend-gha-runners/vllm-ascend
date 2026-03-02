@@ -131,12 +131,14 @@ function build() {
         -DCUSTOM_CCACHE=${CCACHE_PROGRAM}
 
 #    if [ "${ENABLE_CCACHE}" = "ON" ] && [ -n "${CCACHE_PROGRAM}" ]; then
-    export CC="${CCACHE_PROGRAM} ${CC}"
-    export CXX="${CCACHE_PROGRAM} ${CXX}"
+    sccache --zero-stats
+    export CMAKE_C_COMPILER_LAUNCHER="${CCACHE_PROGRAM}"
+    export CMAKE_CXX_COMPILER_LAUNCHER="${CCACHE_PROGRAM}"
 #        echo "DEBUG: Set CC=${CC}"
 #        echo "DEBUG: Set CXX=${CXX}"
 #    fi
     make ${JOB_NUM} prepare_build
+    sccache --show-stats
 }
 
 function main() {
