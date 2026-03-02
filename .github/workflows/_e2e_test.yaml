@@ -64,7 +64,8 @@ jobs:
           apt install git -y
           pip install uv
           [ -n "$AWS_SECRET_ACCESS_KEY" ] && uv pip install sccache
-
+          sccache --start-server
+          sccache --show-stats
       - name: Install system dependencies
         run: |
           apt-get -y install `cat packages.txt`
@@ -134,6 +135,8 @@ jobs:
           apt install git -y
           pip install uv
           [ -n "$AWS_SECRET_ACCESS_KEY" ] && uv pip install sccache
+          sccache --start-server
+          sccache --show-stats
 
       - name: Install system dependencies
         run: |
@@ -203,7 +206,8 @@ jobs:
           apt install git -y
           pip install uv
           [ -n "$AWS_SECRET_ACCESS_KEY" ] && uv pip install sccache
-
+          sccache --start-server
+          sccache --show-stats
       - name: Install system dependencies
         run: |
           apt-get -y install `cat packages.txt`
@@ -270,7 +274,8 @@ jobs:
           apt install git -y
           pip install uv
           [ -n "$AWS_SECRET_ACCESS_KEY" ] && uv pip install sccache
-
+          sccache --start-server
+          sccache --show-stats
       - name: Install system dependencies
         run: |
           apt-get -y install `cat packages.txt`
@@ -345,7 +350,8 @@ jobs:
           apt install git -y
           pip install uv
           [ -n "$AWS_SECRET_ACCESS_KEY" ] && uv pip install sccache
-
+          sccache --start-server
+          sccache --show-stats
       - name: Install system dependencies
         run: |
           apt-get -y install `cat packages.txt`
@@ -405,7 +411,8 @@ jobs:
           apt install git -y
           pip install uv
           [ -n "$AWS_SECRET_ACCESS_KEY" ] && uv pip install sccache
-
+          sccache --start-server
+          sccache --show-stats
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v6
 
@@ -466,7 +473,8 @@ jobs:
           apt install git -y
           pip install uv
           [ -n "$AWS_SECRET_ACCESS_KEY" ] && uv pip install sccache
-
+          sccache --start-server
+          sccache --show-stats
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v6
 
