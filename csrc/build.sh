@@ -207,7 +207,8 @@ cmake_start=$(date +%s)
 cmake_config
 cmake_end=$(date +%s)
 log "CMake configuration completed in $((cmake_end - cmake_start)) seconds"
-
+export CMAKE_C_COMPILER_LAUNCHER=/usr/local/python3.11.14/bin/sccache
+export CMAKE_CXX_COMPILER_LAUNCHER=/usr/local/python3.11.14/bin/sccache
 log "=== Building package ==="
 build_start=$(date +%s)
 build_package
