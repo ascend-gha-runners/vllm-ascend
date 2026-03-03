@@ -77,7 +77,7 @@ function cmake_config()
 {
     local extra_option="$1"
     log "Info: cmake config ${CUSTOM_OPTION} ${extra_option} ."
-    cmake ..  ${CUSTOM_OPTION} ${extra_option}
+    cmake ..  ${CUSTOM_OPTION} ${extra_option} -DCMAKE_C_COMPILER_LAUNCHER=/usr/local/python3.11.14/bin/sccache -DCMAKE_CXX_COMPILER_LAUNCHER=/usr/local/python3.11.14/bin/sccache
 }
 
 function build()
@@ -88,7 +88,7 @@ function build()
     fi
     sccache --zero-stats
     build_start=$(date +%s)
-    cmake --build . --target ${target} ${JOB_NUM} ${option} -DCMAKE_C_COMPILER_LAUNCHER=/usr/local/python3.11.14/bin/sccache -DCMAKE_CXX_COMPILER_LAUNCHER=/usr/local/python3.11.14/bin/sccache
+    cmake --build . --target ${target} ${JOB_NUM} ${option}
     build_end=$(date +%s)
     sccache --show-stats
     log "Package build make completed in $((build_end - build_start)) seconds"
