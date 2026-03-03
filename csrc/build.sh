@@ -86,7 +86,12 @@ function build()
     if [ "${VERBOSE}" == "true" ];then
         local option="--verbose"
     fi
-    cmake --build . --target ${target} ${JOB_NUM} ${option}
+    sccache --zero-stats
+    build_start=$(date +%s)
+    cmake --build . --target ${target} ${JOB_NUM} ${option} -DCMAKE_C_COMPILER_LAUNCHER=/usr/local/python3.11.14/bin/sccache -DCMAKE_CXX_COMPILER_LAUNCHER=/usr/local/python3.11.14/bin/sccache
+    build_end=$(date +%s)
+    sccache --show-stats
+    log "Package build make completed in $((build_end - build_start)) seconds"
 }
 
 function gen_bisheng(){
