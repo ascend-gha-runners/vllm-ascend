@@ -175,15 +175,44 @@ fi
 
 CUSTOM_OPTION="${CUSTOM_OPTION} -DCUSTOM_ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH} -DCHECK_COMPATIBLE=${CHECK_COMPATIBLE}"
 
-set_env
-clean
+log "=== Starting build process ==="
+total_start=$(date +%s)
 
+log "=== Setting environment ==="
+set_env_start=$(date +%s)
+set_env
+set_env_end=$(date +%s)
+log "Environment setup completed in $((set_env_end - set_env_start)) seconds"
+
+log "=== Cleaning build directory ==="
+clean_start=$(date +%s)
+clean
+clean_end=$(date +%s)
+log "Clean completed in $((clean_end - clean_start)) seconds"
+
+log "=== Configuring ccache ==="
+ccache_start=$(date +%s)
 ccache_system=$(command -v sccache 2>/dev/null || command -v ccache 2>/dev/null || true)
 if [ -n "${ccache_system}" ];then
     CUSTOM_OPTION="${CUSTOM_OPTION} -DENABLE_CCACHE=ON -DCUSTOM_CCACHE=${ccache_system}"
     gen_bisheng ${ccache_system}
 fi
+ccache_end=$(date +%s)
+log "Ccache configuration completed in $((ccache_end - ccache_start)) seconds"
 
 cd ${BUILD_DIR}
+
+log "=== Running CMake configuration ==="
+cmake_start=$(date +%s)
 cmake_config
+cmake_end=$(date +%s)
+log "CMake configuration completed in $((cmake_end - cmake_start)) seconds"
+
+log "=== Building package ==="
+build_start=$(date +%s)
 build_package
+build_end=$(date +%s)
+log "Package build completed in $((build_end - build_start)) seconds"
+
+total_end=$(date +%s)
+log "=== Total build process completed in $((total_end - total_start)) seconds ==="
