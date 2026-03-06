@@ -20,6 +20,7 @@
 import importlib.util
 import logging
 import os
+import shutil
 import subprocess
 import sys
 from sysconfig import get_paths
