@@ -269,9 +269,16 @@ class cmake_build_ext(build_ext):
 
         # find PYTHON_INCLUDE_PATH
         check_or_set_default_env(cmake_args, "PYTHON_INCLUDE_PATH", get_paths()["include"])
-
+        
         # ccache and ninja can not be applied at ascendc kernels now
-
+        
+        # Configure sccache for vllm_ascend_C extension
+        sccache_path = shutil.which("sccache")
+        if sccache_path:
+            logger.info(f"Found sccache at {sccache_path}, enabling compiler caching")
+            cmake_args += [f"-DCMAKE_C_COMPILER_LAUNCHER={sccache_path}"]
+            cmake_args += [f"-DCMAKE_CXX_COMPILER_LAUNCHER={sccache_path}"]
+        
         try:
             # if pybind11 is installed via pip
             pybind11_cmake_path = (

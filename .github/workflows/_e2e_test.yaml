@@ -32,8 +32,6 @@ env:
   SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE: true
   AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
-  CMAKE_C_COMPILER_LAUNCHER: /usr/local/python3.11.14/bin/sccache
-  CMAKE_CXX_COMPILER_LAUNCHER: /usr/local/python3.11.14/bin/sccache
 jobs:
   e2e-light:
     name: singlecard-light
