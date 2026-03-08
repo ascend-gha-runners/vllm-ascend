@@ -248,7 +248,21 @@ jobs:
             uv pip install -v -e .
           fi
           sccache --show-stats
-          sleep 600
+      - name: Run unit test
+        env:
+          VLLM_WORKER_MULTIPROC_METHOD: spawn
+          TORCH_DEVICE_BACKEND_AUTOLOAD: 0
+        run: |
+          export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/Ascend/ascend-toolkit/latest/x86_64-linux/devlib
+          pytest -sv --cov --cov-report=xml:unittests-coverage.xml tests/ut \
+            --ignore tests/ut/model_loader/netloader/test_netloader_elastic.py \
+            --ignore tests/ut/kv_connector/test_remote_prefill_lifecycle.py \
+            --ignore tests/ut/kv_connector/test_remote_decode_lifecycle.py \
+            --ignore tests/ut/core/test_scheduler_dynamic_batch.py \
+            --ignore tests/ut/kv_connector/test_mooncake_connector.py \
+            --ignore tests/ut/worker/test_worker_v1.py \
+            --ignore tests/ut/spec_decode/test_mtp_proposer.py
+
 
 #      - name: Run e2e test
 #        env:
