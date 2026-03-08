@@ -45,7 +45,7 @@ env_variables: dict[str, Callable[[], Any]] = {
     # the default value is False. Set to True when pre-built ACLNN artifacts
     # are already present in vllm_ascend/_cann_ops_custom/ (e.g., restored
     # from a CI cache), to avoid unnecessary recompilation.
-    "VLLM_ASCEND_SKIP_ACLNN": lambda: bool(int(os.getenv("VLLM_ASCEND_SKIP_ACLNN", "1"))),
+    "VLLM_ASCEND_SKIP_ACLNN": lambda: bool(int(os.getenv("VLLM_ASCEND_SKIP_ACLNN", "0"))),
     # The CXX compiler used for compiling the package. If not set, the default
     # value is None, which means the system default CXX compiler will be used.
     "CXX_COMPILER": lambda: os.getenv("CXX_COMPILER", None),

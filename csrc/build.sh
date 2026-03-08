@@ -183,6 +183,7 @@ CUSTOM_OPTION="${CUSTOM_OPTION} -DCUSTOM_ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_
 log "=== Starting build process ==="
 total_start=$(date +%s)
 
+
 log "=== Setting environment ==="
 set_env_start=$(date +%s)
 set_env
