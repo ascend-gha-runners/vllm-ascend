@@ -248,6 +248,7 @@ jobs:
             uv pip install -v -e .
           fi
           sccache --show-stats
+          sleep 600
 
 #      - name: Run e2e test
 #        env:

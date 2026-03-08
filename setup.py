@@ -410,7 +410,7 @@ class cmake_build_ext(build_ext):
         if not envs.VLLM_ASCEND_SKIP_ACLNN:
             self.run_command("build_aclnn")
         else:
-            logging.info("VLLM_ASCEND_SKIP_ACLNN=1: skipping build_aclnn (using cached artifacts)")
+            print(f"VLLM_ASCEND_SKIP_ACLNN=1: skipping build_aclnn (using cached artifacts)")
         # Then, run the standard build_ext command to compile the extensions
         super().run()
 
