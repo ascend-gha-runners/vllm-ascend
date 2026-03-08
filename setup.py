@@ -272,14 +272,7 @@ class cmake_build_ext(build_ext):
         check_or_set_default_env(cmake_args, "PYTHON_INCLUDE_PATH", get_paths()["include"])
         
         # ccache and ninja can not be applied at ascendc kernels now
-        
-        # Configure sccache for vllm_ascend_C extension
-        sccache_path = shutil.which("sccache")
-        if sccache_path:
-            logger.info(f"Found sccache at {sccache_path}, enabling compiler caching")
-            cmake_args += [f"-DCMAKE_C_COMPILER_LAUNCHER={sccache_path}"]
-            cmake_args += [f"-DCMAKE_CXX_COMPILER_LAUNCHER={sccache_path}"]
-        
+
         try:
             # if pybind11 is installed via pip
             pybind11_cmake_path = (
@@ -414,7 +407,10 @@ class cmake_build_ext(build_ext):
 
     def run(self):
         # First, ensure ACLNN custom-ops is built and installed.
-        self.run_command("build_aclnn")
+        if not envs.VLLM_ASCEND_SKIP_ACLNN:
+            self.run_command("build_aclnn")
+        else:
+            logging.info("VLLM_ASCEND_SKIP_ACLNN=1: skipping build_aclnn (using cached artifacts)")
         # Then, run the standard build_ext command to compile the extensions
         super().run()
 

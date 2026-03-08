@@ -41,6 +41,11 @@ env_variables: dict[str, Callable[[], Any]] = {
     # scenarios in an environment without an NPU. Do not set it to False in
     # other scenarios.
     "COMPILE_CUSTOM_KERNELS": lambda: bool(int(os.getenv("COMPILE_CUSTOM_KERNELS", "1"))),
+    # Whether to skip building ACLNN custom ops (build_aclnn.sh). If not set,
+    # the default value is False. Set to True when pre-built ACLNN artifacts
+    # are already present in vllm_ascend/_cann_ops_custom/ (e.g., restored
+    # from a CI cache), to avoid unnecessary recompilation.
+    "VLLM_ASCEND_SKIP_ACLNN": lambda: bool(int(os.getenv("VLLM_ASCEND_SKIP_ACLNN", "1"))),
     # The CXX compiler used for compiling the package. If not set, the default
     # value is None, which means the system default CXX compiler will be used.
     "CXX_COMPILER": lambda: os.getenv("CXX_COMPILER", None),
