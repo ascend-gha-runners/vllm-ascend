@@ -209,29 +209,29 @@ jobs:
 
           update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 20
           update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20
-      - name: get hash
-        id: get_dir_hash
-        run: |
-          DIR_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
-            ./vllm_ascend/envs.py ./requirements.txt ./requirements-dev.txt ./packages.txt \
-            -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
-          echo "DIR_HASH=$DIR_HASH" >> $GITHUB_OUTPUT
-      - name: Cache dependencies
-        uses: runs-on/cache@v4
-        with:
-          path: |
-            vllm_ascend/_cann_ops_custom
-            vllm_ascend/*.so
-          key: ascend-${{ runner.os }}-vllm-ascend-build-v1-${{ steps.get_dir_hash.outputs.DIR_HASH }}
-          restore-keys: |
-            ascend-${{ runner.os }}-vllm-ascend-build-v1-${{ steps.get_dir_hash.outputs.DIR_HASH }}
-        env:
-          # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
-          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
-          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
-          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
-          AWS_REGION: cn-southwest-2
+#      - name: get hash
+#        id: get_dir_hash
+#        run: |
+#          DIR_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
+#            ./vllm_ascend/envs.py ./requirements.txt ./requirements-dev.txt ./packages.txt \
+#            -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
+#          echo "DIR_HASH=$DIR_HASH" >> $GITHUB_OUTPUT
+#      - name: Cache dependencies
+#        uses: runs-on/cache@v4
+#        with:
+#          path: |
+#            vllm_ascend/_cann_ops_custom
+#            vllm_ascend/*.so
+#          key: ascend-${{ runner.os }}-vllm-ascend-build-v1-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+#          restore-keys: |
+#            ascend-${{ runner.os }}-vllm-ascend-build-v1-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+#        env:
+#          # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
+#          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
+#          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
+#          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
+#          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
+#          AWS_REGION: cn-southwest-2
       - name: Checkout vllm-project/vllm repo
         uses: actions/checkout@v6
         with:
