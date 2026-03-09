@@ -252,9 +252,10 @@ jobs:
         with:
           path: |
             /tmp/uv-cache
-          key: ascend-${{ runner.os }}-uv-pip-v1-${{ steps.get_req_hash.outputs.REQ_HASH }}
+            /tmp/pip-cache
+          key: ascend-${{ runner.os }}-uv-pip-v2-${{ steps.get_req_hash.outputs.REQ_HASH }}
           restore-keys: |
-            ascend-${{ runner.os }}-uv-pip-v1-${{ steps.get_req_hash.outputs.REQ_HASH }}
+            ascend-${{ runner.os }}-uv-pip-v2-${{ steps.get_req_hash.outputs.REQ_HASH }}
         env:
           RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
           RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
