@@ -222,9 +222,11 @@ jobs:
           path: |
             vllm_ascend/_cann_ops_custom
             vllm_ascend/*.so
-          key: ascend-${{ runner.os }}-vllm-ascend-build-v1-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+            vllm_ascend/lib
+            vllm_ascend/include
+          key: ascend-${{ runner.os }}-vllm-ascend-build-v2-${{ steps.get_dir_hash.outputs.DIR_HASH }}
           restore-keys: |
-            ascend-${{ runner.os }}-vllm-ascend-build-v1-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+            ascend-${{ runner.os }}-vllm-ascend-build-v2-${{ steps.get_dir_hash.outputs.DIR_HASH }}
         env:
           # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
           RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
