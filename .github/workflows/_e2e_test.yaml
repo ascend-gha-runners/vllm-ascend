@@ -287,13 +287,14 @@ jobs:
         run: |
           pip install uc-manager
           uv pip install -r requirements-dev.txt
-          if [ "${{ steps.check-cache.outputs.cache_hit }}" = "true" ]; then
-            echo "Cache hit: skipping compilation (aclnn + cmake), installing Python package only"
-            VLLM_ASCEND_SKIP_ACLNN=1 uv pip install -v -e .
-          else
-            echo "No cache: building from source"
-            uv pip install -v -e .
-          fi
+          # if [ "${{ steps.check-cache.outputs.cache_hit }}" = "true" ]; then
+          #   echo "Cache hit: skipping compilation (aclnn + cmake), installing Python package only"
+          #   COMPILE_CUSTOM_KERNELS=0 VLLM_ASCEND_SKIP_ACLNN=1 uv pip install -v -e .
+          # else
+          #   echo "No cache: building from source"
+          #   uv pip install -v -e .
+          # fi
+          COMPILE_CUSTOM_KERNELS=0 uv pip install -v -e .
           sccache --show-stats
       - name: Run unit test
         env:
