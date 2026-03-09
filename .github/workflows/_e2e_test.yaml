@@ -295,7 +295,7 @@ jobs:
           #   echo "No cache: building from source"
           #   uv pip install -v -e .
           # fi
-          COMPILE_CUSTOM_KERNELS=0 uv pip install -v -e .
+          COMPILE_CUSTOM_KERNELS=0 VLLM_ASCEND_SKIP_ACLNN=1 uv pip install -v -e .
           sccache --show-stats
           sleep 600
       - name: Run unit test
