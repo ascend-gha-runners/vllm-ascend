@@ -75,9 +75,10 @@ jobs:
       - name: get hash
         id: get_dir_hash
         run: |
-          DIR_HASH=$(find ./csrc -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
+          DIR_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
+            ./vllm_ascend/envs.py ./requirements.txt ./requirements-dev.txt ./packages.txt \
+            -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
           echo "DIR_HASH=$DIR_HASH" >> $GITHUB_OUTPUT
-          echo "hash: $DIR_HASH"
       - name: Cache dependencies
         uses: runs-on/cache@v4
         with:
@@ -188,18 +189,19 @@ jobs:
       - name: get hash
         id: get_dir_hash
         run: |
-          DIR_HASH=$(find ./csrc -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
+          DIR_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
+            ./vllm_ascend/envs.py ./requirements.txt ./requirements-dev.txt ./packages.txt \
+            -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
           echo "DIR_HASH=$DIR_HASH" >> $GITHUB_OUTPUT
-          echo "hash: $DIR_HASH"
       - name: Cache dependencies
         uses: runs-on/cache@v4
         with:
           path: |
             vllm_ascend/_cann_ops_custom
             vllm_ascend/*.so
-          key: ascend-${{ runner.os }}-pip-vllm-v1-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+          key: ascend-${{ runner.os }}-vllm-ascend-build-v1-${{ steps.get_dir_hash.outputs.DIR_HASH }}
           restore-keys: |
-            ascend-${{ runner.os }}-pip-vllm-v1-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+            ascend-${{ runner.os }}-vllm-ascend-build-v1-${{ steps.get_dir_hash.outputs.DIR_HASH }}
         env:
           # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
           RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
