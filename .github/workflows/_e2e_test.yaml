@@ -297,6 +297,7 @@ jobs:
           # fi
           COMPILE_CUSTOM_KERNELS=0 uv pip install -v -e .
           sccache --show-stats
+          sleep 600
       - name: Run unit test
         env:
           VLLM_WORKER_MULTIPROC_METHOD: spawn
