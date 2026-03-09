@@ -24,8 +24,9 @@ env:
   UV_INDEX_URL: http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
   UV_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
   UV_INDEX_STRATEGY: unsafe-best-match
-  UV_NO_CACHE: 1
+  UV_NO_CACHE: 0
   UV_SYSTEM_PYTHON: 1
+  UV_CACHE_DIR: /tmp/uv-cache
   SCCACHE_BUCKET: obs-guiiyang1-ascend-test
   SCCACHE_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
   SCCACHE_REGION: cn-southwest-2
@@ -102,6 +103,28 @@ jobs:
           ref: ${{ inputs.vllm }}
           path: ./vllm-empty
           fetch-depth: 1
+
+      - name: Get requirements hash
+        id: get_req_hash
+        run: |
+          REQ_HASH=$(sha256sum requirements.txt requirements-dev.txt 2>/dev/null | sha256sum | awk '{print $1}')
+          echo "REQ_HASH=$REQ_HASH" >> $GITHUB_OUTPUT
+          echo "requirements hash: $REQ_HASH"
+
+      - name: Cache uv pip packages
+        uses: runs-on/cache@v4
+        with:
+          path: |
+            /tmp/uv-cache
+          key: ascend-${{ runner.os }}-uv-pip-v1-${{ steps.get_req_hash.outputs.REQ_HASH }}
+          restore-keys: |
+            ascend-${{ runner.os }}-uv-pip-v1-${{ steps.get_req_hash.outputs.REQ_HASH }}
+        env:
+          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
+          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
+          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
+          AWS_REGION: cn-southwest-2
 
       - name: Install vllm-project/vllm from source
         working-directory: ./vllm-empty
@@ -216,6 +239,28 @@ jobs:
           ref: ${{ inputs.vllm }}
           path: ./vllm-empty
           fetch-depth: 1
+
+      - name: Get requirements hash
+        id: get_req_hash
+        run: |
+          REQ_HASH=$(sha256sum requirements.txt requirements-dev.txt 2>/dev/null | sha256sum | awk '{print $1}')
+          echo "REQ_HASH=$REQ_HASH" >> $GITHUB_OUTPUT
+          echo "requirements hash: $REQ_HASH"
+
+      - name: Cache uv pip packages
+        uses: runs-on/cache@v4
+        with:
+          path: |
+            /tmp/uv-cache
+          key: ascend-${{ runner.os }}-uv-pip-v1-${{ steps.get_req_hash.outputs.REQ_HASH }}
+          restore-keys: |
+            ascend-${{ runner.os }}-uv-pip-v1-${{ steps.get_req_hash.outputs.REQ_HASH }}
+        env:
+          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
+          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
+          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
+          AWS_REGION: cn-southwest-2
 
       - name: Install vllm-project/vllm from source
         working-directory: ./vllm-empty
