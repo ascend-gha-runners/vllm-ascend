@@ -73,14 +73,6 @@ while [[ $# -gt 0 ]]; do
         OP_DEBUG_CONFIG="$2"
         shift 2
         ;;
-    --enable-ccache)
-        ENABLE_CCACHE="$2"
-        shift 2
-        ;;
-    --ccache-program)
-        CCACHE_PROGRAM="$2"
-        shift 2
-        ;;
     *)
         break
         ;;
@@ -106,24 +98,6 @@ function set_env() {
     CONVERT_OPS_COMPILE_OPTIONS="$(convert_string ${OPS_COMPILE_OPTIONS})"
 
     CONVERT_ASCEND_COMPUTE_UNIT="$(convert_string ${ASCEND_COMPUTE_UNIT})"
-}
-
-function get_time() {
-    if date +%s.%N >/dev/null 2>&1; then
-        date +%s.%N
-    else
-        date +%s
-    fi
-}
-
-function calc_duration() {
-    local start=$1
-    local end=$2
-    if command -v bc >/dev/null 2>&1; then
-        echo "$end - $start" | bc
-    else
-        echo "$((end - start))"
-    fi
 }
 
 function build() {
