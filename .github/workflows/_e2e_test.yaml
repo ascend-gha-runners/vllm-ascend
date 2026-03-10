@@ -37,7 +37,7 @@ jobs:
   e2e-light:
     name: singlecard-light
     if: ${{ inputs.type == 'light' }}
-    runs-on: linux-arm64-npu-1
+    runs-on: linux-aarch64-a2b3-test-1
     strategy:
       fail-fast: false
       matrix:
@@ -170,7 +170,7 @@ jobs:
   e2e-full:
     name: singlecard-full
     if: ${{ inputs.type == 'full' }}
-    runs-on: linux-arm64-npu-1
+    runs-on: linux-aarch64-a2b3-test-1
     strategy:
       fail-fast: false
       matrix:
@@ -200,7 +200,6 @@ jobs:
           apt install git -y
           pip install uv
           [ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_SECRET_ACCESS_KEY" ] && uv pip install sccache || true
-
 
       - name: Install system dependencies
         run: |
@@ -234,21 +233,12 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
           AWS_REGION: cn-southwest-2
-      - name: Checkout vllm-project/vllm repo
-        uses: actions/checkout@v6
-        with:
-          repository: vllm-project/vllm
-          ref: ${{ inputs.vllm }}
-          path: ./vllm-empty
-          fetch-depth: 1
-
       - name: Get requirements hash
         id: get_req_hash
         run: |
           REQ_HASH=$(sha256sum requirements.txt requirements-dev.txt 2>/dev/null | sha256sum | awk '{print $1}')
           echo "REQ_HASH=$REQ_HASH" >> $GITHUB_OUTPUT
           echo "requirements hash: $REQ_HASH"
-
       - name: Cache uv pip packages
         uses: runs-on/cache@v4
         with:
@@ -264,6 +254,13 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
           AWS_REGION: cn-southwest-2
+      - name: Checkout vllm-project/vllm repo
+        uses: actions/checkout@v6
+        with:
+          repository: vllm-project/vllm
+          ref: ${{ inputs.vllm }}
+          path: ./vllm-empty
+          fetch-depth: 1
 
       - name: Install vllm-project/vllm from source
         working-directory: ./vllm-empty
@@ -306,28 +303,13 @@ jobs:
             uv pip install -v -e .
           fi
           sccache --show-stats
-      - name: Run unit test
+
+      - name: Run e2e test
         env:
           VLLM_WORKER_MULTIPROC_METHOD: spawn
-          TORCH_DEVICE_BACKEND_AUTOLOAD: 0
+          PYTORCH_NPU_ALLOC_CONF: max_split_size_mb:256
         run: |
-          export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/Ascend/ascend-toolkit/latest/x86_64-linux/devlib
-          pytest -sv --cov --cov-report=xml:unittests-coverage.xml tests/ut \
-            --ignore tests/ut/model_loader/netloader/test_netloader_elastic.py \
-            --ignore tests/ut/kv_connector/test_remote_prefill_lifecycle.py \
-            --ignore tests/ut/kv_connector/test_remote_decode_lifecycle.py \
-            --ignore tests/ut/core/test_scheduler_dynamic_batch.py \
-            --ignore tests/ut/kv_connector/test_mooncake_connector.py \
-            --ignore tests/ut/worker/test_worker_v1.py \
-            --ignore tests/ut/spec_decode/test_mtp_proposer.py
-
-
-#      - name: Run e2e test
-#        env:
-#          VLLM_WORKER_MULTIPROC_METHOD: spawn
-#          PYTORCH_NPU_ALLOC_CONF: max_split_size_mb:256
-#        run: |
-#          python3 .github/workflows/scripts/run_suite.py --suite e2e-singlecard --auto-partition-id ${{ matrix.part }} --auto-partition-size 2
+          python3 .github/workflows/scripts/run_suite.py --suite e2e-singlecard --auto-partition-id ${{ matrix.part }} --auto-partition-size 2
 
 #  e2e-2-cards-light:
 #    name: multicard-2-light
