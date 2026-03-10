@@ -281,6 +281,7 @@ def enable_custom_op():
 
         # isort: on
         _CUSTOM_OP_ENABLED = True
+        logger.warning("Warning: success to register custom ops")
     except ImportError:
         _CUSTOM_OP_ENABLED = False
         logger.warning("Warning: Failed to register custom ops, all custom ops will be disabled")
