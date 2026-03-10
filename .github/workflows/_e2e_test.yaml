@@ -77,29 +77,7 @@ jobs:
 
           update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 20
           update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20
-      - name: get hash
-        id: get_dir_hash
-        run: |
-          DIR_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
-            ./vllm_ascend/envs.py ./requirements.txt ./requirements-dev.txt ./packages.txt \
-            -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
-          echo "DIR_HASH=$DIR_HASH" >> $GITHUB_OUTPUT
-      - name: Cache dependencies
-        uses: runs-on/cache@v4
-        with:
-          path: |
-            vllm_ascend/_cann_ops_custom
-            vllm_ascend/*.so
-          key: ascend-${{ runner.os }}-pip-vllm-v1-${{ steps.get_dir_hash.outputs.DIR_HASH }}
-          restore-keys: |
-            ascend-${{ runner.os }}-pip-vllm-v1-${{ steps.get_dir_hash.outputs.DIR_HASH }}
-        env:
-          # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
-          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
-          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
-          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
-          AWS_REGION: cn-southwest-2
+
       - name: Checkout vllm-project/vllm repo
         uses: actions/checkout@v6
         with:
@@ -107,28 +85,6 @@ jobs:
           ref: ${{ inputs.vllm }}
           path: ./vllm-empty
           fetch-depth: 1
-
-      - name: Get requirements hash
-        id: get_req_hash
-        run: |
-          REQ_HASH=$(sha256sum requirements.txt requirements-dev.txt 2>/dev/null | sha256sum | awk '{print $1}')
-          echo "REQ_HASH=$REQ_HASH" >> $GITHUB_OUTPUT
-          echo "requirements hash: $REQ_HASH"
-
-      - name: Cache uv pip packages
-        uses: runs-on/cache@v4
-        with:
-          path: |
-            /tmp/uv-cache
-          key: ascend-${{ runner.os }}-uv-pip-v1-${{ steps.get_req_hash.outputs.REQ_HASH }}
-          restore-keys: |
-            ascend-${{ runner.os }}-uv-pip-v1-${{ steps.get_req_hash.outputs.REQ_HASH }}
-        env:
-          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
-          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
-          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
-          AWS_REGION: cn-southwest-2
 
       - name: Install vllm-project/vllm from source
         working-directory: ./vllm-empty
@@ -196,7 +152,7 @@ jobs:
   e2e-full:
     name: singlecard-full
     if: ${{ inputs.type == 'full' }}
-    runs-on: ${{ inputs.runner }}
+    runs-on: linux-aarch64-a2b3-test-1
     strategy:
       fail-fast: false
       matrix:
@@ -335,18 +291,39 @@ jobs:
           VLLM_WORKER_MULTIPROC_METHOD: spawn
           PYTORCH_NPU_ALLOC_CONF: max_split_size_mb:256
         run: |
-          python3 .github/workflows/scripts/run_suite.py --suite e2e-singlecard --auto-partition-id ${{ matrix.part }} --auto-partition-size 2
+          if [ "${{ inputs.continue_on_error }}" = "true" ]; then
+            python3 .github/workflows/scripts/run_suite.py \
+              --suite e2e-singlecard \
+              --auto-partition-id "${{ matrix.part }}" \
+              --auto-partition-size 2 \
+              --auto-upgrade-estimated-times \
+              --continue-on-error
+          else
+            python3 .github/workflows/scripts/run_suite.py \
+              --suite e2e-singlecard \
+              --auto-partition-id "${{ matrix.part }}" \
+              --auto-partition-size 2
+          fi
+
+      - name: Upload timing data
+        uses: actions/upload-artifact@v4
+        if: ${{ inputs.continue_on_error == true }}
+        with:
+          name: timing-data-singlecard-full-part${{ matrix.part }}
+          path: test_timing_data.json
+          if-no-files-found: warn
+          retention-days: 5
 
   e2e-2-cards-light:
     name: multicard-2-light
     if: ${{ inputs.type == 'light' }}
-    runs-on: linux-arm64-npu-1
+    runs-on: linux-aarch64-a3-2
     strategy:
       fail-fast: false
       matrix:
         part: [0]
     container:
-      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.0-a3-ubuntu22.04-py3.11
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py3.11
       env:
         VLLM_LOGGING_LEVEL: ERROR
         VLLM_USE_MODELSCOPE: True
@@ -402,18 +379,40 @@ jobs:
         env:
           VLLM_WORKER_MULTIPROC_METHOD: spawn
         run: |
-          python3 .github/workflows/scripts/run_suite.py --suite e2e-2card-light --auto-partition-id ${{ matrix.part }} --auto-partition-size 1
+          if [ "${{ inputs.continue_on_error }}" = "true" ]; then
+            python3 .github/workflows/scripts/run_suite.py \
+              --suite e2e-2card-light \
+              --auto-partition-id "${{ matrix.part }}" \
+              --auto-partition-size 1 \
+              --auto-upgrade-estimated-times \
+              --continue-on-error
+          else
+            python3 .github/workflows/scripts/run_suite.py \
+              --suite e2e-2card-light \
+              --auto-partition-id "${{ matrix.part }}" \
+              --auto-partition-size 1
+          fi
+
+
+      - name: Upload timing data
+        uses: actions/upload-artifact@v4
+        if: ${{ inputs.continue_on_error == true }}
+        with:
+          name: timing-data-2card-light-part${{ matrix.part }}
+          path: test_timing_data.json
+          if-no-files-found: warn
+          retention-days: 5
 
   e2e-2-cards-full:
     name: multicard-2-full
     if: ${{ inputs.type == 'full' }}
-    runs-on: linux-arm64-npu-1
+    runs-on: linux-aarch64-a3-2
     strategy:
       fail-fast: false
       matrix:
         part: [0]
     container:
-      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.0-a3-ubuntu22.04-py3.11
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py3.11
       env:
         VLLM_LOGGING_LEVEL: ERROR
         VLLM_USE_MODELSCOPE: True
@@ -470,7 +469,29 @@ jobs:
         env:
           VLLM_WORKER_MULTIPROC_METHOD: spawn
         run: |
-          python3 .github/workflows/scripts/run_suite.py --suite e2e-multicard-2-cards --auto-partition-id ${{ matrix.part }} --auto-partition-size 1
+          if [ "${{ inputs.continue_on_error }}" = "true" ]; then
+            python3 .github/workflows/scripts/run_suite.py \
+              --suite e2e-multicard-2-cards \
+              --auto-partition-id "${{ matrix.part }}" \
+              --auto-partition-size 1 \
+              --auto-upgrade-estimated-times \
+              --continue-on-error
+          else
+            python3 .github/workflows/scripts/run_suite.py \
+              --suite e2e-multicard-2-cards \
+              --auto-partition-id "${{ matrix.part }}" \
+              --auto-partition-size 1
+          fi
+
+
+      - name: Upload timing data
+        uses: actions/upload-artifact@v4
+        if: ${{ inputs.continue_on_error == true }}
+        with:
+          name: timing-data-2card-full-part${{ matrix.part }}
+          path: test_timing_data.json
+          if-no-files-found: warn
+          retention-days: 5
 
       - name: Run vllm-project/vllm-ascend test (non triton)
         if: ${{ inputs.type == 'full' && matrix.part == 0 }}
@@ -483,13 +504,13 @@ jobs:
   e2e-4-cards-full:
     name: multicard-4-full
     if: ${{ inputs.type == 'full' }}
-    runs-on: linux-arm64-npu-1
+    runs-on: linux-aarch64-a3-4
     strategy:
       fail-fast: false
       matrix:
         part: [0]
     container:
-      image: m.daocloud.io/quay.io/ascend/cann:8.5.0-a3-ubuntu22.04-py3.11
+      image: m.daocloud.io/quay.io/ascend/cann:8.5.1-a3-ubuntu22.04-py3.11
       env:
         VLLM_LOGGING_LEVEL: ERROR
         VLLM_USE_MODELSCOPE: True
@@ -545,14 +566,36 @@ jobs:
         env:
           VLLM_WORKER_MULTIPROC_METHOD: spawn
         run: |
-          python3 .github/workflows/scripts/run_suite.py --suite e2e-multicard-4-cards --auto-partition-id ${{ matrix.part }} --auto-partition-size 1
+          if [ "${{ inputs.continue_on_error }}" = "true" ]; then
+            python3 .github/workflows/scripts/run_suite.py \
+              --suite e2e-multicard-4-cards \
+              --auto-partition-id "${{ matrix.part }}" \
+              --auto-partition-size 1 \
+              --auto-upgrade-estimated-times \
+              --continue-on-error
+          else
+            python3 .github/workflows/scripts/run_suite.py \
+              --suite e2e-multicard-4-cards \
+              --auto-partition-id "${{ matrix.part }}" \
+              --auto-partition-size 1
+          fi
+
+
+      - name: Upload timing data
+        uses: actions/upload-artifact@v4
+        if: ${{ inputs.continue_on_error == true }}
+        with:
+          name: timing-data-4card-full-part${{ matrix.part }}
+          path: test_timing_data.json
+          if-no-files-found: warn
+          retention-days: 5
 
   e2e_310p:
     name: 310p singlecard
-    runs-on: linux-arm64-npu-1
+    runs-on: linux-aarch64-310p-1
     if: ${{ inputs.contains_310 }}
     container:
-      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.0-310p-ubuntu22.04-py3.11
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-310p-ubuntu22.04-py3.11
       env:
         VLLM_LOGGING_LEVEL: ERROR
         VLLM_USE_MODELSCOPE: True
@@ -606,14 +649,15 @@ jobs:
           PYTORCH_NPU_ALLOC_CONF: max_split_size_mb:256
           VLLM_WORKER_MULTIPROC_METHOD: spawn
         run: |
-          pytest -sv --durations=0 tests/e2e/310p/singlecard/test_dense_model_singlecard.py
+          pytest -sv --durations=0 tests/e2e/310p/singlecard/test_dense_model_singlecard.py \
+          tests/e2e/310p/singlecard/test_vl_model_singlecard.py
 
   e2e_310p-4cards:
     name: 310p multicards 4cards
-    runs-on: linux-arm64-npu-1
+    runs-on: linux-aarch64-310p-4
     if: ${{ inputs.contains_310 }}
     container:
-      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.0-310p-ubuntu22.04-py3.11
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-310p-ubuntu22.04-py3.11
       env:
         VLLM_LOGGING_LEVEL: ERROR
         VLLM_USE_MODELSCOPE: True
@@ -669,4 +713,5 @@ jobs:
         run: |
           pytest -sv --durations=0 \
           tests/e2e/310p/multicard/test_dense_model_multicard.py \
-          tests/e2e/310p/multicard/test_moe_model_multicard.py
+          tests/e2e/310p/multicard/test_moe_model_multicard.py \
+          tests/e2e/310p/multicard/test_vl_model_multicard.py
