@@ -20,6 +20,10 @@ on:
       contains_310:
         required: true
         type: boolean
+      continue_on_error:
+        required: false
+        type: boolean
+        default: false
 env:
   UV_INDEX_URL: http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
   UV_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
@@ -165,7 +169,29 @@ jobs:
           PYTORCH_NPU_ALLOC_CONF: max_split_size_mb:256
           VLLM_WORKER_MULTIPROC_METHOD: spawn
         run: |
-          python3 .github/workflows/scripts/run_suite.py --suite e2e-singlecard-light --auto-partition-id ${{ matrix.part }} --auto-partition-size 1
+          if [ "${{ inputs.continue_on_error }}" = "true" ]; then
+            python3 .github/workflows/scripts/run_suite.py \
+              --suite e2e-singlecard-light \
+              --auto-partition-id "${{ matrix.part }}" \
+              --auto-partition-size 1 \
+              --auto-upgrade-estimated-times \
+              --continue-on-error
+          else
+            python3 .github/workflows/scripts/run_suite.py \
+              --suite e2e-singlecard-light \
+              --auto-partition-id "${{ matrix.part }}" \
+              --auto-partition-size 1
+          fi
+
+
+      - name: Upload timing data
+        uses: actions/upload-artifact@v4
+        if: ${{ inputs.continue_on_error == true }}
+        with:
+          name: timing-data-singlecard-light-part${{ matrix.part }}
+          path: test_timing_data.json
+          if-no-files-found: warn
+          retention-days: 5
 
   e2e-full:
     name: singlecard-full
