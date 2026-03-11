@@ -61,10 +61,17 @@ jobs:
 
       - name: Install vllm-project/vllm-ascend
         run: |
+          start_time=$(date +%s)
           pip install uc-manager
+          end_time=$(date +%s)
+          duration=$((end_time - start_time))
+          echo "uc-manager总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
           export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/Ascend/ascend-toolkit/latest/x86_64-linux/devlib
           uv pip install -v . --extra-index-url https://download.pytorch.org/whl/cpu/
           uv pip install -r requirements-dev.txt --extra-index-url https://download.pytorch.org/whl/cpu/
+          end_time1=$(date +%s)
+          duration=$((end_time1 - end_time))
+          echo "install总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
 
       - name: Run unit test
         env:

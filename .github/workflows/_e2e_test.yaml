@@ -30,7 +30,7 @@ jobs:
   e2e-light:
     name: singlecard-light
     if: ${{ inputs.type == 'light' }}
-    runs-on: linux-aarch64-a2b3-1
+    runs-on: linux-aarch64-a2b3-test-1
     strategy:
       fail-fast: false
       matrix:
@@ -83,8 +83,15 @@ jobs:
         env:
           PIP_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
         run: |
+          start_time=$(date +%s)
           pip install uc-manager
+          end_time=$(date +%s)
+          duration=$((end_time - start_time))
+          echo "uc-manager总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
           uv pip install -r requirements-dev.txt
+          end_time1=$(date +%s)
+          duration=$((end_time1 - end_time))
+          echo "install总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
           uv pip install -v -e .
 
       - name: Run vllm-project/vllm-ascend test
@@ -208,7 +215,7 @@ jobs:
   e2e-2-cards-light:
     name: multicard-2-light
     if: ${{ inputs.type == 'light' }}
-    runs-on: linux-aarch64-a3-2
+    runs-on: linux-aarch64-a2b3-test-2
     strategy:
       fail-fast: false
       matrix:
@@ -262,8 +269,15 @@ jobs:
         env:
           PIP_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
         run: |
+          start_time=$(date +%s)
           pip install uc-manager
-          uv pip install -r requirements-dev.txt
+          end_time=$(date +%s)
+          duration=$((end_time - start_time))
+          echo "uc-manager总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
+          pip install -r requirements-dev.txt
+          end_time1=$(date +%s)
+          duration=$((end_time1 - end_time))
+          echo "install总耗时：$duration 秒（$((duration/60)) 分 $((duration%60)) 秒）"
           uv pip install -v -e .
       - name: Run vllm-project/vllm-ascend test (light)
         env:
