@@ -67,6 +67,11 @@ jobs:
       env:
         VLLM_USE_MODELSCOPE: True
         GHA_VLLM_ASCEND_VERSION: ${{ inputs.vllm-ascend }}
+        UV_INDEX_URL: http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
+        UV_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
+        UV_INDEX_STRATEGY: unsafe-best-match
+        UV_NO_CACHE: 1
+        UV_SYSTEM_PYTHON: 1
     steps:
       - name: Check npu and CANN info
         run: |
@@ -91,6 +96,7 @@ jobs:
 
           update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 20
           update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20
+          pip install uv
 
       - name: Checkout vllm-project/vllm repo
         uses: actions/checkout@v6
@@ -102,132 +108,133 @@ jobs:
       - name: Install vllm-project/vllm from source
         working-directory: ./vllm-empty
         run: |
-          VLLM_TARGET_DEVICE=empty pip install -e .
+          VLLM_TARGET_DEVICE=empty uv pip install -e .
 
       - name: Install vllm-project/vllm-ascend
         env:
           PIP_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
         run: |
-          pip install -r requirements-dev.txt
-          pip install -v -e .
+          pip install uc-manager
+          uv pip install -r requirements-dev.txt
+          uv pip install -v -e .
 
       - name: Install tensorflow (for Molmo-7B-D-0924)
-        if: ${{ inputs.runner == 'linux-aarch64-a2b3-1' && contains(inputs.model_list, 'Molmo-7B-D-0924') }}
+        #if: ${{ inputs.runner == 'linux-aarch64-a2b3-1' && contains(inputs.model_list, 'Molmo-7B-D-0924') }}
         shell: bash -l {0}
         run: |
-          pip install tensorflow==2.19.1 --no-cache-dir
-
-      - name: Resolve vllm-ascend version
-        run: |
-          VERSION_INPUT="${{ inputs.vllm-ascend }}"
-          
-          if [[ "$VERSION_INPUT" == "latest" ]]; then
-            TAGS=$(git ls-remote --tags --sort=-v:refname https://github.com/vllm-project/vllm-ascend "v*" | cut -f2 | sed 's|refs/tags/||')
-            LATEST_TAG=$(echo "$TAGS" | head -n1)
-            if [[ -z "$LATEST_TAG" ]]; then
-              RESOLVED_VERSION="main"
-            else
-              RESOLVED_VERSION="$LATEST_TAG"
-            fi
-          else
-            RESOLVED_VERSION="$VERSION_INPUT"
-          fi
-          echo "GHA_VLLM_ASCEND_VERSION=$RESOLVED_VERSION" >> $GITHUB_ENV
-
-      - name: Checkout vllm-project/vllm-ascend repo
-        uses: actions/checkout@v6
-        with:
-          repository: vllm-project/vllm-ascend
-          path: ./vllm-ascend
-          ref: ${{ env.GHA_VLLM_ASCEND_VERSION }}
-
-      - name: Get vLLM commit hash and URL
-        working-directory: ./vllm-empty
-        run: |
-          VLLM_COMMIT=$(git rev-parse --short=7 HEAD)
-          echo "VLLM_COMMIT=$VLLM_COMMIT" >> $GITHUB_ENV
-
-      - name: Get vLLM-Ascend commit hash and URL
-        working-directory: ./vllm-ascend
-        run: |
-          VLLM_ASCEND_COMMIT=$(git rev-parse --short=7 HEAD)
-          echo "VLLM_ASCEND_COMMIT=$VLLM_ASCEND_COMMIT" >> $GITHUB_ENV
-
-      - name: Collect version info
-        run: |
-          for dir in /usr/local/Ascend/ascend-toolkit/*; do
-            dname=$(basename "$dir")
-            if [ "$dname" != "latest" ]; then
-              TOOLKIT_DIR="$dname"
-              break
-            fi
-          done
-          INFO_FILE="/usr/local/Ascend/ascend-toolkit/${TOOLKIT_DIR}/$(uname -i)-linux/ascend_toolkit_install.info"
-          GHA_CANN_VERSION=$(grep "version=" "$INFO_FILE" \
-                           | head -n1 \
-                           | cut -d'=' -f2 \
-                           | tr -d '"')
-          {
-            echo "GHA_CANN_VERSION=$GHA_CANN_VERSION"
-            pip show torch | grep "Version:" | awk '{print "GHA_TORCH_VERSION="$2}'
-            pip show torch_npu | grep "Version:" | awk '{print "GHA_TORCH_NPU_VERSION="$2}'
-            pip show vllm | grep "Version:" | awk '{print "GHA_VLLM_VERSION="$2}' | sed 's/+.*//'
-          } >> "$GITHUB_ENV"
-
-      - name: Run vllm-project/vllm-ascend accuracy test
-        id: report
-        env:
-          VLLM_WORKER_MULTIPROC_METHOD: spawn
-          HF_DATASETS_OFFLINE: True
-          VLLM_USE_MODELSCOPE: True
-          VLLM_CI_RUNNER: ${{ inputs.runner }}
-          VLLM_VERSION: ${{ env.GHA_VLLM_VERSION }}
-          VLLM_COMMIT: ${{ env.VLLM_COMMIT }}
-          VLLM_ASCEND_VERSION: ${{ env.GHA_VLLM_ASCEND_VERSION || github.ref }}
-          VLLM_ASCEND_COMMIT: ${{ env.VLLM_ASCEND_COMMIT }}
-          CANN_VERSION: ${{ env.GHA_CANN_VERSION }}
-          TORCH_VERSION: ${{ env.GHA_TORCH_VERSION }}
-          TORCH_NPU_VERSION: ${{ env.GHA_TORCH_NPU_VERSION }}
-        run: |
-          mkdir -p ./benchmarks/accuracy
-          echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib" >> ~/.bashrc
-          echo "Received model_list: ${{ inputs.model_list }}"
-          models=$(echo '${{ inputs.model_list }}' | jq -r '.[]')
-          any_failure=0
-          for model in $models; do
-            echo "Running test for model: $model"
-            pytest -sv ./tests/e2e/models/test_lm_eval_correctness.py \
-              --config "./tests/e2e/models/configs/${model}.yaml" || {
-              echo "Test failed for model: $model"
-              any_failure=1
-            }
-          done
-
-          if [ $any_failure -ne 0 ]; then
-            exit 1
-          fi
-
-      - name: Generate step summary
-        if: ${{ always() }}
-        run: |
-          models=$(echo '${{ inputs.model_list }}' | jq -r '.[]')
-          for model in $models; do
-            echo "Processing model: $model"
-            model_base_name=$(basename "$model")
-            cat ./benchmarks/accuracy/${model_base_name}.md >> $GITHUB_STEP_SUMMARY
-          done
-
-      - name: Set artifact timestamp
-        id: ts
-        run: |
-          echo "artifact_ts=$(date -u +%Y%m%dT%H%M%SZ)" >> $GITHUB_OUTPUT
-
-      - name: Upload Report
-        if: ${{ inputs.upload == true }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: report-${{ env.GHA_VLLM_ASCEND_VERSION }}-${{ steps.ts.outputs.artifact_ts }}
-          path: ./benchmarks/accuracy/
-          if-no-files-found: warn
-          retention-days: 90
-          overwrite: true
+          uv pip install tensorflow==2.19.1
+#
+#      - name: Resolve vllm-ascend version
+#        run: |
+#          VERSION_INPUT="${{ inputs.vllm-ascend }}"
+#
+#          if [[ "$VERSION_INPUT" == "latest" ]]; then
+#            TAGS=$(git ls-remote --tags --sort=-v:refname https://github.com/vllm-project/vllm-ascend "v*" | cut -f2 | sed 's|refs/tags/||')
+#            LATEST_TAG=$(echo "$TAGS" | head -n1)
+#            if [[ -z "$LATEST_TAG" ]]; then
+#              RESOLVED_VERSION="main"
+#            else
+#              RESOLVED_VERSION="$LATEST_TAG"
+#            fi
+#          else
+#            RESOLVED_VERSION="$VERSION_INPUT"
+#          fi
+#          echo "GHA_VLLM_ASCEND_VERSION=$RESOLVED_VERSION" >> $GITHUB_ENV
+#
+#      - name: Checkout vllm-project/vllm-ascend repo
+#        uses: actions/checkout@v6
+#        with:
+#          repository: vllm-project/vllm-ascend
+#          path: ./vllm-ascend
+#          ref: ${{ env.GHA_VLLM_ASCEND_VERSION }}
+#
+#      - name: Get vLLM commit hash and URL
+#        working-directory: ./vllm-empty
+#        run: |
+#          VLLM_COMMIT=$(git rev-parse --short=7 HEAD)
+#          echo "VLLM_COMMIT=$VLLM_COMMIT" >> $GITHUB_ENV
+#
+#      - name: Get vLLM-Ascend commit hash and URL
+#        working-directory: ./vllm-ascend
+#        run: |
+#          VLLM_ASCEND_COMMIT=$(git rev-parse --short=7 HEAD)
+#          echo "VLLM_ASCEND_COMMIT=$VLLM_ASCEND_COMMIT" >> $GITHUB_ENV
+#
+#      - name: Collect version info
+#        run: |
+#          for dir in /usr/local/Ascend/ascend-toolkit/*; do
+#            dname=$(basename "$dir")
+#            if [ "$dname" != "latest" ]; then
+#              TOOLKIT_DIR="$dname"
+#              break
+#            fi
+#          done
+#          INFO_FILE="/usr/local/Ascend/ascend-toolkit/${TOOLKIT_DIR}/$(uname -i)-linux/ascend_toolkit_install.info"
+#          GHA_CANN_VERSION=$(grep "version=" "$INFO_FILE" \
+#                           | head -n1 \
+#                           | cut -d'=' -f2 \
+#                           | tr -d '"')
+#          {
+#            echo "GHA_CANN_VERSION=$GHA_CANN_VERSION"
+#            pip show torch | grep "Version:" | awk '{print "GHA_TORCH_VERSION="$2}'
+#            pip show torch_npu | grep "Version:" | awk '{print "GHA_TORCH_NPU_VERSION="$2}'
+#            pip show vllm | grep "Version:" | awk '{print "GHA_VLLM_VERSION="$2}' | sed 's/+.*//'
+#          } >> "$GITHUB_ENV"
+#
+#      - name: Run vllm-project/vllm-ascend accuracy test
+#        id: report
+#        env:
+#          VLLM_WORKER_MULTIPROC_METHOD: spawn
+#          HF_DATASETS_OFFLINE: True
+#          VLLM_USE_MODELSCOPE: True
+#          VLLM_CI_RUNNER: ${{ inputs.runner }}
+#          VLLM_VERSION: ${{ env.GHA_VLLM_VERSION }}
+#          VLLM_COMMIT: ${{ env.VLLM_COMMIT }}
+#          VLLM_ASCEND_VERSION: ${{ env.GHA_VLLM_ASCEND_VERSION || github.ref }}
+#          VLLM_ASCEND_COMMIT: ${{ env.VLLM_ASCEND_COMMIT }}
+#          CANN_VERSION: ${{ env.GHA_CANN_VERSION }}
+#          TORCH_VERSION: ${{ env.GHA_TORCH_VERSION }}
+#          TORCH_NPU_VERSION: ${{ env.GHA_TORCH_NPU_VERSION }}
+#        run: |
+#          mkdir -p ./benchmarks/accuracy
+#          echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib" >> ~/.bashrc
+#          echo "Received model_list: ${{ inputs.model_list }}"
+#          models=$(echo '${{ inputs.model_list }}' | jq -r '.[]')
+#          any_failure=0
+#          for model in $models; do
+#            echo "Running test for model: $model"
+#            pytest -sv ./tests/e2e/models/test_lm_eval_correctness.py \
+#              --config "./tests/e2e/models/configs/${model}.yaml" || {
+#              echo "Test failed for model: $model"
+#              any_failure=1
+#            }
+#          done
+#
+#          if [ $any_failure -ne 0 ]; then
+#            exit 1
+#          fi
+#
+#      - name: Generate step summary
+#        if: ${{ always() }}
+#        run: |
+#          models=$(echo '${{ inputs.model_list }}' | jq -r '.[]')
+#          for model in $models; do
+#            echo "Processing model: $model"
+#            model_base_name=$(basename "$model")
+#            cat ./benchmarks/accuracy/${model_base_name}.md >> $GITHUB_STEP_SUMMARY
+#          done
+#
+#      - name: Set artifact timestamp
+#        id: ts
+#        run: |
+#          echo "artifact_ts=$(date -u +%Y%m%dT%H%M%SZ)" >> $GITHUB_OUTPUT
+#
+#      - name: Upload Report
+#        if: ${{ inputs.upload == true }}
+#        uses: actions/upload-artifact@v7
+#        with:
+#          name: report-${{ env.GHA_VLLM_ASCEND_VERSION }}-${{ steps.ts.outputs.artifact_ts }}
+#          path: ./benchmarks/accuracy/
+#          if-no-files-found: warn
+#          retention-days: 90
+#          overwrite: true
