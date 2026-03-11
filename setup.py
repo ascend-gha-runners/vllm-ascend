@@ -405,11 +405,10 @@ class cmake_build_ext(build_ext):
             print(f"Copy: {src_cann_ops_custom} -> {dst_cann_ops_custom}")
 
     def run(self):
-        # First, ensure ACLNN custom-ops is built and installed.
-        if not envs.VLLM_ASCEND_SKIP_ACLNN:
+        if envs.COMPILE_CUSTOM_KERNELS:
+            # First, ensure ACLNN custom-ops is built and installed.
             self.run_command("build_aclnn")
-        else:
-            print(f"VLLM_ASCEND_SKIP_ACLNN=1: skipping build_aclnn (using cached artifacts)")
+
         # Then, run the standard build_ext command to compile the extensions
         super().run()
 

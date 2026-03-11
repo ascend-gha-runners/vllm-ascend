@@ -129,7 +129,6 @@ function build() {
 #        -DCUSTOM_CCACHE=${CCACHE_PROGRAM}
 
 #    if [ "${ENABLE_CCACHE}" = "ON" ] && [ -n "${CCACHE_PROGRAM}" ]; then
-    sccache --zero-stats
 #    export CMAKE_C_COMPILER_LAUNCHER=/usr/local/python3.11.14/bin/sccache
 #    export CMAKE_CXX_COMPILER_LAUNCHER=/usr/local/python3.11.14/bin/sccache
 #        echo "DEBUG: Set CC=${CC}"
@@ -142,8 +141,6 @@ function build() {
     make_end=$(date +%s)
     duration=$((make_end - make_start))
     echo "=== C++ code compilation completed in ${duration} seconds ==="
-    
-    sccache --show-stats
 }
 
 function main() {
