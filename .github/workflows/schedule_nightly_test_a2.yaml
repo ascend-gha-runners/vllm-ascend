@@ -49,7 +49,7 @@ concurrency:
 jobs:
   parse-trigger:
     name: Parse trigger and determine test scope
-    runs-on: linux-aarch64-a2b3-0
+    runs-on: linux-aarch64-a2b3-test-0
     if: >-
       github.event_name == 'schedule' ||
       github.event_name == 'workflow_dispatch' ||
@@ -134,7 +134,7 @@ jobs:
       matrix:
         test_config:
           - name: test_custom_op
-            os: linux-aarch64-a2b3-1
+            os: linux-aarch64-a2b3-test-1
             tests: tests/e2e/nightly/single_node/ops/singlecard_ops
           - name: test_custom_op_multi_card
             os: linux-aarch64-a2b3-4
@@ -169,7 +169,7 @@ jobs:
       matrix:
         test_config:
           - name: qwen3-32b
-            os: linux-aarch64-a2b3-4
+            os: linux-aarch64-a2b3-test-4
             config_file_path: Qwen3-32B.yaml
           - name: qwen3-next-80b-a3b-instruct
             os: linux-aarch64-a2b3-4
@@ -248,7 +248,7 @@ jobs:
       matrix:
         test_config:
           - name: accuracy-group-1
-            os: linux-aarch64-a2b3-1
+            os: linux-aarch64-a2b3-test-1
             model_list:
               - Qwen3-8B
               - Qwen2-Audio-7B-Instruct
