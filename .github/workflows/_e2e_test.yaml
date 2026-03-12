@@ -76,9 +76,9 @@ jobs:
             vllm_ascend/*.so
             vllm_ascend/lib
             vllm_ascend/include
-          key: ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ container.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+          key: ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
           restore-keys: |
-            ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ container.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+            ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
         env:
           # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
           RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
@@ -148,7 +148,7 @@ jobs:
           if find vllm_ascend/_cann_ops_custom -not -name '.gitkeep' -type f 2>/dev/null | grep -q . \
             && find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
             echo "Cache hit: skipping compilation (aclnn + cmake), installing Python package only"
-            COMPILE_CUSTOM_KERNELS=0 VLLM_ASCEND_SKIP_ACLNN=1 uv pip install -v -e .
+            COMPILE_CUSTOM_KERNELS=0 uv pip install -v -e .
           else
             uv pip install -v -e .
             sccache --show-stats
@@ -239,9 +239,9 @@ jobs:
             vllm_ascend/*.so
             vllm_ascend/lib
             vllm_ascend/include
-          key: ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ container.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+          key: ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
           restore-keys: |
-            ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ container.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+            ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
         env:
           # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
           RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
@@ -292,7 +292,7 @@ jobs:
           if find vllm_ascend/_cann_ops_custom -not -name '.gitkeep' -type f 2>/dev/null | grep -q . \
             && find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
             echo "Cache hit: skipping compilation (aclnn + cmake), installing Python package only"
-            COMPILE_CUSTOM_KERNELS=0 VLLM_ASCEND_SKIP_ACLNN=1 uv pip install -v -e .
+            COMPILE_CUSTOM_KERNELS=0 uv pip install -v -e .
           else
             uv pip install -v -e .
             sccache --show-stats
@@ -381,9 +381,9 @@ jobs:
             vllm_ascend/*.so
             vllm_ascend/lib
             vllm_ascend/include
-          key: ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ container.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+          key: ascend-vllm-ascend-build-v1-${{ runner.os }}-swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py3.11-${{ steps.get_dir_hash.outputs.DIR_HASH }}
           restore-keys: |
-            ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ container.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+            ascend-vllm-ascend-build-v1-${{ runner.os }}-swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py3.11-${{ steps.get_dir_hash.outputs.DIR_HASH }}
         env:
           # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
           RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
@@ -435,7 +435,7 @@ jobs:
           if find vllm_ascend/_cann_ops_custom -not -name '.gitkeep' -type f 2>/dev/null | grep -q . \
             && find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
             echo "Cache hit: skipping compilation (aclnn + cmake), installing Python package only"
-            COMPILE_CUSTOM_KERNELS=0 VLLM_ASCEND_SKIP_ACLNN=1 uv pip install -v -e .
+            COMPILE_CUSTOM_KERNELS=0 uv pip install -v -e .
           else
             uv pip install -v -e .
             sccache --show-stats
