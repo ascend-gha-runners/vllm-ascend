@@ -339,7 +339,7 @@ class cmake_build_ext(build_ext):
         )
 
     def build_extensions(self) -> None:
-        if not envs.COMPILE_CUSTOM_KERNELS:
+        if not 1: # envs.COMPILE_CUSTOM_KERNELS
             return
         # Ensure that CMake is present and working
         try:
