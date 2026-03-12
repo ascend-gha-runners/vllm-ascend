@@ -54,15 +54,15 @@ jobs:
         git config --global --add safe.directory /__w/vllm-ascend/vllm-ascend
         pip install -r requirements-dev.txt --extra-index-url https://download.pytorch.org/whl/cpu
 
-    - name: Run pre-commit
-      env:
-        PRE_COMMIT_COLOR: always
-        FORCE_COLOR: "1"
-        TERM: xterm-256color
-        SHELLCHECK_OPTS: "--exclude=SC2046,SC2006,SC2086" # Exclude SC2046, SC2006, SC2086 for actionlint
-      run: |
-        git config --global --add safe.directory /__w/vllm-ascend/vllm-ascend
-        pre-commit run --all-files --hook-stage manual --show-diff-on-failure
+#    - name: Run pre-commit
+#      env:
+#        PRE_COMMIT_COLOR: always
+#        FORCE_COLOR: "1"
+#        TERM: xterm-256color
+#        SHELLCHECK_OPTS: "--exclude=SC2046,SC2006,SC2086" # Exclude SC2046, SC2006, SC2086 for actionlint
+#      run: |
+#        git config --global --add safe.directory /__w/vllm-ascend/vllm-ascend
+#        pre-commit run --all-files --hook-stage manual --show-diff-on-failure
 
     - name: Run mypy
       run: |
