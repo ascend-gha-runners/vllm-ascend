@@ -76,9 +76,9 @@ jobs:
             vllm_ascend/*.so
             vllm_ascend/lib
             vllm_ascend/include
-          key: ascend-${{ runner.os }}-vllm-ascend-build-v2-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+          key: ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ container.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
           restore-keys: |
-            ascend-${{ runner.os }}-vllm-ascend-build-v2-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+            ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ container.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
         env:
           # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
           RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
@@ -239,9 +239,9 @@ jobs:
             vllm_ascend/*.so
             vllm_ascend/lib
             vllm_ascend/include
-          key: ascend-${{ runner.os }}-vllm-ascend-build-v2-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+          key: ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ container.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
           restore-keys: |
-            ascend-${{ runner.os }}-vllm-ascend-build-v2-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+            ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ container.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
         env:
           # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
           RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
@@ -381,9 +381,9 @@ jobs:
             vllm_ascend/*.so
             vllm_ascend/lib
             vllm_ascend/include
-          key: ascend-${{ runner.os }}-vllm-ascend-build-v2-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+          key: ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ container.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
           restore-keys: |
-            ascend-${{ runner.os }}-vllm-ascend-build-v2-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+            ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ container.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
         env:
           # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
           RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
