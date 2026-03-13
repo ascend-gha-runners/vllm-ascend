@@ -38,6 +38,8 @@ env:
   SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE: true
   AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
+  RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
+  RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
 jobs:
   e2e-light:
     name: singlecard-light
@@ -61,37 +63,29 @@ jobs:
           npu-smi info
           cat /usr/local/Ascend/ascend-toolkit/latest/"$(uname -i)"-linux/ascend_toolkit_install.info
 
-      #      - name: get hash
-      #        id: get_dir_hash
-      #        run: |
-      #          DIR_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
-      #            ./vllm_ascend/envs.py ./requirements.txt ./requirements-dev.txt ./packages.txt \
-      #            -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
-      #          echo "DIR_HASH=$DIR_HASH" >> $GITHUB_OUTPUT
-      #      - name: Cache dependencies
-      #        uses: runs-on/cache@v4
-      #        with:
-      #          path: |
-      #            vllm_ascend/_cann_ops_custom
-      #            vllm_ascend/*.so
-      #            vllm_ascend/lib
-      #            vllm_ascend/include
-      #          key: ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
-      #          restore-keys: |
-      #            ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
-      #        env:
-      #          # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
-      #          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
-      #          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
-      #          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
-      #          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
-      #          AWS_REGION: cn-southwest-2
+      - name: get hash
+        id: get_dir_hash
+        run: |
+          DIR_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
+            ./vllm_ascend/envs.py ./requirements.txt ./requirements-dev.txt ./packages.txt \
+            -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
+          echo "DIR_HASH=$DIR_HASH" >> $GITHUB_OUTPUT
+      - name: Cache dependencies
+        uses: runs-on/cache@v4
+        with:
+          path: |
+            vllm_ascend/_cann_ops_custom
+            vllm_ascend/*.so
+            vllm_ascend/lib
+            vllm_ascend/include
+          key: ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+          restore-keys: |
+            ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
       - name: Get requirements hash
         id: get_req_hash
         run: |
           REQ_HASH=$(sha256sum requirements.txt requirements-dev.txt 2>/dev/null | sha256sum | awk '{print $1}')
           echo "REQ_HASH=$REQ_HASH" >> $GITHUB_OUTPUT
-          echo "requirements hash: $REQ_HASH"
       - name: Cache uv pip packages
         uses: runs-on/cache@v4
         with:
@@ -101,12 +95,7 @@ jobs:
           key: ascend-${{ runner.os }}-uv-pip-v2-${{ steps.get_req_hash.outputs.REQ_HASH }}
           restore-keys: |
             ascend-${{ runner.os }}-uv-pip-v2-${{ steps.get_req_hash.outputs.REQ_HASH }}
-        env:
-          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
-          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
-          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
-          AWS_REGION: cn-southwest-2
+
 
       - name: Config mirrors
         run: |
@@ -242,19 +231,11 @@ jobs:
           key: ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
           restore-keys: |
             ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
-        env:
-          # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
-          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
-          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
-          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
-          AWS_REGION: cn-southwest-2
       - name: Get requirements hash
         id: get_req_hash
         run: |
           REQ_HASH=$(sha256sum requirements.txt requirements-dev.txt 2>/dev/null | sha256sum | awk '{print $1}')
           echo "REQ_HASH=$REQ_HASH" >> $GITHUB_OUTPUT
-          echo "requirements hash: $REQ_HASH"
       - name: Cache uv pip packages
         uses: runs-on/cache@v4
         with:
@@ -264,12 +245,6 @@ jobs:
           key: ascend-${{ runner.os }}-uv-pip-v2-${{ steps.get_req_hash.outputs.REQ_HASH }}
           restore-keys: |
             ascend-${{ runner.os }}-uv-pip-v2-${{ steps.get_req_hash.outputs.REQ_HASH }}
-        env:
-          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
-          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
-          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
-          AWS_REGION: cn-southwest-2
       - name: Checkout vllm-project/vllm repo
         uses: actions/checkout@v6
         with:
@@ -366,37 +341,30 @@ jobs:
 
           update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 20
           update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20
-      #      - name: get hash
-      #        id: get_dir_hash
-      #        run: |
-      #          DIR_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
-      #            ./vllm_ascend/envs.py ./requirements.txt ./requirements-dev.txt ./packages.txt \
-      #            -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
-      #          echo "DIR_HASH=$DIR_HASH" >> $GITHUB_OUTPUT
-      #      - name: Cache dependencies
-      #        uses: runs-on/cache@v4
-      #        with:
-      #          path: |
-      #            vllm_ascend/_cann_ops_custom
-      #            vllm_ascend/*.so
-      #            vllm_ascend/lib
-      #            vllm_ascend/include
-      #          key: ascend-vllm-ascend-build-v1-${{ runner.os }}-swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py3.11-${{ steps.get_dir_hash.outputs.DIR_HASH }}
-      #          restore-keys: |
-      #            ascend-vllm-ascend-build-v1-${{ runner.os }}-swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py3.11-${{ steps.get_dir_hash.outputs.DIR_HASH }}
-      #        env:
-      #          # 👇 指定你的 OBS bucket（必须用 virtual-hosted 域名！）
-      #          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
-      #          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
-      #          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
-      #          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
-      #          AWS_REGION: cn-southwest-2
+      - name: get hash
+        id: get_dir_hash
+        run: |
+          DIR_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
+            ./vllm_ascend/envs.py ./requirements.txt ./requirements-dev.txt ./packages.txt \
+            -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
+          echo "DIR_HASH=$DIR_HASH" >> $GITHUB_OUTPUT
+      - name: Cache dependencies
+        uses: runs-on/cache@v4
+        with:
+          path: |
+            vllm_ascend/_cann_ops_custom
+            vllm_ascend/*.so
+            vllm_ascend/lib
+            vllm_ascend/include
+          key: ascend-vllm-ascend-build-v1-${{ runner.os }}-swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py3.11-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+          restore-keys: |
+            ascend-vllm-ascend-build-v1-${{ runner.os }}-swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py3.11-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+
       - name: Get requirements hash
         id: get_req_hash
         run: |
           REQ_HASH=$(sha256sum requirements.txt requirements-dev.txt 2>/dev/null | sha256sum | awk '{print $1}')
           echo "REQ_HASH=$REQ_HASH" >> $GITHUB_OUTPUT
-          echo "requirements hash: $REQ_HASH"
       - name: Cache uv pip packages
         uses: runs-on/cache@v4
         with:
@@ -406,12 +374,6 @@ jobs:
           key: ascend-${{ runner.os }}-uv-pip-v2-${{ steps.get_req_hash.outputs.REQ_HASH }}
           restore-keys: |
             ascend-${{ runner.os }}-uv-pip-v2-${{ steps.get_req_hash.outputs.REQ_HASH }}
-        env:
-          RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
-          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
-          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
-          AWS_REGION: cn-southwest-2
 
       - name: Checkout vllm-project/vllm repo
         uses: actions/checkout@v6

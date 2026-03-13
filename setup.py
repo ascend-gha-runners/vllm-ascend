@@ -410,7 +410,7 @@ class cmake_build_ext(build_ext):
             print(f"Copy: {src_cann_ops_custom} -> {dst_cann_ops_custom}")
 
     def run(self):
-        if 0:
+        if envs.COMPILE_CUSTOM_KERNELS:
             # First, ensure ACLNN custom-ops is built and installed.
             self.run_command("build_aclnn")
 
