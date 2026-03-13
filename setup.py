@@ -339,7 +339,7 @@ class cmake_build_ext(build_ext):
         )
 
     def build_extensions(self) -> None:
-        if not 0: # envs.COMPILE_CUSTOM_KERNELS
+        if 0:
             return
         # Ensure that CMake is present and working
         try:
@@ -433,8 +433,8 @@ except LookupError:
     VERSION = "0.0.0"
 
 ext_modules = []
-if envs.COMPILE_CUSTOM_KERNELS:
-    ext_modules = [CMakeExtension(name="vllm_ascend.vllm_ascend_C")]
+# if envs.COMPILE_CUSTOM_KERNELS:
+#     ext_modules = [CMakeExtension(name="vllm_ascend.vllm_ascend_C")]
 
 
 def get_path(*filepath) -> str:
