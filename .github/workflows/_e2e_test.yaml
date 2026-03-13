@@ -38,6 +38,7 @@ env:
   SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE: true
   AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
+  AWS_REGION: cn-southwest-2
   RUNS_ON_S3_BUCKET_CACHE: obs-guiiyang1-ascend-test
   RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-southwest-2.myhuaweicloud.com
 jobs:
@@ -63,13 +64,13 @@ jobs:
           npu-smi info
           cat /usr/local/Ascend/ascend-toolkit/latest/"$(uname -i)"-linux/ascend_toolkit_install.info
 
-      - name: get hash
-        id: get_dir_hash
+      - name: get csrc hash
+        id: get_csrc_hash
         run: |
-          DIR_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
+          CSRC_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
             ./vllm_ascend/envs.py ./requirements.txt ./requirements-dev.txt ./packages.txt \
             -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
-          echo "DIR_HASH=$DIR_HASH" >> $GITHUB_OUTPUT
+          echo "CSRC_HASH=CSRC_HASH" >> $GITHUB_OUTPUT
       - name: Cache dependencies
         uses: runs-on/cache@v4
         with:
@@ -78,9 +79,9 @@ jobs:
             vllm_ascend/*.so
             vllm_ascend/lib
             vllm_ascend/include
-          key: ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+          key: ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
           restore-keys: |
-            ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+            ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
       - name: Get requirements hash
         id: get_req_hash
         run: |
@@ -95,7 +96,6 @@ jobs:
           key: ascend-${{ runner.os }}-uv-pip-v2-${{ steps.get_req_hash.outputs.REQ_HASH }}
           restore-keys: |
             ascend-${{ runner.os }}-uv-pip-v2-${{ steps.get_req_hash.outputs.REQ_HASH }}
-
 
       - name: Config mirrors
         run: |
@@ -213,13 +213,13 @@ jobs:
 
           update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 20
           update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20
-      - name: get hash
-        id: get_dir_hash
+      - name: get csrc hash
+        id: get_csrc_hash
         run: |
-          DIR_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
+          CSRC_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
             ./vllm_ascend/envs.py ./requirements.txt ./requirements-dev.txt ./packages.txt \
             -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
-          echo "DIR_HASH=$DIR_HASH" >> $GITHUB_OUTPUT
+          echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
       - name: Cache dependencies
         uses: runs-on/cache@v4
         with:
@@ -228,9 +228,9 @@ jobs:
             vllm_ascend/*.so
             vllm_ascend/lib
             vllm_ascend/include
-          key: ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+          key: ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
           restore-keys: |
-            ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+            ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
       - name: Get requirements hash
         id: get_req_hash
         run: |
@@ -341,13 +341,13 @@ jobs:
 
           update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 20
           update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20
-      - name: get hash
-        id: get_dir_hash
+      - name: get csrc hash
+        id: get_csrc_hash
         run: |
-          DIR_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
+          CSRC_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
             ./vllm_ascend/envs.py ./requirements.txt ./requirements-dev.txt ./packages.txt \
             -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
-          echo "DIR_HASH=$DIR_HASH" >> $GITHUB_OUTPUT
+          echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
       - name: Cache dependencies
         uses: runs-on/cache@v4
         with:
@@ -356,9 +356,9 @@ jobs:
             vllm_ascend/*.so
             vllm_ascend/lib
             vllm_ascend/include
-          key: ascend-vllm-ascend-build-v1-${{ runner.os }}-swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py3.11-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+          key: ascend-vllm-ascend-build-v1-${{ runner.os }}-swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py3.11-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
           restore-keys: |
-            ascend-vllm-ascend-build-v1-${{ runner.os }}-swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py3.11-${{ steps.get_dir_hash.outputs.DIR_HASH }}
+            ascend-vllm-ascend-build-v1-${{ runner.os }}-swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py3.11-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
 
       - name: Get requirements hash
         id: get_req_hash
