@@ -339,7 +339,7 @@ class cmake_build_ext(build_ext):
         )
 
     def build_extensions(self) -> None:
-        if 0:
+        if not envs.COMPILE_CUSTOM_KERNELS:
             return
         # Ensure that CMake is present and working
         try:
@@ -410,7 +410,7 @@ class cmake_build_ext(build_ext):
             print(f"Copy: {src_cann_ops_custom} -> {dst_cann_ops_custom}")
 
     def run(self):
-        if envs.COMPILE_CUSTOM_KERNELS:
+        if 0:
             # First, ensure ACLNN custom-ops is built and installed.
             self.run_command("build_aclnn")
 
@@ -433,8 +433,8 @@ except LookupError:
     VERSION = "0.0.0"
 
 ext_modules = []
-# if envs.COMPILE_CUSTOM_KERNELS:
-#     ext_modules = [CMakeExtension(name="vllm_ascend.vllm_ascend_C")]
+if envs.COMPILE_CUSTOM_KERNELS:
+    ext_modules = [CMakeExtension(name="vllm_ascend.vllm_ascend_C")]
 
 
 def get_path(*filepath) -> str:
