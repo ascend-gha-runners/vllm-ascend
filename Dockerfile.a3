@@ -20,13 +20,20 @@ FROM quay.io/ascend/cann:8.5.1-a3-ubuntu22.04-py3.11
 ARG PIP_INDEX_URL="https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple"
 ARG MOONCAKE_TAG=v0.3.8.post1
 ARG SOC_VERSION="ascend910_9391"
-ARG SCCACHE_DIR=/tmp/sccache
+ARG ACTIONS_RUNTIME_TOKEN
+ARG ACTIONS_CACHE_URL
+ARG SCCACHE_GHA_ENABLED
+ARG SCCACHE_KEY_PREFIX
 
 COPY . /vllm-workspace/vllm-ascend/
 # Define environments
 ENV DEBIAN_FRONTEND=noninteractive
 ENV SOC_VERSION=$SOC_VERSION \
     TASK_QUEUE_ENABLE=1 \
+    ACTIONS_RUNTIME_TOKEN=$ACTIONS_RUNTIME_TOKEN \
+    ACTIONS_CACHE_URL=$ACTIONS_CACHE_URL \
+    SCCACHE_GHA_ENABLED=$SCCACHE_GHA_ENABLED \
+    SCCACHE_KEY_PREFIX=$SCCACHE_KEY_PREFIX \
     OMP_NUM_THREADS=1
 
 RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: pip config set global.index-url" && \
@@ -44,6 +51,7 @@ RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: apt-get update" && \
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: apt-get install dependencies" && \
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: install sccache" && \
     pip install sccache && \
+    sccache --start-server  && \
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: install sccache" && \
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: git clone Mooncake" && \
     git clone --depth 1 --branch ${MOONCAKE_TAG} https://github.com/kvcache-ai/Mooncake /vllm-workspace/Mooncake && \
@@ -56,11 +64,10 @@ RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: apt-get update" && \
     ARCH=$(uname -m) && \
     source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     export LD_LIBRARY_PATH=/usr/local/Ascend/ascend-toolkit/latest/${ARCH}-linux/devlib:/usr/local/Ascend/ascend-toolkit/latest/${ARCH}-linux/lib64:$LD_LIBRARY_PATH && \
-    mkdir -p ${SCCACHE_DIR} && \
-    export SCCACHE_DIR=${SCCACHE_DIR} && \
     mkdir -p build && cd build && \
     cmake .. -DUSE_ASCEND_DIRECT=ON -DENABLE_SCCACHE=ON && \
     make -j$(nproc) && make install && \
+    sccache --show-stats && \
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: cmake and make Mooncake" && \
     rm -fr /vllm-workspace/Mooncake/build && \
     rm -rf /var/cache/apt/* && \
