@@ -20,6 +20,7 @@ FROM quay.io/ascend/cann:8.5.1-a3-ubuntu22.04-py3.11
 ARG PIP_INDEX_URL="https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple"
 ARG MOONCAKE_TAG=v0.3.8.post1
 ARG SOC_VERSION="ascend910_9391"
+ARG SCCACHE_DIR=/tmp/sccache
 
 COPY . /vllm-workspace/vllm-ascend/
 # Define environments
@@ -28,21 +29,39 @@ ENV SOC_VERSION=$SOC_VERSION \
     TASK_QUEUE_ENABLE=1 \
     OMP_NUM_THREADS=1
 
-RUN pip config set global.index-url ${PIP_INDEX_URL}
+RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: pip config set global.index-url" && \
+    pip config set global.index-url ${PIP_INDEX_URL} && \
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: pip config set global.index-url"
 
 WORKDIR /workspace
 
 # Install Mooncake dependencies
-RUN apt-get update -y && \
+RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: apt-get update" && \
+    apt-get update -y && \
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: apt-get update" && \
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: apt-get install dependencies" && \
     apt-get install -y git vim wget net-tools gcc g++ cmake libnuma-dev libjemalloc2 && \
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: apt-get install dependencies" && \
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: install sccache" && \
+    pip install sccache && \
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: install sccache" && \
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: git clone Mooncake" && \
     git clone --depth 1 --branch ${MOONCAKE_TAG} https://github.com/kvcache-ai/Mooncake /vllm-workspace/Mooncake && \
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: git clone Mooncake" && \
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: mooncake_installer.sh" && \
     cp /vllm-workspace/vllm-ascend/tools/mooncake_installer.sh /vllm-workspace/Mooncake/ && \
     cd /vllm-workspace/Mooncake && bash mooncake_installer.sh -y && \
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: mooncake_installer.sh" && \
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: cmake and make Mooncake" && \
     ARCH=$(uname -m) && \
     source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     export LD_LIBRARY_PATH=/usr/local/Ascend/ascend-toolkit/latest/${ARCH}-linux/devlib:/usr/local/Ascend/ascend-toolkit/latest/${ARCH}-linux/lib64:$LD_LIBRARY_PATH && \
-    mkdir -p build && cd build && cmake .. -DUSE_ASCEND_DIRECT=ON && \
+    mkdir -p ${SCCACHE_DIR} && \
+    export SCCACHE_DIR=${SCCACHE_DIR} && \
+    mkdir -p build && cd build && \
+    cmake .. -DUSE_ASCEND_DIRECT=ON -DENABLE_SCCACHE=ON && \
     make -j$(nproc) && make install && \
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: cmake and make Mooncake" && \
     rm -fr /vllm-workspace/Mooncake/build && \
     rm -rf /var/cache/apt/* && \
     rm -rf /var/lib/apt/lists/*
@@ -50,31 +69,45 @@ RUN apt-get update -y && \
 # Install vLLM
 ARG VLLM_REPO=https://github.com/vllm-project/vllm.git
 ARG VLLM_TAG=v0.16.0
-RUN git clone --depth 1 $VLLM_REPO --branch $VLLM_TAG /vllm-workspace/vllm
+RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: git clone vLLM" && \
+    git clone --depth 1 $VLLM_REPO --branch $VLLM_TAG /vllm-workspace/vllm && \
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: git clone vLLM"
 # In x86, triton will be installed by vllm. But in Ascend, triton doesn't work correctly. we need to uninstall it.
-RUN VLLM_TARGET_DEVICE="empty" python3 -m pip install -v -e /vllm-workspace/vllm/[audio] --extra-index https://download.pytorch.org/whl/cpu/ && \
+RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: install vLLM" && \
+    VLLM_TARGET_DEVICE="empty" python3 -m pip install -v -e /vllm-workspace/vllm/[audio] --extra-index https://download.pytorch.org/whl/cpu/ && \
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: install vLLM" && \
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: uninstall triton" && \
     python3 -m pip uninstall -y triton && \
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: uninstall triton" && \
     python3 -m pip cache purge
 
 # Install vllm-ascend
 # Append `libascend_hal.so` path (devlib) to LD_LIBRARY_PATH
-RUN export PIP_EXTRA_INDEX_URL=https://mirrors.huaweicloud.com/ascend/repos/pypi && \
+RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: install vllm-ascend" && \
+    export PIP_EXTRA_INDEX_URL=https://mirrors.huaweicloud.com/ascend/repos/pypi && \
     source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     source /usr/local/Ascend/nnal/atb/set_env.sh && \
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/Ascend/ascend-toolkit/latest/`uname -i`-linux/devlib && \
     python3 -m pip install -v -e /vllm-workspace/vllm-ascend/ --extra-index https://download.pytorch.org/whl/cpu/ && \
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: install vllm-ascend" && \
     python3 -m pip cache purge
 
 # Install clang-15 (for triton-ascend)
-RUN apt-get update -y && \
+RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: apt-get update for clang" && \
+    apt-get update -y && \
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: apt-get update for clang" && \
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: install clang-15" && \
     apt-get -y install clang-15 && \
     update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 20 && \
     update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20 && \
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: install clang-15" && \
     rm -rf /var/cache/apt/* && \
     rm -rf /var/lib/apt/lists/*
 
 # Install modelscope (for fast download) and ray (for multinode)
-RUN python3 -m pip install modelscope 'ray>=2.47.1,<=2.48.0' 'protobuf>3.20.0' && \
+RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: install modelscope and ray" && \
+    python3 -m pip install modelscope 'ray>=2.47.1,<=2.48.0' 'protobuf>3.20.0' && \
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: install modelscope and ray" && \
     python3 -m pip cache purge
 
 RUN echo "export LD_PRELOAD=/usr/lib/$(uname -m)-linux-gnu/libjemalloc.so.2:$LD_PRELOAD" >> ~/.bashrc

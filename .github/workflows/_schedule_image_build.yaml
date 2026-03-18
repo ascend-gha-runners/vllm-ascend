@@ -76,6 +76,22 @@ jobs:
         driver: docker-container
         use: true
 
+    - name: Install sccache
+      run: pip install sccache
+
+    - name: Cache sccache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/sccache
+        key: ${{ runner.os }}-sccache-${{ hashFiles('**/Dockerfile*') }}
+        restore-keys: |
+          ${{ runner.os }}-sccache-
+
+    - name: Create sccache directory
+      run: |
+        mkdir -p ~/.cache/sccache
+        chmod -R 777 ~/.cache/sccache
+
     - name: Build and push
       uses: docker/build-push-action@v6
       id: build
@@ -89,7 +105,11 @@ jobs:
         outputs: type=image,name=quay.io/ascend/vllm-ascend,push-by-digest=true,name-canonical=true,push=${{ inputs.should_push }}
         build-args: |
           PIP_INDEX_URL=https://pypi.org/simple
+          SCCACHE_DIR=/sccache
         provenance: false
+        # 添加 sccache volume 挂载
+        volumes: |
+          ~/.cache/sccache:/sccache
 
     - name: Export digest
       run: |
