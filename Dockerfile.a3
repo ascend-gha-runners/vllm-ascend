@@ -37,17 +37,29 @@ RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: pip config set global.index-url"
 WORKDIR /workspace
 
 RUN echo "Installing sccache..." \
+    && echo "MATRIX_ARCH=${MATRIX_ARCH}" \
+    && echo "TARGETPLATFORM=${TARGETPLATFORM}" \
     && case "${MATRIX_ARCH}" in \
       linux/arm64) SCCACHE_ARCH="aarch64" ;; \
       linux/amd64) SCCACHE_ARCH="x86_64" ;; \
       *) echo "Unsupported TARGETPLATFORM for sccache: ${TARGETPLATFORM}" >&2; exit 1 ;; \
     esac \
+    && echo "SCCACHE_ARCH=${SCCACHE_ARCH}" \
     && export SCCACHE_DOWNLOAD_URL="${SCCACHE_DOWNLOAD_URL:-https://github.com/mozilla/sccache/releases/download/v0.14.0/sccache-v0.14.0-${SCCACHE_ARCH}-unknown-linux-musl.tar.gz}" \
+    && echo "SCCACHE_DOWNLOAD_URL=${SCCACHE_DOWNLOAD_URL}" \
+    && echo "Downloading sccache..." \
     && curl -L -o sccache.tar.gz ${SCCACHE_DOWNLOAD_URL} \
+    && echo "Download completed, extracting..." \
     && tar -xzf sccache.tar.gz \
+    && echo "Extraction completed, moving to /usr/bin..." \
     && sudo mv sccache-v0.14.0-${SCCACHE_ARCH}-unknown-linux-musl/sccache /usr/bin/sccache \
+    && echo "Cleaning up..." \
     && rm -rf sccache.tar.gz sccache-v0.14.0-${SCCACHE_ARCH}-unknown-linux-musl \
-    && sccache --show-stats
+    && echo "Starting sccache server..." \
+    && sccache --start-server \
+    && echo "Showing sccache stats..." \
+    && sccache --show-stats \
+    && echo "sccache installation completed"
 
 # Install Mooncake dependencies
 RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: apt-get update" && \
