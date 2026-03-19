@@ -62,6 +62,9 @@ jobs:
 #            dockerfile: Dockerfile.310p.openEuler
 #            suffix: '310p-openeuler'
     uses: ./.github/workflows/_schedule_image_build.yaml
+    permissions:
+      contents: read
+      actions: write
     with:
       dockerfile: ${{ matrix.build_meta.dockerfile }}
       suffix: ${{ matrix.build_meta.suffix }}
