@@ -20,18 +20,15 @@ FROM quay.io/ascend/cann:8.5.1-a3-ubuntu22.04-py3.11
 ARG PIP_INDEX_URL="https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple"
 ARG MOONCAKE_TAG=v0.3.8.post1
 ARG SOC_VERSION="ascend910_9391"
-ARG ACTIONS_RUNTIME_TOKEN
-ARG ACTIONS_CACHE_URL
 ARG SCCACHE_GHA_ENABLED
 ARG SCCACHE_KEY_PREFIX
+ARG MATRIX_ARCH
 
 COPY . /vllm-workspace/vllm-ascend/
 # Define environments
 ENV DEBIAN_FRONTEND=noninteractive
 ENV SOC_VERSION=$SOC_VERSION \
     TASK_QUEUE_ENABLE=1 \
-    ACTIONS_RUNTIME_TOKEN=$ACTIONS_RUNTIME_TOKEN \
-    ACTIONS_CACHE_URL=$ACTIONS_CACHE_URL \
     SCCACHE_GHA_ENABLED=$SCCACHE_GHA_ENABLED \
     SCCACHE_KEY_PREFIX=$SCCACHE_KEY_PREFIX \
     OMP_NUM_THREADS=1
@@ -42,6 +39,21 @@ RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: pip config set global.index-url"
 
 WORKDIR /workspace
 
+RUN if [ "$SCCACHE_GHA_ENABLED" = "on" ]; then \
+        echo "Installing sccache..." \
+        && case "${MATRIX_ARCH}" in \
+          linux/arm64) SCCACHE_ARCH="aarch64" ;; \
+          linux/amd64) SCCACHE_ARCH="x86_64" ;; \
+          *) echo "Unsupported TARGETPLATFORM for sccache: ${TARGETPLATFORM}" >&2; exit 1 ;; \
+        esac \
+        && export SCCACHE_DOWNLOAD_URL="${SCCACHE_DOWNLOAD_URL:-https://github.com/mozilla/sccache/releases/download/v0.14.0/sccache-v0.14.0-${SCCACHE_ARCH}-unknown-linux-musl.tar.gz}" \
+        && curl -L -o sccache.tar.gz ${SCCACHE_DOWNLOAD_URL} \
+        && tar -xzf sccache.tar.gz \
+        && sudo mv sccache-v0.14.0-${SCCACHE_ARCH}-unknown-linux-musl/sccache /usr/bin/sccache \
+        && rm -rf sccache.tar.gz sccache-v0.14.0-${SCCACHE_ARCH}-unknown-linux-musl \
+        && sccache --show-stats; \
+    fi
+
 # Install Mooncake dependencies
 RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: apt-get update" && \
     apt-get update -y && \
@@ -49,10 +61,6 @@ RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: apt-get update" && \
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: apt-get install dependencies" && \
     apt-get install -y git vim wget net-tools gcc g++ cmake libnuma-dev libjemalloc2 && \
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: apt-get install dependencies" && \
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: install sccache" && \
-    pip install sccache && \
-    sccache --start-server  && \
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: install sccache" && \
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: git clone Mooncake" && \
     git clone --depth 1 --branch ${MOONCAKE_TAG} https://github.com/kvcache-ai/Mooncake /vllm-workspace/Mooncake && \
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: git clone Mooncake" && \
@@ -109,7 +117,8 @@ RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: apt-get update for clang" && \
     update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20 && \
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: install clang-15" && \
     rm -rf /var/cache/apt/* && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    if [ -f /usr/bin/sccache ]; then rm /usr/bin/sccache; fi
 
 # Install modelscope (for fast download) and ray (for multinode)
 RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: install modelscope and ray" && \
