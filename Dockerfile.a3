@@ -21,7 +21,6 @@ ARG PIP_INDEX_URL="https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple"
 ARG MOONCAKE_TAG=v0.3.8.post1
 ARG SOC_VERSION="ascend910_9391"
 ARG SCCACHE_GHA_ENABLED
-ARG SCCACHE_KEY_PREFIX
 ARG MATRIX_ARCH
 
 COPY . /vllm-workspace/vllm-ascend/
@@ -29,8 +28,6 @@ COPY . /vllm-workspace/vllm-ascend/
 ENV DEBIAN_FRONTEND=noninteractive
 ENV SOC_VERSION=$SOC_VERSION \
     TASK_QUEUE_ENABLE=1 \
-    SCCACHE_GHA_ENABLED=$SCCACHE_GHA_ENABLED \
-    SCCACHE_KEY_PREFIX=$SCCACHE_KEY_PREFIX \
     OMP_NUM_THREADS=1
 
 RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: pip config set global.index-url" && \
@@ -73,6 +70,7 @@ RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: apt-get update" && \
     source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     export LD_LIBRARY_PATH=/usr/local/Ascend/ascend-toolkit/latest/${ARCH}-linux/devlib:/usr/local/Ascend/ascend-toolkit/latest/${ARCH}-linux/lib64:$LD_LIBRARY_PATH && \
     mkdir -p build && cd build && \
+    export SCCACHE_GHA_ENABLED=$SCCACHE_GHA_ENABLED && \
     cmake .. -DUSE_ASCEND_DIRECT=ON -DENABLE_SCCACHE=ON && \
     make -j$(nproc) && make install && \
     sccache --show-stats && \
@@ -103,6 +101,7 @@ RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: install vllm-ascend" && \
     source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     source /usr/local/Ascend/nnal/atb/set_env.sh && \
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/Ascend/ascend-toolkit/latest/`uname -i`-linux/devlib && \
+    export SCCACHE_GHA_ENABLED=$SCCACHE_GHA_ENABLED && \
     python3 -m pip install -v -e /vllm-workspace/vllm-ascend/ --extra-index https://download.pytorch.org/whl/cpu/ && \
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: install vllm-ascend" && \
     python3 -m pip cache purge
