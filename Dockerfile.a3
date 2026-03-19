@@ -48,13 +48,14 @@ RUN echo "Installing sccache..." \
     && export SCCACHE_DOWNLOAD_URL="${SCCACHE_DOWNLOAD_URL:-https://github.com/mozilla/sccache/releases/download/v0.14.0/sccache-v0.14.0-${SCCACHE_ARCH}-unknown-linux-musl.tar.gz}" \
     && echo "SCCACHE_DOWNLOAD_URL=${SCCACHE_DOWNLOAD_URL}" \
     && echo "Downloading sccache..." \
-    && curl -L -o sccache.tar.gz ${SCCACHE_DOWNLOAD_URL} \
+    && curl -L -o /tmp/sccache.tar.gz ${SCCACHE_DOWNLOAD_URL} \
     && echo "Download completed, extracting..." \
-    && tar -xzf sccache.tar.gz \
+    && tar -xzf /tmp/sccache.tar.gz -C /tmp \
     && echo "Extraction completed, moving to /usr/bin..." \
-    && sudo mv sccache-v0.14.0-${SCCACHE_ARCH}-unknown-linux-musl/sccache /usr/bin/sccache \
+    && mv /tmp/sccache-v0.14.0-${SCCACHE_ARCH}-unknown-linux-musl/sccache /usr/bin/sccache \
+    && chmod +x /usr/bin/sccache \
     && echo "Cleaning up..." \
-    && rm -rf sccache.tar.gz sccache-v0.14.0-${SCCACHE_ARCH}-unknown-linux-musl \
+    && rm -rf /tmp/sccache.tar.gz /tmp/sccache-v0.14.0-${SCCACHE_ARCH}-unknown-linux-musl \
     && echo "Starting sccache server..." \
     && sccache --start-server \
     && echo "Showing sccache stats..." \
