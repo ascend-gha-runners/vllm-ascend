@@ -61,11 +61,13 @@ RUN echo "Installing sccache..." \
     && export ACTIONS_RESULTS_URL=${ACTIONS_RESULTS_URL} \
     && export ACTIONS_RUNTIME_TOKEN=${ACTIONS_RUNTIME_TOKEN} \
     && export SCCACHE_GHA_ENABLED=${SCCACHE_GHA_ENABLED} \
-    && export SCCACHE_KEY_PREFIX="vllm-ascend_" \
+    && export SCCACHE_KEY_PREFIX=vllm-ascend_ \
+    && export SCCACHE_LOG=debug \
     && echo "ACTIONS_RUNTIME_TOKEN=${ACTIONS_RUNTIME_TOKEN:0:20}..." \
     && echo "Starting sccache server..." \
     && sccache --start-server \
     && echo "Showing sccache stats..." \
+    && echo "token lenth sccache ${#ACTIONS_RUNTIME_TOKEN}" \
     && sccache --show-stats \
     && echo "sccache installation completed"
 
@@ -87,7 +89,12 @@ RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: apt-get update" && \
     ARCH=$(uname -m) && \
     source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     export LD_LIBRARY_PATH=/usr/local/Ascend/ascend-toolkit/latest/${ARCH}-linux/devlib:/usr/local/Ascend/ascend-toolkit/latest/${ARCH}-linux/lib64:$LD_LIBRARY_PATH && \
-    mkdir -p build && cd build && \
+    mkdir -p build && cd build \
+    && export ACTIONS_RESULTS_URL=${ACTIONS_RESULTS_URL} \
+    && export ACTIONS_RUNTIME_TOKEN=${ACTIONS_RUNTIME_TOKEN} \
+    && export SCCACHE_GHA_ENABLED=${SCCACHE_GHA_ENABLED} \
+    && export SCCACHE_KEY_PREFIX=vllm-ascend_ \
+    && export SCCACHE_LOG=debug && \
     export SCCACHE_GHA_ENABLED=$SCCACHE_GHA_ENABLED && \
     cmake .. -DUSE_ASCEND_DIRECT=ON -DENABLE_SCCACHE=ON && \
     make -j$(nproc) && make install && \
