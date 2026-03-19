@@ -61,6 +61,7 @@ RUN echo "Installing sccache..." \
     && export ACTIONS_RESULTS_URL=${ACTIONS_RESULTS_URL} \
     && export ACTIONS_RUNTIME_TOKEN=${ACTIONS_RUNTIME_TOKEN} \
     && export SCCACHE_GHA_ENABLED=${SCCACHE_GHA_ENABLED} \
+    && export SCCACHE_KEY_PREFIX="vllm-ascend_" \
     && echo "ACTIONS_RUNTIME_TOKEN=${ACTIONS_RUNTIME_TOKEN:0:20}..." \
     && echo "Starting sccache server..." \
     && sccache --start-server \
@@ -87,7 +88,6 @@ RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: apt-get update" && \
     source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     export LD_LIBRARY_PATH=/usr/local/Ascend/ascend-toolkit/latest/${ARCH}-linux/devlib:/usr/local/Ascend/ascend-toolkit/latest/${ARCH}-linux/lib64:$LD_LIBRARY_PATH && \
     mkdir -p build && cd build && \
-    export SCCACHE_KEY_PREFIX="mooncake_" && \
     export SCCACHE_GHA_ENABLED=$SCCACHE_GHA_ENABLED && \
     cmake .. -DUSE_ASCEND_DIRECT=ON -DENABLE_SCCACHE=ON && \
     make -j$(nproc) && make install && \
@@ -120,8 +120,8 @@ RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: install vllm-ascend" && \
     source /usr/local/Ascend/nnal/atb/set_env.sh && \
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/Ascend/ascend-toolkit/latest/`uname -i`-linux/devlib && \
     export SCCACHE_GHA_ENABLED=$SCCACHE_GHA_ENABLED && \
-    export SCCACHE_KEY_PREFIX="vllm-ascend_" && \
     python3 -m pip install -v -e /vllm-workspace/vllm-ascend/ --extra-index https://download.pytorch.org/whl/cpu/ && \
+    sccache --show-stats && \
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: install vllm-ascend" && \
     python3 -m pip cache purge
 
