@@ -34,6 +34,7 @@ on:
           - v0.15.0rc1
           - v0.14.0rc1
           - v0.13.0rc3
+          - test_0312
 
 jobs:
   image_build:
