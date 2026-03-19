@@ -98,6 +98,8 @@ jobs:
           PIP_INDEX_URL=https://pypi.org/simple
           SCCACHE_GHA_ENABLED=on
           MATRIX_ARCH=${{ matrix.arch }}
+          ACTIONS_RESULTS_URL=${{ env.ACTIONS_RESULTS_URL }}
+          ACTIONS_RUNTIME_TOKEN=${{ env.ACTIONS_RUNTIME_TOKEN }}
         provenance: false
 
     - name: Export digest

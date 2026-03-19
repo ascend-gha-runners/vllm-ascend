@@ -20,6 +20,8 @@ FROM quay.io/ascend/cann:8.5.1-a3-ubuntu22.04-py3.11
 ARG PIP_INDEX_URL="https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple"
 ARG MOONCAKE_TAG=v0.3.8.post1
 ARG SOC_VERSION="ascend910_9391"
+ARG ACTIONS_RESULTS_URL
+ARG ACTIONS_RUNTIME_TOKEN
 ARG SCCACHE_GHA_ENABLED
 ARG MATRIX_ARCH
 
@@ -56,6 +58,10 @@ RUN echo "Installing sccache..." \
     && chmod +x /usr/bin/sccache \
     && echo "Cleaning up..." \
     && rm -rf /tmp/sccache.tar.gz /tmp/sccache-v0.14.0-${SCCACHE_ARCH}-unknown-linux-musl \
+    && export ACTIONS_RESULTS_URL=${ACTIONS_RESULTS_URL} \
+    && export ACTIONS_RUNTIME_TOKEN=${ACTIONS_RUNTIME_TOKEN} \
+    && export SCCACHE_GHA_ENABLED=${SCCACHE_GHA_ENABLED} \
+    && echo "ACTIONS_RUNTIME_TOKEN=${ACTIONS_RUNTIME_TOKEN:0:20}..." \
     && echo "Starting sccache server..." \
     && sccache --start-server \
     && echo "Showing sccache stats..." \
