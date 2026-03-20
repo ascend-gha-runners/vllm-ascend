@@ -58,12 +58,33 @@ RUN echo "Installing sccache..." \
     && chmod +x /usr/bin/sccache \
     && echo "Cleaning up..." \
     && rm -rf /tmp/sccache.tar.gz /tmp/sccache-v0.14.0-${SCCACHE_ARCH}-unknown-linux-musl \
-    && export ACTIONS_RESULTS_URL=${ACTIONS_RESULTS_URL} \
+    && export ACTIONS_CACHE_URL=${ACTIONS_RESULTS_URL} \
     && export ACTIONS_RUNTIME_TOKEN=${ACTIONS_RUNTIME_TOKEN} \
     && export SCCACHE_GHA_ENABLED=${SCCACHE_GHA_ENABLED} \
     && export SCCACHE_KEY_PREFIX=vllm-ascend_ \
     && export SCCACHE_LOG=debug \
     && echo "ACTIONS_RUNTIME_TOKEN=${ACTIONS_RUNTIME_TOKEN:0:20}..." \
+    && echo "Validating GitHub Actions cache token permissions..." \
+    && if [ -z "$ACTIONS_CACHE_URL" ] || [ -z "$ACTIONS_RUNTIME_TOKEN" ]; then \
+         echo "ERROR: ACTIONS_CACHE_URL or ACTIONS_RUNTIME_TOKEN is empty"; \
+         exit 1; \
+       fi \
+    && echo "Testing cache API connectivity..." \
+    && HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+         -H "Authorization: Bearer $ACTIONS_RUNTIME_TOKEN" \
+         -H "Accept: application/json;api-version=6.0-preview.1" \
+         "$ACTIONS_CACHE_URL/_apis/artifactcache/caches" \
+         2>/dev/null || echo "000") \
+    && echo "Cache API HTTP status: $HTTP_STATUS" \
+    && if [ "$HTTP_STATUS" = "000" ] || [ "$HTTP_STATUS" = "401" ] || [ "$HTTP_STATUS" = "403" ]; then \
+         echo "ERROR: Token validation failed. HTTP status: $HTTP_STATUS"; \
+         echo "Check ACTIONS_RUNTIME_TOKEN permissions and validity."; \
+         exit 1; \
+       elif [ "$HTTP_STATUS" != "200" ] && [ "$HTTP_STATUS" != "204" ]; then \
+         echo "WARNING: Unexpected HTTP status: $HTTP_STATUS (may still work)"; \
+       else \
+         echo "Token validation successful (HTTP $HTTP_STATUS)"; \
+       fi \
     && echo "Starting sccache server..." \
     && sccache --start-server \
     && echo "Showing sccache stats..." \
@@ -90,11 +111,32 @@ RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: apt-get update" && \
     source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     export LD_LIBRARY_PATH=/usr/local/Ascend/ascend-toolkit/latest/${ARCH}-linux/devlib:/usr/local/Ascend/ascend-toolkit/latest/${ARCH}-linux/lib64:$LD_LIBRARY_PATH && \
     mkdir -p build && cd build \
-    && export ACTIONS_RESULTS_URL=${ACTIONS_RESULTS_URL} \
+    && export ACTIONS_CACHE_URL=${ACTIONS_RESULTS_URL} \
     && export ACTIONS_RUNTIME_TOKEN=${ACTIONS_RUNTIME_TOKEN} \
     && export SCCACHE_GHA_ENABLED=${SCCACHE_GHA_ENABLED} \
     && export SCCACHE_KEY_PREFIX=vllm-ascend_ \
-    && export SCCACHE_LOG=debug && \
+    && export SCCACHE_LOG=debug \
+    && echo "Validating GitHub Actions cache token permissions for Mooncake build..." \
+    && if [ -z "$ACTIONS_CACHE_URL" ] || [ -z "$ACTIONS_RUNTIME_TOKEN" ]; then \
+         echo "ERROR: ACTIONS_CACHE_URL or ACTIONS_RUNTIME_TOKEN is empty"; \
+         exit 1; \
+       fi \
+    && echo "Testing cache API connectivity..." \
+    && HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+         -H "Authorization: Bearer $ACTIONS_RUNTIME_TOKEN" \
+         -H "Accept: application/json;api-version=6.0-preview.1" \
+         "$ACTIONS_CACHE_URL/_apis/artifactcache/caches" \
+         2>/dev/null || echo "000") \
+    && echo "Cache API HTTP status: $HTTP_STATUS" \
+    && if [ "$HTTP_STATUS" = "000" ] || [ "$HTTP_STATUS" = "401" ] || [ "$HTTP_STATUS" = "403" ]; then \
+         echo "ERROR: Token validation failed. HTTP status: $HTTP_STATUS"; \
+         echo "Check ACTIONS_RUNTIME_TOKEN permissions and validity."; \
+         exit 1; \
+       elif [ "$HTTP_STATUS" != "200" ] && [ "$HTTP_STATUS" != "204" ]; then \
+         echo "WARNING: Unexpected HTTP status: $HTTP_STATUS (may still work)"; \
+       else \
+         echo "Token validation successful (HTTP $HTTP_STATUS)"; \
+       fi && \
     export SCCACHE_GHA_ENABLED=$SCCACHE_GHA_ENABLED && \
     cmake .. -DUSE_ASCEND_DIRECT=ON -DENABLE_SCCACHE=ON && \
     make -j$(nproc) && make install && \
