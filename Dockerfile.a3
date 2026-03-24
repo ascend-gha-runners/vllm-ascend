@@ -20,6 +20,10 @@ FROM quay.io/ascend/cann:8.5.1-a3-ubuntu22.04-py3.11
 ARG PIP_INDEX_URL="https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple"
 ARG MOONCAKE_TAG=v0.3.8.post1
 ARG SOC_VERSION="ascend910_9391"
+ARG ACTIONS_RESULTS_URL
+ARG ACTIONS_RUNTIME_TOKEN
+ARG SCCACHE_GHA_ENABLED
+ARG MATRIX_ARCH
 
 # Define environments
 ENV DEBIAN_FRONTEND=noninteractive
@@ -33,6 +37,38 @@ WORKDIR /workspace
 
 COPY ./tools/mooncake_installer.sh /vllm-workspace/vllm-ascend/tools/mooncake_installer.sh
 
+RUN echo "Installing sccache..." \
+    && echo "MATRIX_ARCH=${MATRIX_ARCH}" \
+    && echo "TARGETPLATFORM=${TARGETPLATFORM}" \
+    && case "${MATRIX_ARCH}" in \
+      linux/arm64) SCCACHE_ARCH="aarch64" ;; \
+      linux/amd64) SCCACHE_ARCH="x86_64" ;; \
+      *) echo "Unsupported TARGETPLATFORM for sccache: ${TARGETPLATFORM}" >&2; exit 1 ;; \
+    esac \
+    && echo "SCCACHE_ARCH=${SCCACHE_ARCH}" \
+    && export SCCACHE_DOWNLOAD_URL="${SCCACHE_DOWNLOAD_URL:-https://github.com/mozilla/sccache/releases/download/v0.14.0/sccache-v0.14.0-${SCCACHE_ARCH}-unknown-linux-musl.tar.gz}" \
+    && echo "SCCACHE_DOWNLOAD_URL=${SCCACHE_DOWNLOAD_URL}" \
+    && echo "Downloading sccache..." \
+    && curl -L -o /tmp/sccache.tar.gz ${SCCACHE_DOWNLOAD_URL} \
+    && echo "Download completed, extracting..." \
+    && tar -xzf /tmp/sccache.tar.gz -C /tmp \
+    && echo "Extraction completed, moving to /usr/bin..." \
+    && mv /tmp/sccache-v0.14.0-${SCCACHE_ARCH}-unknown-linux-musl/sccache /usr/bin/sccache \
+    && chmod +x /usr/bin/sccache \
+    && echo "Cleaning up..." \
+    && rm -rf /tmp/sccache.tar.gz /tmp/sccache-v0.14.0-${SCCACHE_ARCH}-unknown-linux-musl \
+    && export ACTIONS_RESULTS_URL=${ACTIONS_RESULTS_URL} \
+    && export ACTIONS_RUNTIME_TOKEN=${ACTIONS_RUNTIME_TOKEN} \
+    && export SCCACHE_GHA_ENABLED=${SCCACHE_GHA_ENABLED} \
+    && export SCCACHE_KEY_PREFIX=vllm-ascend_ \
+    && export SCCACHE_LOG=debug \
+    && echo "Starting sccache server..." \
+    && sccache --start-server \
+    && echo "Showing sccache stats..." \
+    && echo "token lenth sccache ${#ACTIONS_RUNTIME_TOKEN}" \
+    && sccache --show-stats \
+    && echo "sccache installation completed"
+
 # Install Mooncake dependencies
 RUN apt-get update -y && \
     apt-get install -y git vim wget net-tools gcc g++ cmake libnuma-dev libjemalloc2 && \
@@ -42,7 +78,7 @@ RUN apt-get update -y && \
     ARCH=$(uname -m) && \
     source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     export LD_LIBRARY_PATH=/usr/local/Ascend/ascend-toolkit/latest/${ARCH}-linux/devlib:/usr/local/Ascend/ascend-toolkit/latest/${ARCH}-linux/lib64:$LD_LIBRARY_PATH && \
-    mkdir -p build && cd build && cmake .. -DUSE_ASCEND_DIRECT=ON && \
+    mkdir -p build && cd build && cmake .. -DUSE_ASCEND_DIRECT=ON -DENABLE_SCCACHE=ON && \
     make -j$(nproc) && make install && \
     rm -fr /vllm-workspace/Mooncake/build && \
     rm -rf /var/cache/apt/* && \
