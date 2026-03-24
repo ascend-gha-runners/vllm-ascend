@@ -82,7 +82,7 @@ RUN apt-get update -y && \
     export ACTIONS_RUNTIME_TOKEN=${ACTIONS_RUNTIME_TOKEN} && \
     export ACTIONS_CACHE_SERVICE_V2=on && \
     export SCCACHE_GHA_ENABLED=${SCCACHE_GHA_ENABLED} && \
-    export SCCACHE_KEY_PREFIX=vllm-ascend_ && \
+    export SCCACHE_KEY_PREFIX=mooncake_ && \
     export SCCACHE_LOG=debug && \
     export LD_LIBRARY_PATH=/usr/local/Ascend/ascend-toolkit/latest/${ARCH}-linux/devlib:/usr/local/Ascend/ascend-toolkit/latest/${ARCH}-linux/lib64:$LD_LIBRARY_PATH && \
     mkdir -p build && cd build && cmake .. -DUSE_ASCEND_DIRECT=ON -DENABLE_SCCACHE=ON && \
