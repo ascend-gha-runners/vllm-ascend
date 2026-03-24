@@ -20,177 +20,66 @@ FROM quay.io/ascend/cann:8.5.1-a3-ubuntu22.04-py3.11
 ARG PIP_INDEX_URL="https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple"
 ARG MOONCAKE_TAG=v0.3.8.post1
 ARG SOC_VERSION="ascend910_9391"
-ARG ACTIONS_RESULTS_URL
-ARG ACTIONS_RUNTIME_TOKEN
-ARG SCCACHE_GHA_ENABLED
-ARG MATRIX_ARCH
 
-COPY . /vllm-workspace/vllm-ascend/
 # Define environments
 ENV DEBIAN_FRONTEND=noninteractive
 ENV SOC_VERSION=$SOC_VERSION \
     TASK_QUEUE_ENABLE=1 \
     OMP_NUM_THREADS=1
 
-RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: pip config set global.index-url" && \
-    pip config set global.index-url ${PIP_INDEX_URL} && \
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: pip config set global.index-url"
+RUN pip config set global.index-url ${PIP_INDEX_URL}
 
 WORKDIR /workspace
 
-RUN echo "Installing sccache..." \
-    && echo "MATRIX_ARCH=${MATRIX_ARCH}" \
-    && echo "TARGETPLATFORM=${TARGETPLATFORM}" \
-    && case "${MATRIX_ARCH}" in \
-      linux/arm64) SCCACHE_ARCH="aarch64" ;; \
-      linux/amd64) SCCACHE_ARCH="x86_64" ;; \
-      *) echo "Unsupported TARGETPLATFORM for sccache: ${TARGETPLATFORM}" >&2; exit 1 ;; \
-    esac \
-    && echo "SCCACHE_ARCH=${SCCACHE_ARCH}" \
-    && export SCCACHE_DOWNLOAD_URL="${SCCACHE_DOWNLOAD_URL:-https://github.com/mozilla/sccache/releases/download/v0.14.0/sccache-v0.14.0-${SCCACHE_ARCH}-unknown-linux-musl.tar.gz}" \
-    && echo "SCCACHE_DOWNLOAD_URL=${SCCACHE_DOWNLOAD_URL}" \
-    && echo "Downloading sccache..." \
-    && curl -L -o /tmp/sccache.tar.gz ${SCCACHE_DOWNLOAD_URL} \
-    && echo "Download completed, extracting..." \
-    && tar -xzf /tmp/sccache.tar.gz -C /tmp \
-    && echo "Extraction completed, moving to /usr/bin..." \
-    && mv /tmp/sccache-v0.14.0-${SCCACHE_ARCH}-unknown-linux-musl/sccache /usr/bin/sccache \
-    && chmod +x /usr/bin/sccache \
-    && echo "Cleaning up..." \
-    && rm -rf /tmp/sccache.tar.gz /tmp/sccache-v0.14.0-${SCCACHE_ARCH}-unknown-linux-musl \
-    && export ACTIONS_CACHE_URL=${ACTIONS_RESULTS_URL} \
-    && export ACTIONS_RUNTIME_TOKEN=${ACTIONS_RUNTIME_TOKEN} \
-    && export SCCACHE_GHA_ENABLED=${SCCACHE_GHA_ENABLED} \
-    && export SCCACHE_KEY_PREFIX=vllm-ascend_ \
-    && export SCCACHE_LOG=debug \
-    && echo "ACTIONS_RUNTIME_TOKEN=${ACTIONS_RUNTIME_TOKEN:0:20}..." \
-    && echo "Validating GitHub Actions cache token permissions..." \
-    && if [ -z "$ACTIONS_CACHE_URL" ] || [ -z "$ACTIONS_RUNTIME_TOKEN" ]; then \
-         echo "ERROR: ACTIONS_CACHE_URL or ACTIONS_RUNTIME_TOKEN is empty"; \
-         exit 1; \
-       fi \
-    && echo "Testing cache API connectivity..." \
-    && HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-         -H "Authorization: Bearer $ACTIONS_RUNTIME_TOKEN" \
-         -H "Accept: application/json;api-version=6.0-preview.1" \
-         "$ACTIONS_CACHE_URL/_apis/artifactcache/caches" \
-         2>/dev/null || echo "000") \
-    && echo "Cache API HTTP status: $HTTP_STATUS" \
-    && if [ "$HTTP_STATUS" = "000" ] || [ "$HTTP_STATUS" = "401" ] || [ "$HTTP_STATUS" = "403" ]; then \
-         echo "ERROR: Token validation failed. HTTP status: $HTTP_STATUS"; \
-         echo "Check ACTIONS_RUNTIME_TOKEN permissions and validity."; \
-         exit 1; \
-       elif [ "$HTTP_STATUS" != "200" ] && [ "$HTTP_STATUS" != "204" ]; then \
-         echo "WARNING: Unexpected HTTP status: $HTTP_STATUS (may still work)"; \
-       else \
-         echo "Token validation successful (HTTP $HTTP_STATUS)"; \
-       fi \
-    && echo "Starting sccache server..." \
-    && sccache --start-server \
-    && echo "Showing sccache stats..." \
-    && echo "token lenth sccache ${#ACTIONS_RUNTIME_TOKEN}" \
-    && sccache --show-stats \
-    && echo "sccache installation completed"
+COPY ./tools/mooncake_installer.sh /vllm-workspace/vllm-ascend/tools/mooncake_installer.sh
 
 # Install Mooncake dependencies
-RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: apt-get update" && \
-    apt-get update -y && \
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: apt-get update" && \
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: apt-get install dependencies" && \
+RUN apt-get update -y && \
     apt-get install -y git vim wget net-tools gcc g++ cmake libnuma-dev libjemalloc2 && \
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: apt-get install dependencies" && \
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: git clone Mooncake" && \
     git clone --depth 1 --branch ${MOONCAKE_TAG} https://github.com/kvcache-ai/Mooncake /vllm-workspace/Mooncake && \
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: git clone Mooncake" && \
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: mooncake_installer.sh" && \
     cp /vllm-workspace/vllm-ascend/tools/mooncake_installer.sh /vllm-workspace/Mooncake/ && \
     cd /vllm-workspace/Mooncake && bash mooncake_installer.sh -y && \
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: mooncake_installer.sh" && \
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: cmake and make Mooncake" && \
     ARCH=$(uname -m) && \
     source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     export LD_LIBRARY_PATH=/usr/local/Ascend/ascend-toolkit/latest/${ARCH}-linux/devlib:/usr/local/Ascend/ascend-toolkit/latest/${ARCH}-linux/lib64:$LD_LIBRARY_PATH && \
-    mkdir -p build && cd build \
-    && export ACTIONS_CACHE_URL=${ACTIONS_RESULTS_URL} \
-    && export ACTIONS_RUNTIME_TOKEN=${ACTIONS_RUNTIME_TOKEN} \
-    && export SCCACHE_GHA_ENABLED=${SCCACHE_GHA_ENABLED} \
-    && export SCCACHE_KEY_PREFIX=vllm-ascend_ \
-    && export SCCACHE_LOG=debug \
-    && echo "Validating GitHub Actions cache token permissions for Mooncake build..." \
-    && if [ -z "$ACTIONS_CACHE_URL" ] || [ -z "$ACTIONS_RUNTIME_TOKEN" ]; then \
-         echo "ERROR: ACTIONS_CACHE_URL or ACTIONS_RUNTIME_TOKEN is empty"; \
-         exit 1; \
-       fi \
-    && echo "Testing cache API connectivity..." \
-    && HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-         -H "Authorization: Bearer $ACTIONS_RUNTIME_TOKEN" \
-         -H "Accept: application/json;api-version=6.0-preview.1" \
-         "$ACTIONS_CACHE_URL/_apis/artifactcache/caches" \
-         2>/dev/null || echo "000") \
-    && echo "Cache API HTTP status: $HTTP_STATUS" \
-    && if [ "$HTTP_STATUS" = "000" ] || [ "$HTTP_STATUS" = "401" ] || [ "$HTTP_STATUS" = "403" ]; then \
-         echo "ERROR: Token validation failed. HTTP status: $HTTP_STATUS"; \
-         echo "Check ACTIONS_RUNTIME_TOKEN permissions and validity."; \
-         exit 1; \
-       elif [ "$HTTP_STATUS" != "200" ] && [ "$HTTP_STATUS" != "204" ]; then \
-         echo "WARNING: Unexpected HTTP status: $HTTP_STATUS (may still work)"; \
-       else \
-         echo "Token validation successful (HTTP $HTTP_STATUS)"; \
-       fi && \
-    export SCCACHE_GHA_ENABLED=$SCCACHE_GHA_ENABLED && \
-    cmake .. -DUSE_ASCEND_DIRECT=ON -DENABLE_SCCACHE=ON && \
+    mkdir -p build && cd build && cmake .. -DUSE_ASCEND_DIRECT=ON && \
     make -j$(nproc) && make install && \
-    sccache --show-stats && \
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: cmake and make Mooncake" && \
     rm -fr /vllm-workspace/Mooncake/build && \
     rm -rf /var/cache/apt/* && \
     rm -rf /var/lib/apt/lists/*
 
 # Install vLLM
 ARG VLLM_REPO=https://github.com/vllm-project/vllm.git
-ARG VLLM_TAG=v0.16.0
-RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: git clone vLLM" && \
-    git clone --depth 1 $VLLM_REPO --branch $VLLM_TAG /vllm-workspace/vllm && \
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: git clone vLLM"
+ARG VLLM_TAG=v0.18.0
+RUN git clone --depth 1 $VLLM_REPO --branch $VLLM_TAG /vllm-workspace/vllm
 # In x86, triton will be installed by vllm. But in Ascend, triton doesn't work correctly. we need to uninstall it.
-RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: install vLLM" && \
-    VLLM_TARGET_DEVICE="empty" python3 -m pip install -v -e /vllm-workspace/vllm/[audio] --extra-index https://download.pytorch.org/whl/cpu/ && \
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: install vLLM" && \
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: uninstall triton" && \
+RUN VLLM_TARGET_DEVICE="empty" python3 -m pip install -v -e /vllm-workspace/vllm/[audio] --extra-index https://download.pytorch.org/whl/cpu/ && \
     python3 -m pip uninstall -y triton && \
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: uninstall triton" && \
     python3 -m pip cache purge
+
+COPY . /vllm-workspace/vllm-ascend/
 
 # Install vllm-ascend
 # Append `libascend_hal.so` path (devlib) to LD_LIBRARY_PATH
-RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: install vllm-ascend" && \
-    export PIP_EXTRA_INDEX_URL=https://mirrors.huaweicloud.com/ascend/repos/pypi && \
+# Installing vllm-ascend on x86 can pull upstream triton back in alongside triton-ascend. Remove it immediately after this step.
+RUN export PIP_EXTRA_INDEX_URL=https://mirrors.huaweicloud.com/ascend/repos/pypi && \
     source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     source /usr/local/Ascend/nnal/atb/set_env.sh && \
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/Ascend/ascend-toolkit/latest/`uname -i`-linux/devlib && \
-    export SCCACHE_GHA_ENABLED=$SCCACHE_GHA_ENABLED && \
     python3 -m pip install -v -e /vllm-workspace/vllm-ascend/ --extra-index https://download.pytorch.org/whl/cpu/ && \
-    sccache --show-stats && \
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: install vllm-ascend" && \
+    if [ "$(uname -i)" = "x86_64" ]; then python3 -m pip uninstall -y triton; fi && \
     python3 -m pip cache purge
 
 # Install clang-15 (for triton-ascend)
-RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: apt-get update for clang" && \
-    apt-get update -y && \
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: apt-get update for clang" && \
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: install clang-15" && \
+RUN apt-get update -y && \
     apt-get -y install clang-15 && \
     update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 20 && \
     update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20 && \
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: install clang-15" && \
     rm -rf /var/cache/apt/* && \
-    rm -rf /var/lib/apt/lists/* && \
-    if [ -f /usr/bin/sccache ]; then rm /usr/bin/sccache; fi
+    rm -rf /var/lib/apt/lists/*
 
 # Install modelscope (for fast download) and ray (for multinode)
-RUN echo "[$(date '+%Y-%m-%d %H:%M:%S')] START: install modelscope and ray" && \
-    python3 -m pip install modelscope 'ray>=2.47.1,<=2.48.0' 'protobuf>3.20.0' && \
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] END: install modelscope and ray" && \
+RUN python3 -m pip install modelscope 'ray>=2.47.1,<=2.48.0' 'protobuf>3.20.0' && \
     python3 -m pip cache purge
 
 RUN echo "export LD_PRELOAD=/usr/lib/$(uname -m)-linux-gnu/libjemalloc.so.2:$LD_PRELOAD" >> ~/.bashrc
