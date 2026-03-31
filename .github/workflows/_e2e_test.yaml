@@ -63,6 +63,17 @@ jobs:
         run: |
           npu-smi info
           cat /usr/local/Ascend/ascend-toolkit/latest/"$(uname -i)"-linux/ascend_toolkit_install.info
+      - name: Cache vllm-ascend build artifacts
+        uses: runs-on/cache@v4
+        with:
+          path: |
+            vllm_ascend/_cann_ops_custom
+            vllm_ascend/*.so
+            vllm_ascend/lib
+            vllm_ascend/include
+          key: ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ hashFiles('csrc/**', 'setup.py', 'pyproject.toml', 'CMakeLists.txt', 'cmake/**', 'vllm_ascend/envs.py', 'requirements.txt', 'requirements-dev.txt', 'packages.txt') }}
+          restore-keys: |
+            ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ hashFiles('csrc/**', 'setup.py', 'pyproject.toml', 'CMakeLists.txt', 'cmake/**', 'vllm_ascend/envs.py', 'requirements.txt', 'requirements-dev.txt', 'packages.txt') }}
 
       - name: get csrc hash
         id: get_csrc_hash
@@ -205,6 +216,18 @@ jobs:
           apt install git -y
           pip install uv
           [ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_SECRET_ACCESS_KEY" ] && uv pip install sccache || true
+
+      - name: Cache vllm-ascend build artifacts
+        uses: runs-on/cache@v4
+        with:
+          path: |
+            vllm_ascend/_cann_ops_custom
+            vllm_ascend/*.so
+            vllm_ascend/lib
+            vllm_ascend/include
+          key: ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ hashFiles('csrc/**', 'setup.py', 'pyproject.toml', 'CMakeLists.txt', 'cmake/**', 'vllm_ascend/envs.py', 'requirements.txt', 'requirements-dev.txt', 'packages.txt') }}
+          restore-keys: |
+            ascend-vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ hashFiles('csrc/**', 'setup.py', 'pyproject.toml', 'CMakeLists.txt', 'cmake/**', 'vllm_ascend/envs.py', 'requirements.txt', 'requirements-dev.txt', 'packages.txt') }}
 
       - name: Install system dependencies
         run: |
