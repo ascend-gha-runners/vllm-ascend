@@ -112,7 +112,7 @@ jobs:
             -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
           echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
 
-      - name: Cache dependencies
+      - name: Cache vllm-ascend csrc
         uses: runs-on/cache@v4
         with:
           path: |
@@ -242,7 +242,7 @@ jobs:
             -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
           echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
 
-      - name: Cache dependencies
+      - name: Cache vllm-ascend csrc
         uses: runs-on/cache@v4
         with:
           path: |
@@ -369,7 +369,7 @@ jobs:
             -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
           echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
 
-      - name: Cache dependencies
+      - name: Cache vllm-ascend csrc
         uses: runs-on/cache@v4
         with:
           path: |
@@ -496,7 +496,7 @@ jobs:
             -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
           echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
 
-      - name: Cache dependencies
+      - name: Cache vllm-ascend csrc
         uses: runs-on/cache@v4
         with:
           path: |
@@ -642,7 +642,7 @@ jobs:
             -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
           echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
 
-      - name: Cache dependencies
+      - name: Cache vllm-ascend csrc
         uses: runs-on/cache@v4
         with:
           path: |
@@ -762,7 +762,7 @@ jobs:
             -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
           echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
 
-      - name: Cache dependencies
+      - name: Cache vllm-ascend csrc
         uses: runs-on/cache@v4
         with:
           path: |
@@ -861,7 +861,7 @@ jobs:
             -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
           echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
 
-      - name: Cache dependencies
+      - name: Cache vllm-ascend csrc
         uses: runs-on/cache@v4
         with:
           path: |
