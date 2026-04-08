@@ -1,0 +1,27 @@
+name: Test Upload to OBS
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create test file
+        run: echo "Hello from vllm-ascend CI - $(date)" > test-upload.txt
+
+      - name: Upload to OBS
+        id: obs
+        uses: Goalina/upload-to-obs@main
+        with:
+          access_key: ${{ secrets.HW_OBS_AK }}
+          secret_key: ${{ secrets.HW_OBS_SK }}
+          file_path: ./test-upload.txt
+          file_name: test-upload.txt
+
+      - name: Print result
+        run: |
+          echo "Upload URL: ${{ steps.obs.outputs.url }}"
+          echo "Object Key: ${{ steps.obs.outputs.object_key }}"
