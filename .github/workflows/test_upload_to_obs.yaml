@@ -1,4 +1,4 @@
-name: Test Upload to OBS
+name: Test Artifact v0.2
 
 on:
   workflow_dispatch:
@@ -9,19 +9,64 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Create test file
-        run: echo "Hello from vllm-ascend CI - $(date)" > test-upload.txt
+      - name: Create test files
+        run: |
+          echo "Hello from vllm-ascend CI - $(date)" > test-upload.txt
+          echo "Second file - $(date)" > test-upload-2.txt
 
-      - name: Upload to OBS
-        id: obs
-        uses: Goalina/upload-to-obs@main
+      - name: Upload single file
+        id: upload
+        uses: ascend-gha-runners/artifact/upload@v0.2
         with:
           access_key: ${{ secrets.HW_OBS_AK }}
           secret_key: ${{ secrets.HW_OBS_SK }}
-          file_path: ./test-upload.txt
-          file_name: test-upload.txt
+          name: test-artifact
+          path: ./test-upload.txt
 
-      - name: Print result
+      - name: Upload directory
+        uses: ascend-gha-runners/artifact/upload@v0.2
+        with:
+          access_key: ${{ secrets.HW_OBS_AK }}
+          secret_key: ${{ secrets.HW_OBS_SK }}
+          name: test-artifact-dir
+          path: ./*.txt
+
+      - name: Print upload result
         run: |
-          echo "Upload URL: ${{ steps.obs.outputs.url }}"
-          echo "Object Key: ${{ steps.obs.outputs.object_key }}"
+          echo "Artifact ID: ${{ steps.upload.outputs.artifact-id }}"
+          echo "Artifact URL: ${{ steps.upload.outputs.artifact-url }}"
+
+  test-download:
+    needs: test-upload
+    runs-on: linux-aarch64-a3-test-2
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download by exact name
+        id: dl-name
+        uses: ascend-gha-runners/artifact/download@v0.2
+        with:
+          access_key: ${{ secrets.HW_OBS_AK }}
+          secret_key: ${{ secrets.HW_OBS_SK }}
+          name: test-artifact
+          path: ./downloaded/
+
+      - name: Download by pattern
+        id: dl-pattern
+        uses: ascend-gha-runners/artifact/download@v0.2
+        with:
+          access_key: ${{ secrets.HW_OBS_AK }}
+          secret_key: ${{ secrets.HW_OBS_SK }}
+          pattern: test-artifact*
+          path: ./downloaded-pattern/
+
+      - name: Verify downloads
+        run: |
+          echo "=== download by name ==="
+          echo "Download path: ${{ steps.dl-name.outputs.download-path }}"
+          find ./downloaded/ -type f
+          cat ./downloaded/test-artifact/test-upload.txt
+
+          echo "=== download by pattern ==="
+          echo "Matched artifacts: ${{ steps.dl-pattern.outputs.matched-artifacts }}"
+          find ./downloaded-pattern/ -type f
