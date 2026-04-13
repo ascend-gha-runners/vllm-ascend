@@ -77,6 +77,9 @@ jobs:
     name: singlecard-light
     if: ${{ inputs.type == 'light' }}
     runs-on: linux-aarch64-a2b3-1
+    permissions:
+      id-token: write  # 必须开启OIDC权限
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -126,6 +129,39 @@ jobs:
         run: |
           VLLM_TARGET_DEVICE=empty uv pip install -e .
           uv pip uninstall triton
+
+      - name: Get OIDC Token
+        id: oidc
+        run: |
+          OIDC_TOKEN=$(curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&aud=sts.amazonaws.com" | jq -r .value)
+          echo "OIDC_TOKEN=$OIDC_TOKEN" >> $GITHUB_ENV
+
+      # 2. 调用华为云STS换取临时AK/SK/SecurityToken
+      - name: Get HuaweiCloud Temp Credentials
+        id: hc-cred
+        run: |
+          # 【需替换】华为云参数
+          DOMAIN_ID="FederationUser"       # 账号ID
+          IDP_ID="github-vllm-ascend"         # OIDC身份提供商ID
+          REGION="ap-southeast-1"  # 区域
+          IAM_URL="https://iam.$REGION.myhuaweicloud.com"
+
+          RESP=$(curl -s -X POST $IAM_URL/v3.0/OS-CREDENTIAL/securitytokens/oidc \
+            -H "Content-Type: application/json" \
+            -d '{
+              "auth": {
+                "oidc_token": "'"${OIDC_TOKEN}"'",
+                "idp_id": "'"${IDP_ID}"'",
+                "domain_id": "'"${DOMAIN_ID}"'"
+              }
+            }')
+
+          # 解析临时凭证
+          echo "TEMP_AK=$(echo $RESP | jq -r .credential.access)" >> $GITHUB_ENV
+          echo "TEMP_SK=$(echo $RESP | jq -r .credential.secret)" >> $GITHUB_ENV
+          echo "SEC_TOKEN=$(echo $RESP | jq -r .credential.securitytoken)" >> $GITHUB_ENV
+          echo "REGION=$REGION" >> $GITHUB_ENV
 
       - name: Get csrc hash
         id: get_csrc_hash
