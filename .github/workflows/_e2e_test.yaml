@@ -107,61 +107,10 @@ jobs:
           VLLM_TARGET_DEVICE=empty uv pip install -e .
           uv pip uninstall triton
 
-      # 1. 获取 OIDC TOKEN（正确写法，aud 必须和华为云配置一致）
-      - name: Get GitHub OIDC Token
-        id: oidc
-        run: |
-          # 【关键】aud 必须 = 华为云 OIDC 配置里的 客户端ID
-          AUD="https://github.com/vllm-project"
-          
-          TOKEN=$(curl -sSL \
-            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&aud=$AUD" | jq -r .value)
-          
-          echo "OIDC_TOKEN=$TOKEN" >> $GITHUB_ENV
-          echo "✅ 获取 OIDC Token 成功"
-      - name: Get Temp AK/SK (ap-southeast-1)
-        run: |
-          # ========== 只需要改这里 4 项 ==========
-          DOMAIN_ID="FederationUser"
-          IDP_ID="github-vllm-ascend"
-          REGION="ap-southeast-1"
-          AUD="https://github.com/你的用户名或组织"
-          # ======================================
-
-          # 海外区正确地址
-          IAM_URL="https://iam.${REGION}.huaweicloudapis.com"
-
-          RESP=$(curl -s -X POST $IAM_URL/v3/OS-AUTH/security-token/oidc \
-            -H "Content-Type: application/json" \
-            -d '{
-              "auth": {
-                "oidc_token": "'${OIDC_TOKEN}'",
-                "idp_id": "'${IDP_ID}'",
-                "domain_id": "'${DOMAIN_ID}'",
-                "aud": "'${AUD}'"
-              }
-            }')
-
-          echo "API 返回: $RESP"
-
-          # 解析凭证
-          TEMP_AK=$(echo $RESP | jq -r '.credential.access // "空值"')
-          TEMP_SK=$(echo $RESP | jq -r '.credential.secret // "空值"')
-          SEC_TOKEN=$(echo $RESP | jq -r '.credential.securitytoken // "空值"')
-
-          echo "TEMP_AK: $TEMP_AK"
-          echo "TEMP_SK: $TEMP_SK"
-          echo "SEC_TOKEN: $SEC_TOKEN"
-
-          if [ "$TEMP_AK" = "空值" ]; then
-            echo "❌ 失败"
-            exit 1
-          fi
-
-          echo "HC_AK=$TEMP_AK" >> $GITHUB_ENV
-          echo "HC_SK=$TEMP_SK" >> $GITHUB_ENV
-          echo "HC_TOKEN=$SEC_TOKEN" >> $GITHUB_ENV
+      - uses: huaweicloud/auth-action@v1
+        with:
+          oidc-provider: "FederationUser" # 你在华为云配置的 IDP 名称
+          role-urn: "urn:huaweicloud:iam::...:agency/..." # 你的委托 URN
 
       - name: Get csrc hash
         id: get_csrc_hash
@@ -170,6 +119,16 @@ jobs:
             ./vllm_ascend/envs.py ./requirements.txt ./packages.txt \
             -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
           echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
+
+      - name: test hw obs
+        uses: huaweicloud/auth-action@v1
+        with:
+          # 填写你在华为云 IAM 创建的 OIDC 身份提供商名称
+          identity-provider: "github-vllm-ascend"
+          # 填写刚才复制的 委托URN
+          region: "ap-southeast-1"
+          # 会话名称，用于审计（可选）
+          domain_name: "FederationUser"
 
       - name: Cache vllm-ascend csrc
         uses: runs-on/cache@v4
