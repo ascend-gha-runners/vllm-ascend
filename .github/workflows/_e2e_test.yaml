@@ -120,60 +120,48 @@ jobs:
           
           echo "OIDC_TOKEN=$TOKEN" >> $GITHUB_ENV
           echo "✅ 获取 OIDC Token 成功"
-
-      # 2. 调用华为云 STS（带错误打印 + 自动排查）
-      - name: Get Temporary AK/SK (FIXED)
+      - name: Get Temp AK/SK (ap-southeast-1)
         run: |
-          # ====================== 必须填写 ======================
+          # ========== 只需要改这里 4 项 ==========
           DOMAIN_ID="FederationUser"
           IDP_ID="github-vllm-ascend"
-          REGION="ap-southeast-1"      # 不要乱改
-          # ======================================================
+          REGION="ap-southeast-1"
+          AUD="https://github.com/你的用户名或组织"
+          # ======================================
 
-          IAM_ENDPOINT="https://iam.$REGION.myhuaweicloud.com"
-          echo "IAM 地址: $IAM_ENDPOINT"
+          # 海外区正确地址
+          IAM_URL="https://iam.${REGION}.huaweicloudapis.com"
 
-          # 调用 STS API
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
-            "$IAM_ENDPOINT/v3.0/OS-CREDENTIAL/securitytokens/oidc" \
+          RESP=$(curl -s -X POST $IAM_URL/v3/OS-AUTH/security-token/oidc \
             -H "Content-Type: application/json" \
             -d '{
               "auth": {
-                "oidc_token": "'"${OIDC_TOKEN}"'",
-                "idp_id": "'"${IDP_ID}"'",
-                "domain_id": "'"${DOMAIN_ID}"'"
+                "oidc_token": "'${OIDC_TOKEN}'",
+                "idp_id": "'${IDP_ID}'",
+                "domain_id": "'${DOMAIN_ID}'",
+                "aud": "'${AUD}'"
               }
             }')
 
-          # 拆分 HTTP 状态码 + 返回体
-          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | head -n -1)
-
-          echo -e "\n===== 调试信息（必须看这里）====="
-          echo "HTTP 状态码: $HTTP_CODE"
-          echo "API 返回体: $BODY"
-          echo -e "===================================\n"
+          echo "API 返回: $RESP"
 
           # 解析凭证
-          TEMP_AK=$(echo "$BODY" | jq -r '.credential.access // "空值"')
-          TEMP_SK=$(echo "$BODY" | jq -r '.credential.secret // "空值"')
-          SEC_TOKEN=$(echo "$BODY" | jq -r '.credential.securitytoken // "空值"')
+          TEMP_AK=$(echo $RESP | jq -r '.credential.access // "空值"')
+          TEMP_SK=$(echo $RESP | jq -r '.credential.secret // "空值"')
+          SEC_TOKEN=$(echo $RESP | jq -r '.credential.securitytoken // "空值"')
 
           echo "TEMP_AK: $TEMP_AK"
           echo "TEMP_SK: $TEMP_SK"
           echo "SEC_TOKEN: $SEC_TOKEN"
 
-          # 失败直接退出
-          if [ "$TEMP_AK" = "空值" ] || [ "$TEMP_AK" = "null" ]; then
-            echo -e "\n❌ 失败：API 返回错误，请查看上面的返回体定位问题"
+          if [ "$TEMP_AK" = "空值" ]; then
+            echo "❌ 失败"
             exit 1
           fi
 
-          # 写入环境变量
           echo "HC_AK=$TEMP_AK" >> $GITHUB_ENV
           echo "HC_SK=$TEMP_SK" >> $GITHUB_ENV
           echo "HC_TOKEN=$SEC_TOKEN" >> $GITHUB_ENV
-          echo "HC_REGION=$REGION" >> $GITHUB_ENV
 
       - name: Get csrc hash
         id: get_csrc_hash
