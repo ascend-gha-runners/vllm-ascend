@@ -121,7 +121,7 @@ jobs:
           echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
 
       - name: test hw obs
-        uses: huaweicloud/auth-action@v1
+        uses: huaweicloud/auth-action@v1.1.0
         with:
           # 填写你在华为云 IAM 创建的 OIDC 身份提供商名称
           identity-provider: "github-vllm-ascend"
