@@ -164,12 +164,12 @@ jobs:
           # 步骤 3: 使用华为云 Token 获取临时 AK/SK
           echo "Step 3: Getting temporary AK/SK..."
           
-          jq -n --arg token "$HW_TOKEN" '{
+          jq -n --arg token "$GITHUB_ID_TOKEN" '{
             "auth": {
               "identity": {
                 "methods": ["token"],
                 "token": {
-                  "id": $id_token
+                  "id": $token
                 }
               }
             }
