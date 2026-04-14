@@ -132,8 +132,9 @@ jobs:
           # 接口：POST /v3.0/OS-AUTH/id-token/tokens
           # -------------------------------------------------------------
           # 注意：scope 部分可以根据需求指定为 domain 或 project
-          IAM_AUTH_RES=$(curl -s -i -X POST "https://iam.myhuaweicloud.com/v3.0/OS-AUTH/id-token/tokens" \
+          IAM_AUTH_RES=$(curl -s -i -X POST "https://iam.ap-southeast-1.myhuaweicloud.com/v3.0/OS-AUTH/id-token/tokens" \
             -H "Content-Type: application/json;charset=utf8" \
+            -H "X-Idp-Id: github-vllm-ascend" \
             -d '{
               "auth": {
                 "id_token": {
@@ -150,6 +151,13 @@ jobs:
           # 从 Response Header 中提取 X-Subject-Token
           IAM_TOKEN=$(echo "$IAM_AUTH_RES" | grep -i '^x-subject-token:' | awk '{print $2}' | tr -d '\r')
 
+          # 添加调试信息
+          echo "调试：IAM认证响应状态码: $(echo "$IAM_AUTH_RES" | head -n 1)"
+          echo "调试：响应头:"
+          echo "$IAM_AUTH_RES" | head -n 20
+          echo "调试：响应体:"
+          echo "$IAM_AUTH_RES" | sed -n '/^\r*$/,$p' | tail -n +2
+
           if [ -z "$IAM_TOKEN" ]; then
             echo "错误：未能获取到 IAM Token，请检查身份提供商及转换规则配置。"
             exit 1
@@ -159,7 +167,7 @@ jobs:
           # 2. 调用您提供的接口获取临时 AK/SK 和 SecurityToken
           # 接口：POST /v3.0/OS-CREDENTIAL/securitytokens
           # -------------------------------------------------------------
-          AK_SK_RES=$(curl -s -X POST "https://iam.myhuaweicloud.com/v3.0/OS-CREDENTIAL/securitytokens" \
+          AK_SK_RES=$(curl -s -X POST "https://iam.ap-southeast-1.myhuaweicloud.com/v3.0/OS-CREDENTIAL/securitytokens" \
             -H "Content-Type: application/json" \
             -d '{
               "auth": {
