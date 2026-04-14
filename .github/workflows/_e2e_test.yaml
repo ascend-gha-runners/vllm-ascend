@@ -118,28 +118,34 @@ jobs:
         run: |
           # 通过 GitHub Actions 环境变量获取 OIDC token
           echo "Requesting OIDC token..."
-          echo "ACTIONS_ID_TOKEN_REQUEST_URL: $ACTIONS_ID_TOKEN_REQUEST_URL"
-          
           OIDC_TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https://iam.ap-southeast-1.myhuaweicloud.com")
           
           echo "OIDC_TOKEN length: ${#OIDC_TOKEN}"
+          
+          # 构建请求体（使用 heredoc 避免转义问题）
+          cat > /tmp/auth.json << EOF
+          {
+            "auth": {
+              "identity": {
+                "methods": ["openid"],
+                "openid": {
+                  "id_token": "${OIDC_TOKEN}"
+                }
+              }
+            }
+          }
+          EOF
+          
+          echo "Request body:"
+          cat /tmp/auth.json | jq .
           
           # 调用华为云 STS API 获取临时凭证
           echo "Calling Huawei Cloud STS API..."
           HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
             "https://iam.ap-southeast-1.myhuaweicloud.com/v3.0/OS-CREDENTIAL/securitytokens" \
             -H "Content-Type: application/json" \
-            -d "{
-              \"auth\": {
-                \"identity\": {
-                  \"methods\": [\"openid\"],
-                  \"openid\": {
-                    \"id_token\": \"${OIDC_TOKEN}\"
-                  }
-                }
-              }
-            }")
+            -d @/tmp/auth.json)
           
           HTTP_CODE=$(echo "$HTTP_RESPONSE" | tail -n1)
           RESPONSE_BODY=$(echo "$HTTP_RESPONSE" | sed '$d')
