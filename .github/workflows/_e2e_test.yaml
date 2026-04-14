@@ -117,11 +117,17 @@ jobs:
         id: huawei-oidc
         run: |
           # 通过 GitHub Actions 环境变量获取 OIDC token
-          OIDC_TOKEN=$(curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=github-vllm-ascend")
+          echo "Requesting OIDC token..."
+          echo "ACTIONS_ID_TOKEN_REQUEST_URL: $ACTIONS_ID_TOKEN_REQUEST_URL"
+          
+          OIDC_TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https://iam.ap-southeast-1.myhuaweicloud.com")
+          
+          echo "OIDC_TOKEN length: ${#OIDC_TOKEN}"
           
           # 调用华为云 STS API 获取临时凭证
-          RESPONSE=$(curl -s -X POST \
+          echo "Calling Huawei Cloud STS API..."
+          HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
             "https://iam.ap-southeast-1.myhuaweicloud.com/v3.0/OS-CREDENTIAL/securitytokens" \
             -H "Content-Type: application/json" \
             -d "{
@@ -135,10 +141,27 @@ jobs:
               }
             }")
           
+          HTTP_CODE=$(echo "$HTTP_RESPONSE" | tail -n1)
+          RESPONSE_BODY=$(echo "$HTTP_RESPONSE" | sed '$d')
+          
+          echo "HTTP Status Code: $HTTP_CODE"
+          echo "Response Body: $RESPONSE_BODY"
+          
           # 解析响应并设置环境变量
-          echo "AWS_ACCESS_KEY_ID=$(echo "$RESPONSE" | jq -r '.credential.access')" >> $GITHUB_ENV
-          echo "AWS_SECRET_ACCESS_KEY=$(echo "$RESPONSE" | jq -r '.credential.secret')" >> $GITHUB_ENV
-          echo "AWS_SESSION_TOKEN=$(echo "$RESPONSE" | jq -r '.credential.securitytoken')" >> $GITHUB_ENV
+          ACCESS_KEY=$(echo "$RESPONSE_BODY" | jq -r '.credential.access // empty')
+          SECRET_KEY=$(echo "$RESPONSE_BODY" | jq -r '.credential.secret // empty')
+          SECURITY_TOKEN=$(echo "$RESPONSE_BODY" | jq -r '.credential.securitytoken // empty')
+          
+          if [ -z "$ACCESS_KEY" ]; then
+            echo "::error::Failed to get temporary credentials from Huawei Cloud"
+            echo "Response: $RESPONSE_BODY"
+            exit 1
+          fi
+          
+          echo "AWS_ACCESS_KEY_ID=$ACCESS_KEY" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=$SECRET_KEY" >> $GITHUB_ENV
+          echo "AWS_SESSION_TOKEN=$SECURITY_TOKEN" >> $GITHUB_ENV
+          echo "Successfully obtained temporary credentials (AK: ${ACCESS_KEY:0:10}...)"
 
       - name: Cache vllm-ascend csrc
         uses: runs-on/cache@v4
