@@ -119,7 +119,7 @@ jobs:
           # 步骤 1: 获取 GitHub OIDC ID Token
           echo "Step 1: Requesting GitHub OIDC ID Token..."
           GITHUB_ID_TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https://iam.ap-southeast-1.myhuaweicloud.com")
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=FederationUser" | jq -r '.value')
           
           echo "GitHub ID Token length: ${#GITHUB_ID_TOKEN}"
           
