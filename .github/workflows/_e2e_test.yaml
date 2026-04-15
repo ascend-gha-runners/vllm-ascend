@@ -127,6 +127,9 @@ jobs:
         run: |
           GITHUB_OIDC_TOKEN="${{ steps.get-oidc.outputs.result }}"
           GITHUB_OIDC_USER="vllm-ascend"
+          # 调试：查看 JWT 的 aud 字段
+          echo "JWT aud field:"
+          echo "$GITHUB_OIDC_TOKEN" | cut -d '.' -f 2 | base64 -d 2>/dev/null || echo "Cannot decode JWT payload"
           # -------------------------------------------------------------
           # 1. 使用 GitHub OIDC Token 换取华为云 IAM Token
           # 接口：POST /v3.0/OS-AUTH/id-token/tokens
