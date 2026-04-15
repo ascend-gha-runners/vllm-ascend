@@ -31,7 +31,9 @@ on:
 defaults:
   run:
     shell: bash -el {0}
-
+permissions:
+  id-token: write  # 必须开启OIDC权限
+  contents: read
 # only cancel in-progress runs of the same workflow
 # and ignore the lint / 1 card / 4 cards test type
 concurrency:
