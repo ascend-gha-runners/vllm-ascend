@@ -126,7 +126,6 @@ jobs:
         id: fetch-obs-credentials
         run: |
           GITHUB_OIDC_TOKEN="${{ steps.get-oidc.outputs.result }}"
-          GITHUB_OIDC_USER="vllm-ascend"
           # 调试：查看 JWT 的 aud 字段
           echo "JWT aud field:"
           echo "$GITHUB_OIDC_TOKEN" | cut -d '.' -f 2 | base64 -d 2>/dev/null || echo "Cannot decode JWT payload"
