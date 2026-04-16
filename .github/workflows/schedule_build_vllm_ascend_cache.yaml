@@ -41,7 +41,8 @@ jobs:
     runs-on: linux-aarch64-a2b3-test-0
     strategy:
       matrix:
-        image: [swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-910b-ubuntu22.04-py3.11]
+        image:
+          - swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-910b-ubuntu22.04-py3.11
     container:
       image: ${{ matrix.image }}
     steps:
@@ -108,8 +109,9 @@ jobs:
     runs-on: linux-aarch64-a3-test-0
     strategy:
       matrix:
-        image: [swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py3.11, \
-                m.daocloud.io/quay.io/ascend/cann:8.5.1-a3-ubuntu22.04-py3.11]
+        image:
+          - swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py3.11
+          - m.daocloud.io/quay.io/ascend/cann:8.5.1-a3-ubuntu22.04-py3.11
     container:
       image: ${{ matrix.image }}
     steps:
