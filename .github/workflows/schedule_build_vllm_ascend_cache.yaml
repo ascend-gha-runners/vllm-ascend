@@ -38,7 +38,7 @@ env:
 jobs:
   image-910b:
     name: linux-aarch64-a2b3-image
-    runs-on: linux-aarch64-a2b3-test-0
+    runs-on: linux-aarch64-a2b3-test-1
     strategy:
       matrix:
         image:
@@ -48,6 +48,11 @@ jobs:
     steps:
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v6
+
+      - name: Check npu and CANN info
+        run: |
+          npu-smi info
+          cat /usr/local/Ascend/ascend-toolkit/latest/"$(uname -i)"-linux/ascend_toolkit_install.info
 
       - name: Config mirrors
         run: |
@@ -101,7 +106,7 @@ jobs:
 
   image-a3:
     name: linux-aarch64-a3-image
-    runs-on: linux-aarch64-a3-test-0
+    runs-on: linux-aarch64-a3-test-2
     strategy:
       matrix:
         image:
@@ -112,6 +117,11 @@ jobs:
     steps:
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v6
+
+      - name: Check npu and CANN info
+        run: |
+          npu-smi info
+          cat /usr/local/Ascend/ascend-toolkit/latest/"$(uname -i)"-linux/ascend_toolkit_install.info
 
       - name: Config mirrors
         run: |
