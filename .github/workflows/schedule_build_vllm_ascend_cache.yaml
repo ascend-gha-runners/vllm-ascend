@@ -30,17 +30,20 @@ env:
   UV_INDEX_STRATEGY: unsafe-best-match
   UV_NO_CACHE: 1
   UV_SYSTEM_PYTHON: 1
-  image_910b: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-910b-ubuntu22.04-py3.11
-  image_a3: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py3.11
-  image_a3_daocloud: m.daocloud.io/quay.io/ascend/cann:8.5.1-a3-ubuntu22.04-py3.11
-  image_310p: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-310p-ubuntu22.04-py3.11
+  IMAGE_910B: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-910b-ubuntu22.04-py3.11
+  IMAGE_A3: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py3.11
+  IMAGE_A3_DAOCLOUD: m.daocloud.io/quay.io/ascend/cann:8.5.1-a3-ubuntu22.04-py3.11
+  IMAGE_310P: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-310p-ubuntu22.04-py3.11
 
 jobs:
   image-910b:
-    name: image_910b
+    name: linux-aarch64-a2b3-image
     runs-on: linux-aarch64-a2b3-test-0
+    strategy:
+      matrix:
+        image: [swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-910b-ubuntu22.04-py3.11, ubuntu-24.04-arm]
     container:
-      image: ${{ image_910b }}
+      image: ${{ matrix.image }}
     steps:
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v6
@@ -84,9 +87,9 @@ jobs:
             vllm_ascend/*.so
             vllm_ascend/lib
             vllm_ascend/include
-          key: vllm-ascend-build-v1-${{ runner.os }}-${{ image_910b }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+          key: vllm-ascend-build-v1-${{ runner.os }}-${{ matrix.image }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
           restore-keys: |
-            vllm-ascend-build-v1-${{ runner.os }}-${{ image_910b }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+            vllm-ascend-build-v1-${{ runner.os }}-${{ matrix.image }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
 
       - name: Install vllm-project/vllm-ascend
         env:
@@ -101,10 +104,14 @@ jobs:
           fi
 
   image-a3:
-    name: image_a3
+    name: linux-aarch64-a3-image
     runs-on: linux-aarch64-a3-test-0
+    strategy:
+      matrix:
+        image: [swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py3.11, \
+                m.daocloud.io/quay.io/ascend/cann:8.5.1-a3-ubuntu22.04-py3.11]
     container:
-      image: ${{ image_a3 }}
+      image: ${{ matrix.image }}
     steps:
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v6
@@ -148,73 +155,9 @@ jobs:
             vllm_ascend/*.so
             vllm_ascend/lib
             vllm_ascend/include
-          key: vllm-ascend-build-v1-${{ runner.os }}-${{ image_a3 }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+          key: vllm-ascend-build-v1-${{ runner.os }}-${{ matrix.image }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
           restore-keys: |
-            vllm-ascend-build-v1-${{ runner.os }}-${{ image_a3 }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
-
-      - name: Install vllm-project/vllm-ascend
-        env:
-          PIP_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
-        run: |
-          pip install uc-manager
-          uv pip install -r requirements-dev.txt
-          if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
-            COMPILE_CUSTOM_KERNELS=0 uv pip install -v -e .
-          else
-            uv pip install -v -e .
-          fi
-
-  image-a3-daocloud:
-    name: image_a3_daocloud
-    runs-on: linux-aarch64-a3-test-0
-    container:
-      image: ${{ image_a3_daocloud }}
-    steps:
-      - name: Checkout vllm-project/vllm-ascend repo
-        uses: actions/checkout@v6
-
-      - name: Check npu and CANN info
-        run: |
-          npu-smi info
-          cat /usr/local/Ascend/ascend-toolkit/latest/"$(uname -i)"-linux/ascend_toolkit_install.info
-
-      - name: Config mirrors
-        run: |
-          sed -Ei 's@(ports|archive).ubuntu.com@cache-service.nginx-pypi-cache.svc.cluster.local:8081@g' /etc/apt/sources.list
-          pip config set global.index-url http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
-          pip config set global.trusted-host cache-service.nginx-pypi-cache.svc.cluster.local
-          apt-get update -y
-          apt install git -y
-          git config --global --add safe.directory /__w/vllm-ascend/vllm-ascend
-
-      - name: Install system dependencies
-        run: |
-          apt-get -y install `cat packages.txt`
-          apt-get -y install gcc g++ cmake libnuma-dev clang-15
-
-          update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 20
-          update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20
-          pip install uv
-
-      - name: Get csrc hash
-        id: get_csrc_hash
-        run: |
-          CSRC_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
-            ./vllm_ascend/envs.py ./requirements.txt ./packages.txt \
-            -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
-          echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
-
-      - name: Cache vllm-ascend csrc
-        uses: actions/cache@v4
-        with:
-          path: |
-            vllm_ascend/_cann_ops_custom
-            vllm_ascend/*.so
-            vllm_ascend/lib
-            vllm_ascend/include
-          key: vllm-ascend-build-v1-${{ runner.os }}-${{ image_a3_daocloud }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
-          restore-keys: |
-            vllm-ascend-build-v1-${{ runner.os }}-${{ image_a3_daocloud }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+            vllm-ascend-build-v1-${{ runner.os }}-${{ matrix.image }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
 
       - name: Install vllm-project/vllm-ascend
         env:
@@ -232,7 +175,7 @@ jobs:
 #    name: image_310p
 #    runs-on: linux-aarch64-310p-1
 #    container:
-#      image: ${{ image_310p }}
+#      image: ${{ IMAGE_310P }}
 #    steps:
 #      - name: Check npu and CANN info
 #        run: |
@@ -273,9 +216,9 @@ jobs:
 #            vllm_ascend/*.so
 #            vllm_ascend/lib
 #            vllm_ascend/include
-#          key: vllm-ascend-build-v1-${{ runner.os }}-${{ image_310p }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+#          key: vllm-ascend-build-v1-${{ runner.os }}-${{ env.IMAGE_310P }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
 #          restore-keys: |
-#            vllm-ascend-build-v1-${{ runner.os }}-${{ image_310p }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+#            vllm-ascend-build-v1-${{ runner.os }}-${{ env.IMAGE_310P }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
 #
 #      - name: Install vllm-project/vllm-ascend
 #        env:
