@@ -38,7 +38,7 @@ env:
 jobs:
   image-910b:
     name: linux-aarch64-a2b3-image
-    runs-on: linux-aarch64-a2b3-test-2
+    runs-on: linux-aarch64-a2b3-test-0
     strategy:
       matrix:
         image:
