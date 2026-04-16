@@ -40,7 +40,7 @@ jobs:
     name: image_910b
     runs-on: linux-aarch64-a2b3-test-0
     container:
-      image: ${{ env.image_910b }}
+      image: ${{ image_910b }}
     steps:
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v6
@@ -84,9 +84,9 @@ jobs:
             vllm_ascend/*.so
             vllm_ascend/lib
             vllm_ascend/include
-          key: vllm-ascend-build-v1-${{ runner.os }}-${{ env.image_910b }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+          key: vllm-ascend-build-v1-${{ runner.os }}-${{ image_910b }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
           restore-keys: |
-            vllm-ascend-build-v1-${{ runner.os }}-${{ env.image_910b }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+            vllm-ascend-build-v1-${{ runner.os }}-${{ image_910b }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
 
       - name: Install vllm-project/vllm-ascend
         env:
@@ -104,7 +104,7 @@ jobs:
     name: image_a3
     runs-on: linux-aarch64-a3-test-0
     container:
-      image: ${{ env.image_a3 }}
+      image: ${{ image_a3 }}
     steps:
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v6
@@ -148,9 +148,9 @@ jobs:
             vllm_ascend/*.so
             vllm_ascend/lib
             vllm_ascend/include
-          key: vllm-ascend-build-v1-${{ runner.os }}-${{ env.image_a3 }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+          key: vllm-ascend-build-v1-${{ runner.os }}-${{ image_a3 }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
           restore-keys: |
-            vllm-ascend-build-v1-${{ runner.os }}-${{ env.image_a3 }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+            vllm-ascend-build-v1-${{ runner.os }}-${{ image_a3 }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
 
       - name: Install vllm-project/vllm-ascend
         env:
@@ -168,7 +168,7 @@ jobs:
     name: image_a3_daocloud
     runs-on: linux-aarch64-a3-test-0
     container:
-      image: ${{ env.image_a3_daocloud }}
+      image: ${{ image_a3_daocloud }}
     steps:
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v6
@@ -212,9 +212,9 @@ jobs:
             vllm_ascend/*.so
             vllm_ascend/lib
             vllm_ascend/include
-          key: vllm-ascend-build-v1-${{ runner.os }}-${{ env.image_a3_daocloud }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+          key: vllm-ascend-build-v1-${{ runner.os }}-${{ image_a3_daocloud }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
           restore-keys: |
-            vllm-ascend-build-v1-${{ runner.os }}-${{ env.image_a3_daocloud }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+            vllm-ascend-build-v1-${{ runner.os }}-${{ image_a3_daocloud }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
 
       - name: Install vllm-project/vllm-ascend
         env:
@@ -232,7 +232,7 @@ jobs:
 #    name: image_310p
 #    runs-on: linux-aarch64-310p-1
 #    container:
-#      image: ${{ env.image_310p }}
+#      image: ${{ image_310p }}
 #    steps:
 #      - name: Check npu and CANN info
 #        run: |
@@ -273,9 +273,9 @@ jobs:
 #            vllm_ascend/*.so
 #            vllm_ascend/lib
 #            vllm_ascend/include
-#          key: vllm-ascend-build-v1-${{ runner.os }}-${{ env.image_310p }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+#          key: vllm-ascend-build-v1-${{ runner.os }}-${{ image_310p }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
 #          restore-keys: |
-#            vllm-ascend-build-v1-${{ runner.os }}-${{ env.image_310p }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+#            vllm-ascend-build-v1-${{ runner.os }}-${{ image_310p }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
 #
 #      - name: Install vllm-project/vllm-ascend
 #        env:
