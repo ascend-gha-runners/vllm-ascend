@@ -52,17 +52,18 @@ jobs:
     runs-on: linux-aarch64-a2b3-test-1
     strategy:
       matrix:
-        image: ["swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-910b-ubuntu22.04-py3.11"]
+        image:
+          - swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-910b-ubuntu22.04-py3.11
     container:
       image: ${{ matrix.image }}
     steps:
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v6
 
-#      - name: Check npu and CANN info
-#        run: |
-#          npu-smi info
-#          cat /usr/local/Ascend/ascend-toolkit/latest/"$(uname -i)"-linux/ascend_toolkit_install.info
+      - name: Check npu and CANN info
+        run: |
+          npu-smi info
+          cat /usr/local/Ascend/ascend-toolkit/latest/"$(uname -i)"-linux/ascend_toolkit_install.info
 
       - name: Config mirrors
         run: |
