@@ -2,13 +2,24 @@ name: 'Nightly-Build vllm_ascend cache'
 on:
   schedule:
     # Run test at 23:45 Beijing time (UTC+8)
-    - cron: '50 11,12,13,14,19,20 * * *'
+    - cron: '10 11,12,13,14,19,20 * * *'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Docker tag for build results'
+        default: main
+        required: true
+        type: choice
+        options:
+          - main
+          - v0.17.0rc1
+          - v0.16.0rc1
+          - v0.15.0rc1
+          - v0.14.0rc1
+          - v0.13.0rc3
   pull_request:
     branches:
       - 'main'
-      - 'releases/v*'
-      - '*-dev'
     types: [labeled, synchronize]
 
 # Bash shells do not use ~/.profile or ~/.bashrc so these shells need to be explicitly
