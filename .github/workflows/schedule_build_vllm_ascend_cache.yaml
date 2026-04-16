@@ -38,11 +38,11 @@ env:
 jobs:
   image-910b:
     name: linux-aarch64-a2b3-image
-    runs-on: linux-aarch64-a2b3-test-0
+    runs-on: linux-aarch64-a2b3-test-1
     strategy:
       matrix:
         image:
-          - swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-910b-ubuntu22.04-py3.11
+          - "swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-910b-ubuntu22.04-py3.11"
     container:
       image: ${{ matrix.image }}
     steps:
