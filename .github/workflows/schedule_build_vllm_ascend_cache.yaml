@@ -41,10 +41,6 @@ env:
   UV_INDEX_STRATEGY: unsafe-best-match
   UV_NO_CACHE: 1
   UV_SYSTEM_PYTHON: 1
-  IMAGE_910B: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-910b-ubuntu22.04-py3.11
-  IMAGE_A3: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py3.11
-  IMAGE_A3_DAOCLOUD: m.daocloud.io/quay.io/ascend/cann:8.5.1-a3-ubuntu22.04-py3.11
-  IMAGE_310P: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-310p-ubuntu22.04-py3.11
 
 jobs:
   image-910b:
@@ -86,8 +82,7 @@ jobs:
       - name: Get csrc hash
         id: get_csrc_hash
         run: |
-          CSRC_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
-            ./vllm_ascend/envs.py ./requirements.txt ./packages.txt \
+          CSRC_HASH=$(find ./csrc ./setup.py ./CMakeLists.txt ./cmake \
             -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
           echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
 
@@ -155,8 +150,7 @@ jobs:
       - name: Get csrc hash
         id: get_csrc_hash
         run: |
-          CSRC_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
-            ./vllm_ascend/envs.py ./requirements.txt ./packages.txt \
+          CSRC_HASH=$(find ./csrc ./setup.py ./CMakeLists.txt ./cmake \
             -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
           echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
 
@@ -183,64 +177,3 @@ jobs:
           else
             uv pip install -v -e .
           fi
-
-#  image-310p:
-#    name: image_310p
-#    runs-on: linux-aarch64-310p-1
-#    container:
-#      image: ${{ IMAGE_310P }}
-#    steps:
-#      - name: Check npu and CANN info
-#        run: |
-#          npu-smi info
-#          cat /usr/local/Ascend/ascend-toolkit/latest/"$(uname -i)"-linux/ascend_toolkit_install.info
-#
-#      - name: Config mirrors
-#        run: |
-#          sed -Ei 's@(ports|archive).ubuntu.com@cache-service.nginx-pypi-cache.svc.cluster.local:8081@g' /etc/apt/sources.list
-#          pip config set global.index-url http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
-#          pip config set global.trusted-host cache-service.nginx-pypi-cache.svc.cluster.local
-#          apt-get update -y
-#          apt install git -y
-#          git config --global --add safe.directory /__w/vllm-ascend/vllm-ascend
-#
-#      - name: Checkout vllm-project/vllm-ascend repo
-#        uses: actions/checkout@v6
-#
-#      - name: Install system dependencies
-#        run: |
-#          apt-get -y install `cat packages.txt`
-#          apt-get -y install gcc g++ cmake libnuma-dev
-#          pip install uv
-#
-#      - name: Get csrc hash
-#        id: get_csrc_hash
-#        run: |
-#          CSRC_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
-#            ./vllm_ascend/envs.py ./requirements.txt ./packages.txt \
-#            -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
-#          echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
-#
-#      - name: Cache vllm-ascend csrc
-#        uses: actions/cache@v4
-#        with:
-#          path: |
-#            vllm_ascend/_cann_ops_custom
-#            vllm_ascend/*.so
-#            vllm_ascend/lib
-#            vllm_ascend/include
-#          key: vllm-ascend-build-v1-${{ runner.os }}-${{ env.IMAGE_310P }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
-#          restore-keys: |
-#            vllm-ascend-build-v1-${{ runner.os }}-${{ env.IMAGE_310P }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
-#
-#      - name: Install vllm-project/vllm-ascend
-#        env:
-#          PIP_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
-#        run: |
-#          pip install uc-manager
-#          uv pip install -r requirements-dev.txt
-#          if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
-#            COMPILE_CUSTOM_KERNELS=0 uv pip install -v -e .
-#          else
-#            uv pip install -v -e .
-#          fi
