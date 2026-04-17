@@ -20,7 +20,7 @@ name: 'Nightly-Build vllm_ascend cache'
 on:
   schedule:
     # Run test at 23:45 Beijing time (UTC+8)
-    - cron: '30 * * * *'
+    - cron: '30 2 * * *'
   workflow_dispatch:
     inputs:
       tag:
