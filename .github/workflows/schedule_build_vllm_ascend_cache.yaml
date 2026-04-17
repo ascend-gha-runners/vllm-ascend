@@ -44,7 +44,6 @@ defaults:
     shell: bash -el {0}
 
 # only cancel in-progress runs of the same workflow
-# and ignore the lint / 1 card / 4 cards test type
 concurrency:
   group: ascend-nightly-build-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
