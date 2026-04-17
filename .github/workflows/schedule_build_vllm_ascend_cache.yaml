@@ -100,7 +100,7 @@ jobs:
           echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
 
       - name: Cache vllm-ascend csrc
-        uses: actions/cache@v4
+        uses: runs-on/cache@v4
         with:
           path: |
             vllm_ascend/_cann_ops_custom
