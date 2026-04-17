@@ -2,7 +2,7 @@ name: 'Nightly-Build vllm_ascend cache'
 on:
   schedule:
     # Run test at 23:45 Beijing time (UTC+8)
-    - cron: '10 11 * * *'
+    - cron: '30 * * * *'
   workflow_dispatch:
     inputs:
       tag:
@@ -17,10 +17,6 @@ on:
           - v0.15.0rc1
           - v0.14.0rc1
           - v0.13.0rc3
-  pull_request:
-    branches:
-      - 'main'
-    types: [labeled, synchronize]
 
 # Bash shells do not use ~/.profile or ~/.bashrc so these shells need to be explicitly
 # declared as "shell: bash -el {0}" on steps that need to be properly activated.
