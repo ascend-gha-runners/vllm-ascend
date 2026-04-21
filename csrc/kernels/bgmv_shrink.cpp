@@ -27,6 +27,7 @@ public:
     static constexpr uint64_t BUFFER_NUM = 1;
     static constexpr uint64_t TILE_LENGTH = 11776;  // optimal performance tile length
 
+
 public:
     __aicore__ inline BGMVShrink(AscendC::TPipe *pipe) : pipe_(pipe) {}
     __aicore__ inline void Init(__gm__ void *x, __gm__ void *weight, __gm__ void *indices, uint32_t indicesSize, __gm__ void *y,
