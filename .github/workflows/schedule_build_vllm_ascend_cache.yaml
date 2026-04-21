@@ -20,6 +20,11 @@ name: 'Cache csrc Build Artifacts'
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - 'csrc/**'
+      - 'setup.py'
+      - 'CMakeLists.txt'
+      - 'cmake/**'
   workflow_dispatch:
 
 # Bash shells do not use ~/.profile or ~/.bashrc so these shells need to be explicitly
