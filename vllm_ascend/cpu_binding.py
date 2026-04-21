@@ -25,7 +25,6 @@ DEVICE_BINDING_MODE: dict["AscendDeviceType", str] = {
     AscendDeviceType._310P: TOPO_AFFINITY_MODE,
 }
 
-
 def is_arm_cpu() -> bool:
     arch = platform.machine().lower()
     if arch in {"x86_64", "amd64", "i386", "i686"}:
