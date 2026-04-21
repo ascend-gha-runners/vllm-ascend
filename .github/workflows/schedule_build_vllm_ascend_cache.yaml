@@ -18,30 +18,9 @@
 # This workflow builds vllm-ascend csrc and uploads the build cache to GitHub Actions.
 name: 'Cache csrc Build Artifacts'
 on:
-  schedule:
-    # Run build at 23:30 Beijing time (UTC+8)
-    - cron: '30 15 * * *'
+  push:
+    branches: [ "main" ]
   workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Docker tag for build results'
-        default: main
-        required: true
-        type: choice
-        options:
-          - main
-          - v0.17.0rc1
-          - v0.16.0rc1
-          - v0.15.0rc1
-          - v0.14.0rc1
-          - v0.13.0rc3
-  pull_request:
-    branches:
-      - 'main'
-      - '*-dev'
-      - 'releases/v*'
-    paths:
-      - './.github/workflows/schedule_build_vllm_ascend_cache.yaml'
 
 # Bash shells do not use ~/.profile or ~/.bashrc so these shells need to be explicitly
 # declared as "shell: bash -el {0}" on steps that need to be properly activated.
@@ -52,7 +31,7 @@ defaults:
 
 # only cancel in-progress runs of the same workflow
 concurrency:
-  group: ascend-nightly-build-${{ github.workflow }}-${{ github.ref }}
+  group: ascend-csrc-build-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -132,10 +111,8 @@ jobs:
         env:
           PIP_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
         run: |
-          pip install uc-manager
-          uv pip install -r requirements-dev.txt
-          if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
-            COMPILE_CUSTOM_KERNELS=0 uv pip install -v -e .
-          else
+          if ! find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
+            pip install uc-manager
+            uv pip install -r requirements-dev.txt
             uv pip install -v -e .
           fi
