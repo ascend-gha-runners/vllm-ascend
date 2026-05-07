@@ -311,7 +311,6 @@ jobs:
         VLLM_LOGGING_LEVEL: ERROR
         VLLM_USE_MODELSCOPE: True
         HCCL_BUFFSIZE: 1024
-        HF_HUB_OFFLINE: 1
     steps:
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v6
@@ -437,7 +436,6 @@ jobs:
         VLLM_LOGGING_LEVEL: ERROR
         VLLM_USE_MODELSCOPE: True
         HCCL_BUFFSIZE: 1024
-        HF_HUB_OFFLINE: 1
     steps:
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v6
@@ -582,7 +580,6 @@ jobs:
       env:
         VLLM_LOGGING_LEVEL: ERROR
         VLLM_USE_MODELSCOPE: True
-        HF_HUB_OFFLINE: 1
     steps:
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v6
