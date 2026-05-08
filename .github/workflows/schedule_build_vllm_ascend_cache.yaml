@@ -167,7 +167,7 @@ jobs:
       - name: Get csrc hash
         id: get_csrc_hash
         run: |
-          CSRC_HASH=$(find ./csrc ./setup.py ./CMakeLists.txt ./cmake ./${{ matrix.dockerfile }} \
+          CSRC_HASH=$(find ./csrc ./setup.py ./CMakeLists.txt ./cmake \
             -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
           echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
 
@@ -180,9 +180,9 @@ jobs:
             vllm_ascend/lib
             vllm_ascend/include
             vllm_ascend/.build_cache_marker
-          key: vllm-ascend-build-v1-${{ matrix.arch }}-${{ matrix.dockerfile }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+          key: vllm-ascend-image-build-v1-${{ matrix.arch }}-${{ matrix.image }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
           restore-keys: |
-            vllm-ascend-build-v1-${{ matrix.arch }}-${{ matrix.dockerfile }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+            vllm-ascend-image-build-v1-${{ matrix.arch }}-${{ matrix.image }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
 
       - name: Build vllm-ascend csrc
         env:
