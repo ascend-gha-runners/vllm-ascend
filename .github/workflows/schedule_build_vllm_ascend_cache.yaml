@@ -124,11 +124,6 @@ jobs:
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v6
 
-      - name: Check npu and CANN info
-        run: |
-          npu-smi info
-          cat /usr/local/Ascend/ascend-toolkit/latest/"$(uname -i)"-linux/ascend_toolkit_install.info
-
       - name: Config mirrors (Ubuntu)
         if: ${{ matrix.os_type == 'ubuntu' }}
         run: |
