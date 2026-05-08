@@ -147,7 +147,7 @@ jobs:
         if: ${{ matrix.os_type == 'ubuntu' }}
         run: |
           apt-get -y install `cat packages.txt`
-          apt-get -y install gcc g++ cmake libnuma-dev
+          apt-get -y install gcc g++ cmake libnuma-dev libjemalloc2
           if [ "${{ matrix.install_clang }}" = "true" ]; then
             apt-get -y install clang-15
             update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 20
@@ -184,18 +184,6 @@ jobs:
           restore-keys: |
             vllm-ascend-build-v1-${{ matrix.arch }}-${{ matrix.dockerfile }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
 
-      - name: Install vLLM (same as Dockerfile)
-        env:
-          VLLM_REPO: https://github.com/vllm-project/vllm.git
-          VLLM_TAG: v0.18.0
-        run: |
-          git clone --depth 1 $VLLM_REPO --branch $VLLM_TAG /tmp/vllm
-          # Mirror what Dockerfile does: install vllm with VLLM_TARGET_DEVICE=empty to skip
-          # device-specific compilation, then uninstall the x86 triton it pulls in.
-          VLLM_TARGET_DEVICE="empty" python3 -m pip install -v -e /tmp/vllm/[audio] --extra-index https://download.pytorch.org/whl/cpu/
-          python3 -m pip uninstall -y triton
-          python3 -m pip cache purge
-
       - name: Build vllm-ascend csrc
         env:
           PIP_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
@@ -218,9 +206,6 @@ jobs:
           # Mirror what Dockerfile does: install vllm-ascend (triggers cmake build_ext),
           # then replace triton with triton-ascend.
           python3 -m pip install -v -e .
-          python3 -m pip uninstall -y triton triton-ascend
-          python3 -m pip install -v triton-ascend==3.2.0
-          python3 -m pip cache purge
           # Mark this directory as containing CI pre-built artifacts.
           # The Dockerfile checks for this file to decide whether to skip recompilation.
           # Without this marker, Dockerfiles always recompile to avoid stale local .so files.
