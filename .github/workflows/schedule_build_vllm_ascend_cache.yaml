@@ -65,7 +65,7 @@ jobs:
         include:
           # A2 (910B) Ubuntu — matches Dockerfile
           - platform: amd64-a2
-            runner: linux-amd64-cpu-test-16-hk
+            runner: linux-amd64-cpu-test-8-hk
             arch: linux/amd64
             image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-910b-ubuntu22.04-py3.11
             dockerfile: Dockerfile
@@ -74,7 +74,7 @@ jobs:
             soc_version: "ascend910b1"
           # A2 (910B) openEuler — matches Dockerfile.openEuler
           - platform: amd64-a2-openeuler
-            runner: linux-amd64-cpu-test-16-hk
+            runner: linux-amd64-cpu-test-8-hk
             arch: linux/amd64
             image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-910b-openeuler24.03-py3.11
             dockerfile: Dockerfile.openEuler
@@ -83,7 +83,7 @@ jobs:
             soc_version: "ascend910b1"
           # A3 Ubuntu — matches Dockerfile.a3
           - platform: amd64-a3
-            runner: linux-amd64-cpu-test-16-hk
+            runner: linux-amd64-cpu-test-8-hk
             arch: linux/amd64
             image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py3.11
             dockerfile: Dockerfile.a3
@@ -92,7 +92,7 @@ jobs:
             soc_version: "ascend910_9391"
           # A3 openEuler — matches Dockerfile.a3.openEuler
           - platform: amd64-a3-openeuler
-            runner: linux-amd64-cpu-test-16-hk
+            runner: linux-amd64-cpu-test-8-hk
             arch: linux/amd64
             image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-openeuler24.03-py3.11
             dockerfile: Dockerfile.a3.openEuler
@@ -101,7 +101,7 @@ jobs:
             soc_version: "ascend910_9391"
           # 310P Ubuntu — matches Dockerfile.310p
           - platform: amd64-310p
-            runner: linux-amd64-cpu-test-16-hk
+            runner: linux-amd64-cpu-test-8-hk
             arch: linux/amd64
             image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-310p-ubuntu22.04-py3.11
             dockerfile: Dockerfile.310p
@@ -110,7 +110,7 @@ jobs:
             soc_version: "ascend310p1"
           # 310P openEuler — matches Dockerfile.310p.openEuler
           - platform: 310p-openeuler
-            runner: linux-amd64-cpu-test-16-hk
+            runner: linux-amd64-cpu-test-8-hk
             arch: linux/amd64
             image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-310p-openeuler24.03-py3.11
             dockerfile: Dockerfile.310p.openEuler
@@ -147,7 +147,7 @@ jobs:
         if: ${{ matrix.os_type == 'ubuntu' }}
         run: |
           apt-get -y install `cat packages.txt`
-          apt-get -y install gcc g++ cmake libnuma-dev libjemalloc2
+          apt-get -y install gcc g++ cmake libnuma-dev
           if [ "${{ matrix.install_clang }}" = "true" ]; then
             apt-get -y install clang-15
             update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 20
