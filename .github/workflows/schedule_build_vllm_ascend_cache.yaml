@@ -190,8 +190,6 @@ jobs:
           SOC_VERSION: ${{ matrix.soc_version }}
         run: |
           # Skip if .build_cache_marker exists (cache was restored from a previous run).
-          # Use a shell test instead of hashFiles() because hashFiles() is not supported
-          # on self-hosted runners.
           if [ -f vllm_ascend/.build_cache_marker ]; then
             echo "Pre-built cache found, skipping csrc compilation."
             exit 0
@@ -203,10 +201,5 @@ jobs:
           source /usr/local/Ascend/ascend-toolkit/set_env.sh
           source /usr/local/Ascend/nnal/atb/set_env.sh
           export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/Ascend/ascend-toolkit/latest/$(uname -i)-linux/devlib
-          # Mirror what Dockerfile does: install vllm-ascend (triggers cmake build_ext),
-          # then replace triton with triton-ascend.
-          python3 -m pip install -v -e .
-          # Mark this directory as containing CI pre-built artifacts.
-          # The Dockerfile checks for this file to decide whether to skip recompilation.
-          # Without this marker, Dockerfiles always recompile to avoid stale local .so files.
+          python3 -m pip install -v -e . --extra-index https://download.pytorch.org/whl/cpu/
           touch vllm_ascend/.build_cache_marker
