@@ -43,9 +43,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  UV_INDEX_URL: http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
-  UV_EXTRA_INDEX_URL: https://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/ https://mirrors.huaweicloud.com/ascend/repos/pypi
-  UV_INDEX_STRATEGY: first-index
+  UV_INDEX_URL: https://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/
+  UV_EXTRA_INDEX_URL: http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
+  UV_INDEX_STRATEGY: unsafe-best-match
   UV_NO_CACHE: 1
   UV_SYSTEM_PYTHON: 1
 
