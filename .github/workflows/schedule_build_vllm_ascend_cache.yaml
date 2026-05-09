@@ -44,7 +44,7 @@ concurrency:
 
 env:
   UV_INDEX_URL: http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
-  UV_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
+  UV_EXTRA_INDEX_URL: https://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/ https://mirrors.huaweicloud.com/ascend/repos/pypi
   UV_INDEX_STRATEGY: first-index
   UV_NO_CACHE: 1
   UV_SYSTEM_PYTHON: 1
@@ -196,5 +196,5 @@ jobs:
           source /usr/local/Ascend/ascend-toolkit/set_env.sh
           source /usr/local/Ascend/nnal/atb/set_env.sh
           export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/Ascend/ascend-toolkit/latest/$(uname -i)-linux/devlib
-          uv pip install -v -e . --extra-index-url https://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/
+          uv pip install -v -e .
           touch vllm_ascend/.build_cache_marker
