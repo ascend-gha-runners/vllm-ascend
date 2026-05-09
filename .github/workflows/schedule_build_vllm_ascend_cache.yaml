@@ -196,5 +196,5 @@ jobs:
           source /usr/local/Ascend/ascend-toolkit/set_env.sh
           source /usr/local/Ascend/nnal/atb/set_env.sh
           export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/Ascend/ascend-toolkit/latest/$(uname -i)-linux/devlib
-          uv pip install -v -e . --extra-index https://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/
+          uv pip install -v -e . --extra-index-url https://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/
           touch vllm_ascend/.build_cache_marker
