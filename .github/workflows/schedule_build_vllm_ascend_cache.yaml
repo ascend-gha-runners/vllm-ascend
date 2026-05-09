@@ -176,6 +176,11 @@ jobs:
           PIP_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
           SOC_VERSION: ${{ matrix.variant.soc_version }}
         run: |
+          echo "=== arch diagnostic ==="
+          echo "runner arch (github.runner.arch): ${{ runner.arch }}"
+          echo "container uname -m: $(uname -m)"
+          echo "container uname -i: $(uname -i)"
+          echo "======================="
           # Skip if .build_cache_marker exists (cache was restored from a previous run).
           if [ -f vllm_ascend/.build_cache_marker ]; then
             echo "Pre-built cache found, skipping csrc compilation."
