@@ -71,7 +71,7 @@ jobs:
             dockerfile: Dockerfile
             os_type: ubuntu
             install_clang: true
-            soc_version: "ascend910b1"
+            soc_version: ascend910b1
           # A2 (910B) openEuler — matches Dockerfile.openEuler
           - platform: amd64-a2-openeuler
             runner: linux-amd64-cpu-test-24-hk
@@ -80,7 +80,7 @@ jobs:
             dockerfile: Dockerfile.openEuler
             os_type: openeuler
             install_clang: true
-            soc_version: "ascend910b1"
+            soc_version: ascend910b1
           # A3 Ubuntu — matches Dockerfile.a3
           - platform: amd64-a3
             runner: linux-amd64-cpu-test-24-hk
@@ -89,7 +89,7 @@ jobs:
             dockerfile: Dockerfile.a3
             os_type: ubuntu
             install_clang: true
-            soc_version: "ascend910_9391"
+            soc_version: ascend910_9391
           # A3 openEuler — matches Dockerfile.a3.openEuler
           - platform: amd64-a3-openeuler
             runner: linux-amd64-cpu-test-24-hk
@@ -98,7 +98,7 @@ jobs:
             dockerfile: Dockerfile.a3.openEuler
             os_type: openeuler
             install_clang: true
-            soc_version: "ascend910_9391"
+            soc_version: ascend910_9391
           # 310P Ubuntu — matches Dockerfile.310p
           - platform: amd64-310p
             runner: linux-amd64-cpu-test-24-hk
@@ -107,7 +107,7 @@ jobs:
             dockerfile: Dockerfile.310p
             os_type: ubuntu
             install_clang: false
-            soc_version: "ascend310p1"
+            soc_version: ascend310p1
           # 310P openEuler — matches Dockerfile.310p.openEuler
           - platform: 310p-openeuler
             runner: linux-amd64-cpu-test-24-hk
@@ -116,7 +116,7 @@ jobs:
             dockerfile: Dockerfile.310p.openEuler
             os_type: openeuler
             install_clang: false
-            soc_version: "ascend310p1"
+            soc_version: ascend310p1
 
     container:
       image: ${{ matrix.image }}
