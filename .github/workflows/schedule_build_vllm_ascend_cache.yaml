@@ -28,12 +28,6 @@ on:
       - 'setup.py'
       - 'CMakeLists.txt'
       - 'cmake/**'
-      - 'Dockerfile'
-      - 'Dockerfile.openEuler'
-      - 'Dockerfile.a3'
-      - 'Dockerfile.a3.openEuler'
-      - 'Dockerfile.310p'
-      - 'Dockerfile.310p.openEuler'
   workflow_dispatch:
 
 # Bash shells do not use ~/.profile or ~/.bashrc so these shells need to be explicitly
@@ -147,7 +141,7 @@ jobs:
         if: ${{ matrix.os_type == 'ubuntu' }}
         run: |
           apt-get -y install `cat packages.txt`
-          apt-get -y install gcc g++ cmake libnuma-dev
+          apt-get -y install gcc g++ cmake libnuma-dev zstd
           if [ "${{ matrix.install_clang }}" = "true" ]; then
             apt-get -y install clang-15
             update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 20
@@ -158,7 +152,7 @@ jobs:
       - name: Install system dependencies (openEuler)
         if: ${{ matrix.os_type == 'openeuler' }}
         run: |
-          yum install -y gcc gcc-c++ make cmake numactl-devel
+          yum install -y gcc gcc-c++ make cmake numactl-devel zstd
           if [ "${{ matrix.install_clang }}" = "true" ]; then
             yum install -y clang
           fi
