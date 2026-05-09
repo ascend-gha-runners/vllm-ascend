@@ -51,61 +51,56 @@ env:
 
 jobs:
   build-cache:
-    name: linux-aarch64-${{ matrix.platform }}
-    runs-on: ${{ matrix.runner }}
+    name: linux-${{ matrix.arch.tag }}-${{ matrix.variant.suffix }}
+    runs-on: ${{ matrix.arch.runner }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          # A2 (910B) Ubuntu — matches Dockerfile
-          - platform: amd64-a2
+        arch:
+          - tag: amd64
             runner: linux-amd64-cpu-test-24-hk
-            arch: linux/amd64
+            docker_arch: linux/amd64
+          - tag: arm64
+            runner: linux-arm64-cpu-test-24
+            docker_arch: linux/arm64
+        variant:
+          # A2 (910B) Ubuntu — matches Dockerfile
+          - suffix: a2
             image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-910b-ubuntu22.04-py3.11
             dockerfile: Dockerfile
             os_type: ubuntu
             install_clang: true
             soc_version: ascend910b1
           # A2 (910B) openEuler — matches Dockerfile.openEuler
-          - platform: amd64-a2-openeuler
-            runner: linux-amd64-cpu-test-24-hk
-            arch: linux/amd64
+          - suffix: a2-openeuler
             image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-910b-openeuler24.03-py3.11
             dockerfile: Dockerfile.openEuler
             os_type: openeuler
             install_clang: true
             soc_version: ascend910b1
           # A3 Ubuntu — matches Dockerfile.a3
-          - platform: amd64-a3
-            runner: linux-amd64-cpu-test-24-hk
-            arch: linux/amd64
+          - suffix: a3
             image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py3.11
             dockerfile: Dockerfile.a3
             os_type: ubuntu
             install_clang: true
             soc_version: ascend910_9391
           # A3 openEuler — matches Dockerfile.a3.openEuler
-          - platform: amd64-a3-openeuler
-            runner: linux-amd64-cpu-test-24-hk
-            arch: linux/amd64
+          - suffix: a3-openeuler
             image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-openeuler24.03-py3.11
             dockerfile: Dockerfile.a3.openEuler
             os_type: openeuler
             install_clang: true
             soc_version: ascend910_9391
           # 310P Ubuntu — matches Dockerfile.310p
-          - platform: amd64-310p
-            runner: linux-amd64-cpu-test-24-hk
-            arch: linux/amd64
+          - suffix: 310p
             image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-310p-ubuntu22.04-py3.11
             dockerfile: Dockerfile.310p
             os_type: ubuntu
             install_clang: false
             soc_version: ascend310p1
           # 310P openEuler — matches Dockerfile.310p.openEuler
-          - platform: 310p-openeuler
-            runner: linux-amd64-cpu-test-24-hk
-            arch: linux/amd64
+          - suffix: 310p-openeuler
             image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-310p-openeuler24.03-py3.11
             dockerfile: Dockerfile.310p.openEuler
             os_type: openeuler
@@ -113,13 +108,13 @@ jobs:
             soc_version: ascend310p1
 
     container:
-      image: ${{ matrix.image }}
+      image: ${{ matrix.variant.image }}
     steps:
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v6
 
       - name: Config mirrors (Ubuntu)
-        if: ${{ matrix.os_type == 'ubuntu' }}
+        if: ${{ matrix.variant.os_type == 'ubuntu' }}
         run: |
           apt-get update -y
           apt-get install -y git
@@ -129,7 +124,7 @@ jobs:
           git config --global --add safe.directory /__w/vllm-ascend/vllm-ascend
 
       - name: Config mirrors (openEuler)
-        if: ${{ matrix.os_type == 'openeuler' }}
+        if: ${{ matrix.variant.os_type == 'openeuler' }}
         run: |
           yum update -y
           yum install -y git
@@ -138,11 +133,11 @@ jobs:
           git config --global --add safe.directory /__w/vllm-ascend/vllm-ascend
 
       - name: Install system dependencies (Ubuntu)
-        if: ${{ matrix.os_type == 'ubuntu' }}
+        if: ${{ matrix.variant.os_type == 'ubuntu' }}
         run: |
           apt-get -y install `cat packages.txt`
           apt-get -y install gcc g++ cmake libnuma-dev zstd
-          if [ "${{ matrix.install_clang }}" = "true" ]; then
+          if [ "${{ matrix.variant.install_clang }}" = "true" ]; then
             apt-get -y install clang-15
             update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 20
             update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20
@@ -150,10 +145,10 @@ jobs:
           pip install uv
 
       - name: Install system dependencies (openEuler)
-        if: ${{ matrix.os_type == 'openeuler' }}
+        if: ${{ matrix.variant.os_type == 'openeuler' }}
         run: |
           yum install -y gcc gcc-c++ make cmake numactl-devel zstd
-          if [ "${{ matrix.install_clang }}" = "true" ]; then
+          if [ "${{ matrix.variant.install_clang }}" = "true" ]; then
             yum install -y clang
           fi
           pip install uv
@@ -174,21 +169,19 @@ jobs:
             vllm_ascend/lib
             vllm_ascend/include
             vllm_ascend/.build_cache_marker
-          key: vllm-ascend-image-build-v1-${{ matrix.arch }}-${{ matrix.image }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
-          restore-keys: |
-            vllm-ascend-image-build-v1-${{ matrix.arch }}-${{ matrix.image }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+          key: vllm-ascend-image-build-v1-${{ matrix.arch.docker_arch }}-${{ matrix.variant.image }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
 
       - name: Build vllm-ascend csrc
         env:
           PIP_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
-          SOC_VERSION: ${{ matrix.soc_version }}
+          SOC_VERSION: ${{ matrix.variant.soc_version }}
         run: |
           # Skip if .build_cache_marker exists (cache was restored from a previous run).
           if [ -f vllm_ascend/.build_cache_marker ]; then
             echo "Pre-built cache found, skipping csrc compilation."
             exit 0
           fi
-          if [ "${{ matrix.os_type }}" = "openeuler" ]; then
+          if [ "${{ matrix.variant.os_type }}" = "openeuler" ]; then
             ARCH=$(uname -m)
             export CPLUS_INCLUDE_PATH=$CPLUS_INCLUDE_PATH:/usr/include/c++/12:/usr/include/c++/12/${ARCH}-openEuler-linux
           fi
