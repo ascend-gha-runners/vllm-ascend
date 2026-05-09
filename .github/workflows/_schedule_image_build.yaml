@@ -90,7 +90,7 @@ jobs:
         echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
 
     - name: Restore pre-built vllm-ascend csrc cache
-      uses: runs-on/cache/restore@v4
+      uses: runs-on/cache/restore@v5
       with:
         path: |
           vllm_ascend/_cann_ops_custom
@@ -99,8 +99,6 @@ jobs:
           vllm_ascend/include
           vllm_ascend/.build_cache_marker
         key: vllm-ascend-image-build-v1-${{ matrix.arch }}-${{ inputs.image }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
-        restore-keys: |
-          vllm-ascend-image-build-v1-${{ matrix.arch }}-${{ inputs.image }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v4
