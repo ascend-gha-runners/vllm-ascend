@@ -192,8 +192,8 @@ jobs:
           # Install CPU-only torch wheels from PyTorch official index first, so that
           # the subsequent editable install of vllm-ascend reuses them instead of
           # pulling the ~2.5GB CUDA variant from PyPI.
-          uv pip install torch==2.9.0 torchvision==0.24.0 torchaudio==2.9.0 \
-            --index-url https://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/
+          # uv pip install torch==2.9.0 torchvision==0.24.0 torchaudio==2.9.0 \
+          #   --index-url https://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/
           uv pip install -r requirements.txt
           uv pip install -v -e .
           touch vllm_ascend/.build_cache_marker
