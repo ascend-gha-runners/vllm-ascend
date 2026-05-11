@@ -178,13 +178,6 @@ jobs:
           SOC_VERSION: ${{ matrix.variant.soc_version }}
           MAX_JOBS: "48"
         run: |
-          echo "=== arch/cpu diagnostic ==="
-          echo "runner arch: ${{ runner.arch }}"
-          echo "container uname -m: $(uname -m)"
-          echo "container nproc: $(nproc)"
-          echo "container cpu cores: $(grep -c '^processor' /proc/cpuinfo)"
-          echo "container MemTotal: $(grep MemTotal /proc/meminfo)"
-          echo "==========================="
           # Skip if .build_cache_marker exists (cache was restored from a previous run).
           if [ -f vllm_ascend/.build_cache_marker ]; then
             echo "Pre-built cache found, skipping csrc compilation."
@@ -195,9 +188,7 @@ jobs:
             export CPLUS_INCLUDE_PATH=$CPLUS_INCLUDE_PATH:/usr/include/c++/12:/usr/include/c++/12/${ARCH}-openEuler-linux
           fi
           source /usr/local/Ascend/ascend-toolkit/set_env.sh
-          source /usr/local/Ascend/nnal/atb/set_env.sh
           export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/Ascend/ascend-toolkit/latest/$(uname -i)-linux/devlib
-          pip install uc-manager
           uv pip install -r requirements.txt
           uv pip install -v -e . --extra-index-url https://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/
           touch vllm_ascend/.build_cache_marker
