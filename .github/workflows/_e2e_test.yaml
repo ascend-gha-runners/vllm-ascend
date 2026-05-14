@@ -138,12 +138,12 @@ jobs:
         env:
           PIP_EXTRA_INDEX_URL: "https://mirrors.huaweicloud.com/ascend/repos/pypi https://triton-ascend.osinfra.cn/pypi/simple http://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/"
         run: |
-          pip install uc-manager
-          uv pip install -r requirements-dev.txt
+          pip install uc-manager==0.4.0
+          pip install -r requirements-dev.txt
           if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
-            COMPILE_CUSTOM_KERNELS=0 uv pip install -e .
+            COMPILE_CUSTOM_KERNELS=0 pip install -e .
           else
-            uv pip install -e .
+            pip install -e .
           fi
 
       - name: Run vllm-project/vllm-ascend test
@@ -268,7 +268,7 @@ jobs:
         env:
           PIP_EXTRA_INDEX_URL: "https://mirrors.huaweicloud.com/ascend/repos/pypi https://triton-ascend.osinfra.cn/pypi/simple http://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/"
         run: |
-          pip install uc-manager
+          pip install uc-manager==0.4.0
           pip install -r requirements-dev.txt
           if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
             COMPILE_CUSTOM_KERNELS=0 pip install -e .
@@ -405,7 +405,7 @@ jobs:
         env:
           PIP_EXTRA_INDEX_URL: "https://mirrors.huaweicloud.com/ascend/repos/pypi https://triton-ascend.osinfra.cn/pypi/simple http://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/"
         run: |
-          pip install uc-manager
+          pip install uc-manager==0.4.0
           pip install -r requirements-dev.txt
           if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
             COMPILE_CUSTOM_KERNELS=0 pip install -e .
@@ -533,7 +533,7 @@ jobs:
         env:
           PIP_EXTRA_INDEX_URL: "https://mirrors.huaweicloud.com/ascend/repos/pypi https://triton-ascend.osinfra.cn/pypi/simple http://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/"
         run: |
-          pip install uc-manager
+          pip install uc-manager==0.4.0
           pip install -r requirements-dev.txt
           if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
             COMPILE_CUSTOM_KERNELS=0 pip install -e .
@@ -689,7 +689,7 @@ jobs:
         env:
           PIP_EXTRA_INDEX_URL: "https://mirrors.huaweicloud.com/ascend/repos/pypi https://triton-ascend.osinfra.cn/pypi/simple http://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/"
         run: |
-          pip install uc-manager
+          pip install uc-manager==0.4.0
           pip install -r requirements-dev.txt
           if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
             COMPILE_CUSTOM_KERNELS=0 pip install -e .
@@ -816,7 +816,7 @@ jobs:
         env:
           PIP_EXTRA_INDEX_URL: "https://mirrors.huaweicloud.com/ascend/repos/pypi https://triton-ascend.osinfra.cn/pypi/simple http://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/"
         run: |
-          pip install uc-manager
+          pip install uc-manager==0.4.0
           pip install -r requirements-dev.txt
           if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
             COMPILE_CUSTOM_KERNELS=0 pip install -e .
@@ -926,7 +926,7 @@ jobs:
         env:
           PIP_EXTRA_INDEX_URL: "https://mirrors.huaweicloud.com/ascend/repos/pypi https://triton-ascend.osinfra.cn/pypi/simple http://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/"
         run: |
-          pip install uc-manager
+          pip install uc-manager==0.4.0
           pip install -r requirements-dev.txt
           if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
             COMPILE_CUSTOM_KERNELS=0 pip install -e .
