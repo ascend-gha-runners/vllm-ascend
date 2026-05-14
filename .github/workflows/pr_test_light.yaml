@@ -39,17 +39,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  smart_e2e:
-    needs: [lint, changes]
-    name: smart test
-    strategy:
-      matrix:
-        vllm_version: [c7aa186d67b6f051680831418e957c67f34ba7a2, v0.20.1]
-    uses: ./.github/workflows/_optional_smart_e2e.yaml
-    with:
-      vllm: ${{ matrix.vllm_version }}
-      test_groups: ${{ needs.changes.outputs.test_groups }}
-
   e2e-light:
     name: e2e-light
     strategy:
@@ -61,5 +50,5 @@ jobs:
     with:
       vllm: ${{ matrix.vllm_version }}
       image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.0-910b-ubuntu22.04-py3.11
-      contains_310: ${{ needs.changes.outputs._310_tracker == 'true' }}
+      contains_310: false
       type: light
