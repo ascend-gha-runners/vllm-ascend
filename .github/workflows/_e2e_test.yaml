@@ -136,7 +136,7 @@ jobs:
 
       - name: Install vllm-project/vllm-ascend
         env:
-          PIP_EXTRA_INDEX_URL: "https://mirrors.huaweicloud.com/ascend/repos/pypi https://triton-ascend.osinfra.cn/pypi/simple http://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/"
+          PIP_EXTRA_INDEX_URL: "https://mirrors.huaweicloud.com/ascend/repos/pypi https://triton-ascend.osinfra.cn/pypi/simple"
         run: |
           export GIT_DISCOVERY_ACROSS_FILESYSTEM=1
           pip install --prefer-binary uc-manager==0.5.0
