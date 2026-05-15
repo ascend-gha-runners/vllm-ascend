@@ -138,6 +138,8 @@ jobs:
       - name: Install unified-cache-management
         env:
           PLATFORM: ascend
+          GIT_HTTP_LOW_SPEED_LIMIT: "1"    # 1字节/秒
+          GIT_HTTP_LOW_SPEED_TIME: "120"   # 容忍 120 秒无数据
         run: |
           git clone --depth 1 --branch v0.5.0 https://github.com/ModelEngine-Group/unified-cache-management.git
           cd unified-cache-management
