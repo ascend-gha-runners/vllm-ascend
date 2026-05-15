@@ -138,7 +138,8 @@ jobs:
         env:
           PIP_EXTRA_INDEX_URL: "https://mirrors.huaweicloud.com/ascend/repos/pypi https://triton-ascend.osinfra.cn/pypi/simple http://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/"
         run: |
-          pip install uc-manager==0.5.0
+          export GIT_DISCOVERY_ACROSS_FILESYSTEM=1
+          pip install --prefer-binary uc-manager==0.5.0
           pip install -r requirements-dev.txt
           if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
             COMPILE_CUSTOM_KERNELS=0 pip install -e .
