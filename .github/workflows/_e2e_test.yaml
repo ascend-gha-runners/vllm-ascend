@@ -139,7 +139,7 @@ jobs:
         env:
           PLATFORM: ascend
         run: |
-          git clone --depth 1 --branch v0.5.0 https://github.com/ModelEngine-Group/unified-cache-management.git
+          git clone --depth 1 --branch v0.4.0 https://github.com/ModelEngine-Group/unified-cache-management.git
           cd unified-cache-management
           uv pip install -v -e . --no-build-isolation
           cd ..
