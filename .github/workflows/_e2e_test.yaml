@@ -135,29 +135,29 @@ jobs:
           restore-keys: |
             vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
 
-      - name: Install unified-cache-management
-        env:
-          PLATFORM: ascend
-          GIT_HTTP_LOW_SPEED_LIMIT: "1"    # 1字节/秒
-          GIT_HTTP_LOW_SPEED_TIME: "120"   # 容忍 120 秒无数据
-        run: |
-          git clone --depth 1 --branch v0.5.0 https://github.com/ModelEngine-Group/unified-cache-management.git
-          cd unified-cache-management
-          pip install -v -e . --no-build-isolation
-          cd ..
+#      - name: Install unified-cache-management
+#        env:
+#          PLATFORM: ascend
+#          GIT_HTTP_LOW_SPEED_LIMIT: "1"    # 1字节/秒
+#          GIT_HTTP_LOW_SPEED_TIME: "120"   # 容忍 120 秒无数据
+#        run: |
+#          git clone --depth 1 --branch v0.5.0 https://github.com/ModelEngine-Group/unified-cache-management.git
+#          cd unified-cache-management
+#          pip install -v -e . --no-build-isolation
+#          cd ..
 
       - name: Install vllm-project/vllm-ascend
         env:
           PIP_EXTRA_INDEX_URL: "https://mirrors.huaweicloud.com/ascend/repos/pypi https://triton-ascend.osinfra.cn/pypi/simple"
         run: |
           # export GIT_DISCOVERY_ACROSS_FILESYSTEM=1
-          # pip install -v --prefer-binary uc-manager
+          pip install --prefer-binary uc-manager
           # Replace <branch_or_tag_name> with the branch or tag name needed
-          pip install -r requirements-dev.txt
+          uv pip install -r requirements-dev.txt
           if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
-            COMPILE_CUSTOM_KERNELS=0 pip install -e .
+            uv COMPILE_CUSTOM_KERNELS=0 pip install -e .
           else
-            pip install -e .
+            uv pip install -e .
           fi
 
       - name: Run vllm-project/vllm-ascend test
