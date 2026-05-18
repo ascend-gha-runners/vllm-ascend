@@ -149,7 +149,7 @@ jobs:
       - name: Install vllm-project/vllm-ascend
         run: |
           pip install --prefer-binary uc-manager
-          uv pip install -v -r requirements-dev.txt
+          pip install -v -r requirements-dev.txt
           if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
             COMPILE_CUSTOM_KERNELS=0 uv pip install -e .
           else
