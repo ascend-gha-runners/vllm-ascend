@@ -151,7 +151,10 @@ jobs:
           PIP_EXTRA_INDEX_URL: "https://triton-ascend.osinfra.cn/pypi/simple"
         run: |
           # pip install uc-manager
-          uv pip install -v --no-progress -r requirements-dev.txt
+          uv pip install --no-progress -r requirements-dev.txt
+          echo "==req end=="
+          uv pip install  --no-deps triton-ascend==3.2.1 --extra-index-url https://triton-ascend.osinfra.cn/pypi/simple
+          echo "==triton-ascend end=="
           if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
             COMPILE_CUSTOM_KERNELS=0 uv pip install -e .
           else
@@ -159,7 +162,7 @@ jobs:
             # uv pip install -e .
           fi
           echo "===isntall trition==== --force-reinstall"
-          uv pip install  --no-deps triton-ascend==3.2.1 --extra-index-url https://triton-ascend.osinfra.cn/pypi/simple
+          
 
       - name: Run vllm-project/vllm-ascend test
         env:
@@ -283,12 +286,12 @@ jobs:
         env:
           PIP_EXTRA_INDEX_URL: "https://mirrors.huaweicloud.com/ascend/repos/pypi https://triton-ascend.osinfra.cn/pypi/simple http://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/"
         run: |
-          pip install uc-manager
-          pip install -r requirements-dev.txt
+          _t=$(date +%s); pip install uc-manager; echo "[TIMING] pip install uc-manager: $(( $(date +%s) - _t ))s"
+          _t=$(date +%s); pip install -r requirements-dev.txt; echo "[TIMING] pip install -r requirements-dev.txt: $(( $(date +%s) - _t ))s"
           if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
-            COMPILE_CUSTOM_KERNELS=0 pip install -e .
+            _t=$(date +%s); COMPILE_CUSTOM_KERNELS=0 pip install -e .; echo "[TIMING] pip install vllm-ascend (COMPILE_CUSTOM_KERNELS=0): $(( $(date +%s) - _t ))s"
           else
-            pip install -e .
+            _t=$(date +%s); pip install -e .; echo "[TIMING] pip install vllm-ascend (build): $(( $(date +%s) - _t ))s"
           fi
 
       - name: Run e2e test
@@ -420,12 +423,12 @@ jobs:
         env:
           PIP_EXTRA_INDEX_URL: "https://mirrors.huaweicloud.com/ascend/repos/pypi https://triton-ascend.osinfra.cn/pypi/simple http://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/"
         run: |
-          pip install uc-manager
-          pip install -r requirements-dev.txt
+          _t=$(date +%s); pip install uc-manager; echo "[TIMING] pip install uc-manager: $(( $(date +%s) - _t ))s"
+          _t=$(date +%s); pip install -r requirements-dev.txt; echo "[TIMING] pip install -r requirements-dev.txt: $(( $(date +%s) - _t ))s"
           if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
-            COMPILE_CUSTOM_KERNELS=0 pip install -e .
+            _t=$(date +%s); COMPILE_CUSTOM_KERNELS=0 pip install -e .; echo "[TIMING] pip install vllm-ascend (COMPILE_CUSTOM_KERNELS=0): $(( $(date +%s) - _t ))s"
           else
-            pip install -e .
+            _t=$(date +%s); pip install -e .; echo "[TIMING] pip install vllm-ascend (build): $(( $(date +%s) - _t ))s"
           fi
       - name: Run vllm-project/vllm-ascend test (light)
         env:
@@ -548,12 +551,12 @@ jobs:
         env:
           PIP_EXTRA_INDEX_URL: "https://mirrors.huaweicloud.com/ascend/repos/pypi https://triton-ascend.osinfra.cn/pypi/simple http://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/"
         run: |
-          pip install uc-manager
-          pip install -r requirements-dev.txt
+          _t=$(date +%s); pip install uc-manager; echo "[TIMING] pip install uc-manager: $(( $(date +%s) - _t ))s"
+          _t=$(date +%s); pip install -r requirements-dev.txt; echo "[TIMING] pip install -r requirements-dev.txt: $(( $(date +%s) - _t ))s"
           if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
-            COMPILE_CUSTOM_KERNELS=0 pip install -e .
+            _t=$(date +%s); COMPILE_CUSTOM_KERNELS=0 pip install -e .; echo "[TIMING] pip install vllm-ascend (COMPILE_CUSTOM_KERNELS=0): $(( $(date +%s) - _t ))s"
           else
-            pip install -e .
+            _t=$(date +%s); pip install -e .; echo "[TIMING] pip install vllm-ascend (build): $(( $(date +%s) - _t ))s"
           fi
       - name: Run vllm-project/vllm-ascend test (full)
         if: ${{ inputs.type == 'full' }}
@@ -704,12 +707,12 @@ jobs:
         env:
           PIP_EXTRA_INDEX_URL: "https://mirrors.huaweicloud.com/ascend/repos/pypi https://triton-ascend.osinfra.cn/pypi/simple http://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/"
         run: |
-          pip install uc-manager
-          pip install -r requirements-dev.txt
+          _t=$(date +%s); pip install uc-manager; echo "[TIMING] pip install uc-manager: $(( $(date +%s) - _t ))s"
+          _t=$(date +%s); pip install -r requirements-dev.txt; echo "[TIMING] pip install -r requirements-dev.txt: $(( $(date +%s) - _t ))s"
           if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
-            COMPILE_CUSTOM_KERNELS=0 pip install -e .
+            _t=$(date +%s); COMPILE_CUSTOM_KERNELS=0 pip install -e .; echo "[TIMING] pip install vllm-ascend (COMPILE_CUSTOM_KERNELS=0): $(( $(date +%s) - _t ))s"
           else
-            pip install -e .
+            _t=$(date +%s); pip install -e .; echo "[TIMING] pip install vllm-ascend (build): $(( $(date +%s) - _t ))s"
           fi
 
       - name: Run vllm-project/vllm-ascend test for V1 Engine
@@ -831,14 +834,14 @@ jobs:
         env:
           PIP_EXTRA_INDEX_URL: "https://mirrors.huaweicloud.com/ascend/repos/pypi https://triton-ascend.osinfra.cn/pypi/simple http://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/"
         run: |
-          pip install uc-manager
-          pip install -r requirements-dev.txt
+          _t=$(date +%s); pip install uc-manager; echo "[TIMING] pip install uc-manager: $(( $(date +%s) - _t ))s"
+          _t=$(date +%s); pip install -r requirements-dev.txt; echo "[TIMING] pip install -r requirements-dev.txt: $(( $(date +%s) - _t ))s"
           if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
-            COMPILE_CUSTOM_KERNELS=0 pip install -e .
+            _t=$(date +%s); COMPILE_CUSTOM_KERNELS=0 pip install -e .; echo "[TIMING] pip install vllm-ascend (COMPILE_CUSTOM_KERNELS=0): $(( $(date +%s) - _t ))s"
           else
-            pip install -e .
+            _t=$(date +%s); pip install -e .; echo "[TIMING] pip install vllm-ascend (build): $(( $(date +%s) - _t ))s"
           fi
-          pip uninstall -y triton triton-ascend
+          _t=$(date +%s); pip uninstall -y triton triton-ascend; echo "[TIMING] pip uninstall triton triton-ascend: $(( $(date +%s) - _t ))s"
 
       - name: Uninstall triton-ascend (310p e2e-light)
         if: ${{ inputs.type == 'light' }}
@@ -941,14 +944,14 @@ jobs:
         env:
           PIP_EXTRA_INDEX_URL: "https://mirrors.huaweicloud.com/ascend/repos/pypi https://triton-ascend.osinfra.cn/pypi/simple http://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/"
         run: |
-          pip install uc-manager
-          pip install -r requirements-dev.txt
+          _t=$(date +%s); pip install uc-manager; echo "[TIMING] pip install uc-manager: $(( $(date +%s) - _t ))s"
+          _t=$(date +%s); pip install -r requirements-dev.txt; echo "[TIMING] pip install -r requirements-dev.txt: $(( $(date +%s) - _t ))s"
           if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
-            COMPILE_CUSTOM_KERNELS=0 pip install -e .
+            _t=$(date +%s); COMPILE_CUSTOM_KERNELS=0 pip install -e .; echo "[TIMING] pip install vllm-ascend (COMPILE_CUSTOM_KERNELS=0): $(( $(date +%s) - _t ))s"
           else
-            pip install -e .
+            _t=$(date +%s); pip install -e .; echo "[TIMING] pip install vllm-ascend (build): $(( $(date +%s) - _t ))s"
           fi
-          pip uninstall -y triton triton-ascend
+          _t=$(date +%s); pip uninstall -y triton triton-ascend; echo "[TIMING] pip uninstall triton triton-ascend: $(( $(date +%s) - _t ))s"
 
       - name: Uninstall triton-ascend (310p e2e-light)
         if: ${{ inputs.type == 'light' }}
