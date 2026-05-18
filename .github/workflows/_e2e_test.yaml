@@ -53,7 +53,7 @@ on:
         default: ''
 env:
   UV_INDEX_URL: http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
-  UV_EXTRA_INDEX_URL: "https://mirrors.huaweicloud.com/ascend/repos/pypi https://triton-ascend.osinfra.cn/pypi/simple http://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/"
+  UV_EXTRA_INDEX_URL: "https://mirrors.huaweicloud.com/ascend/repos/pypi http://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/"
   UV_INSECURE_HOST: cache-service.nginx-pypi-cache.svc.cluster.local
   UV_HTTP_TIMEOUT: 120
   UV_INDEX_STRATEGY: unsafe-best-match
@@ -158,8 +158,8 @@ jobs:
             COMPILE_CUSTOM_KERNELS=0 uv pip install -e .
             # uv pip install -e .
           fi
-          echo "===isntall trition===="
-          uv pip install --force-reinstall --no-deps triton-ascend==3.2.1
+          echo "===isntall trition==== --force-reinstall"
+          uv pip install  --no-deps triton-ascend==3.2.1 --extra-index-url https://triton-ascend.osinfra.cn/pypi/simple
 
       - name: Run vllm-project/vllm-ascend test
         env:
