@@ -64,13 +64,13 @@ jobs:
   e2e-light:
     name: singlecard-light
     if: ${{ inputs.type == 'light' }}
-    runs-on: linux-aarch64-a2b3-test-1
+    runs-on: linux-aarch64-a3-test-2
     strategy:
       fail-fast: false
       matrix:
         part: [0]
     container:
-      image: ${{ inputs.image }}
+      image: ${{ inputs.image_a3 }}
       env:
         VLLM_LOGGING_LEVEL: ERROR
         VLLM_USE_MODELSCOPE: True
