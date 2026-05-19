@@ -15,10 +15,7 @@
 # This file is a part of the vllm-ascend project.
 #
 
-# This workflow pre-builds vllm-ascend csrc for all supported platforms
-# and uploads the build artifacts to GitHub Actions cache.
-# The image build workflow (_schedule_image_build.yaml) can then restore
-# these artifacts to skip C++ compilation and accelerate Docker image builds.
+# Cartesian product: 2 arch × 2 os × 3 chip_type = 12 jobs
 name: 'Cache csrc Build Artifacts'
 on:
   push:
@@ -30,129 +27,122 @@ on:
       - 'cmake/**'
   workflow_dispatch:
 
-# Bash shells do not use ~/.profile or ~/.bashrc so these shells need to be explicitly
-# declared as "shell: bash -el {0}" on steps that need to be properly activated.
-# It's used to activate ascend-toolkit environment variables.
 defaults:
   run:
     shell: bash -el {0}
 
-# only cancel in-progress runs of the same workflow
 concurrency:
   group: ascend-csrc-build-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
   UV_INDEX_URL: http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
-  UV_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
+  UV_EXTRA_INDEX_URL: "https://mirrors.huaweicloud.com/ascend/repos/pypi"
   UV_INDEX_STRATEGY: unsafe-best-match
+  UV_INSECURE_HOST: cache-service.nginx-pypi-cache.svc.cluster.local
+  UV_HTTP_TIMEOUT: 120
   UV_NO_CACHE: 1
   UV_SYSTEM_PYTHON: 1
-  UV_HTTP_TIMEOUT: "300"
 
 jobs:
   build-cache:
-    name: linux-${{ matrix.arch.tag }}-${{ matrix.variant.suffix }}
-    runs-on: ${{ matrix.arch.runner }}
+    name: build-${{ matrix.arch }}-${{ matrix.chip_type }}-${{ matrix.os }}-cache
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         arch:
-          - tag: amd64
+          - X64
+          - ARM64
+        os:
+          - ubuntu
+          - openeuler
+        chip_type:
+          - a2
+          - a3
+          - 310p
+
+        include:
+          # arch → runner
+          - arch: X64
             runner: linux-amd64-cpu-test-24-hk
-            docker_arch: linux/amd64
-          - tag: arm64
+          - arch: ARM64
             runner: linux-arm64-cpu-test-24
-            docker_arch: linux/arm64
-        variant:
-          # A2 (910B) Ubuntu — matches Dockerfile
-          - suffix: a2
-            image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-910b-ubuntu22.04-py3.11
-            dockerfile: Dockerfile
-            os_type: ubuntu
-            install_clang: true
+
+          # chip_type → soc_version
+          - chip_type: a2
             soc_version: ascend910b1
-          # A2 (910B) openEuler — matches Dockerfile.openEuler
-          - suffix: a2-openeuler
-            image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-910b-openeuler24.03-py3.11
-            dockerfile: Dockerfile.openEuler
-            os_type: openeuler
-            install_clang: true
-            soc_version: ascend910b1
-          # A3 Ubuntu — matches Dockerfile.a3
-          - suffix: a3
-            image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py3.11
-            dockerfile: Dockerfile.a3
-            os_type: ubuntu
-            install_clang: true
+          - chip_type: a3
             soc_version: ascend910_9391
-          # A3 openEuler — matches Dockerfile.a3.openEuler
-          - suffix: a3-openeuler
-            image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-openeuler24.03-py3.11
-            dockerfile: Dockerfile.a3.openEuler
-            os_type: openeuler
-            install_clang: true
-            soc_version: ascend910_9391
-          # 310P Ubuntu — matches Dockerfile.310p
-          - suffix: 310p
-            image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-310p-ubuntu22.04-py3.11
-            dockerfile: Dockerfile.310p
-            os_type: ubuntu
-            install_clang: false
+          - chip_type: 310p
             soc_version: ascend310p1
-          # 310P openEuler — matches Dockerfile.310p.openEuler
-          - suffix: 310p-openeuler
-            image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-310p-openeuler24.03-py3.11
-            dockerfile: Dockerfile.310p.openEuler
-            os_type: openeuler
-            install_clang: false
-            soc_version: ascend310p1
+
+          # os × chip_type → image
+          - os: ubuntu
+            chip_type: a2
+            image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.0-910b-ubuntu22.04-py3.11
+          - os: ubuntu
+            chip_type: a3
+            image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.0-a3-ubuntu22.04-py3.11
+          - os: ubuntu
+            chip_type: 310p
+            image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.0-310p-ubuntu22.04-py3.11
+          - os: openeuler
+            chip_type: a2
+            image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.0-910b-openeuler24.03-py3.11
+          - os: openeuler
+            chip_type: a3
+            image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.0-a3-openeuler24.03-py3.11
+          - os: openeuler
+            chip_type: 310p
+            image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.0-310p-openeuler24.03-py3.11
 
     container:
-      image: ${{ matrix.variant.image }}
+      image: ${{ matrix.image }}
     steps:
-      - name: Checkout vllm-project/vllm-ascend repo
+      - name: Checkout repo
         uses: actions/checkout@v6
 
-      - name: Config mirrors (Ubuntu)
-        if: ${{ matrix.variant.os_type == 'ubuntu' }}
+      - name: Config mirrors (ubuntu)
+        if: matrix.os == 'ubuntu'
         run: |
+          sed -Ei 's@(ports|archive).ubuntu.com@cache-service.nginx-pypi-cache.svc.cluster.local:8081@g' /etc/apt/sources.list
+          pip config set global.index-url http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
+          pip config set global.trusted-host cache-service.nginx-pypi-cache.svc.cluster.local
           apt-get update -y
-          apt-get install -y git
-          # sed -Ei 's@(ports|archive).ubuntu.com@cache-service.nginx-pypi-cache.svc.cluster.local:8081@g' /etc/apt/sources.list
-          pip config set global.index-url http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
-          pip config set global.trusted-host cache-service.nginx-pypi-cache.svc.cluster.local
+          apt-get install -y git zstd
           git config --global --add safe.directory /__w/vllm-ascend/vllm-ascend
 
-      - name: Config mirrors (openEuler)
-        if: ${{ matrix.variant.os_type == 'openeuler' }}
+      - name: Config mirrors (openeuler)
+        if: matrix.os == 'openeuler'
         run: |
-          yum update -y
-          yum install -y git
           pip config set global.index-url http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
           pip config set global.trusted-host cache-service.nginx-pypi-cache.svc.cluster.local
+          sed -Ei 's@https?://[^/]+/(openeuler|centos|fedora)@http://cache-service.nginx-pypi-cache.svc.cluster.local:8081/\1@g' /etc/yum.repos.d/*.repo
+          yum install -y git zstd
           git config --global --add safe.directory /__w/vllm-ascend/vllm-ascend
 
-      - name: Install system dependencies (Ubuntu)
-        if: ${{ matrix.variant.os_type == 'ubuntu' }}
+      - name: Install system dependencies (ubuntu)
+        if: matrix.os == 'ubuntu'
         run: |
           apt-get -y install `cat packages.txt`
-          apt-get -y install gcc g++ cmake libnuma-dev zstd
-          if [ "${{ matrix.variant.install_clang }}" = "true" ]; then
-            apt-get -y install clang-15
-            update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 20
-            update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20
-          fi
+          apt-get -y install gcc g++ cmake libnuma-dev zstd clang-15
+          update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 20
+          update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20
           pip install uv
 
-      - name: Install system dependencies (openEuler)
-        if: ${{ matrix.variant.os_type == 'openeuler' }}
+      - name: Install system dependencies (openeuler)
+        if: matrix.os == 'openeuler'
         run: |
-          yum install -y gcc gcc-c++ make cmake numactl-devel zstd
-          if [ "${{ matrix.variant.install_clang }}" = "true" ]; then
-            yum install -y clang
-          fi
+          yum install -y gcc gcc-c++ cmake numactl-devel clang
           pip install uv
+
+      - name: Get image tag
+        id: get_image_tag
+        run: |
+          IMAGE="${{ matrix.image }}"
+          IMAGE_TAG="${IMAGE##*:}"
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_OUTPUT
 
       - name: Get csrc hash
         id: get_csrc_hash
@@ -161,39 +151,34 @@ jobs:
             -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
           echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
 
-      - name: Restore vllm-ascend csrc cache
-        uses: runs-on/cache@v5
+      - name: Cache vllm-ascend csrc
+        id: cache-csrc
+        uses: actions/cache@v4
         with:
           path: |
             vllm_ascend/_cann_ops_custom
             vllm_ascend/*.so
             vllm_ascend/lib
             vllm_ascend/include
-            vllm_ascend/.build_cache_marker
-          key: vllm-ascend-image-build-v1-${{ matrix.arch.docker_arch }}-${{ matrix.variant.image }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+          key: vllm-ascend-build-v1-${{ matrix.arch }}-${{ steps.get_image_tag.outputs.IMAGE_TAG }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
 
-      - name: Build vllm-ascend csrc
+      - name: Install vllm-ascend
+        if: steps.cache-csrc.outputs.cache-hit != 'true'
         env:
-          PIP_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
-          SOC_VERSION: ${{ matrix.variant.soc_version }}
-          MAX_JOBS: "48"
+          SOC_VERSION: ${{ matrix.soc_version }}
+          MAX_JOBS: "24"
         run: |
-          # Skip if .build_cache_marker exists (cache was restored from a previous run).
-          if [ -f vllm_ascend/.build_cache_marker ]; then
-            echo "Pre-built cache found, skipping csrc compilation."
-            exit 0
-          fi
-          if [ "${{ matrix.variant.os_type }}" = "openeuler" ]; then
-            ARCH=$(uname -m)
-            export CPLUS_INCLUDE_PATH=$CPLUS_INCLUDE_PATH:/usr/include/c++/12:/usr/include/c++/12/${ARCH}-openEuler-linux
-          fi
           source /usr/local/Ascend/ascend-toolkit/set_env.sh
-          export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/Ascend/ascend-toolkit/latest/$(uname -i)-linux/devlib
-          # Install CPU-only torch wheels from PyTorch official index first, so that
-          # the subsequent editable install of vllm-ascend reuses them instead of
-          # pulling the ~2.5GB CUDA variant from PyPI.
-          # uv pip install torch==2.9.0 torchvision==0.24.0 torchaudio==2.9.0 \
-          #   --index-url https://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/
-          uv pip install -r requirements.txt
-          uv pip install -v -e .
-          touch vllm_ascend/.build_cache_marker
+          source /usr/local/Ascend/nnal/atb/set_env.sh
+          arch=$(uname -i)
+          export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/Ascend/ascend-toolkit/latest/${arch}-linux/devlib
+
+          # os-specific: openeuler needs C++ include path for compilation
+          if [ "${{ matrix.os }}" = "openeuler" ]; then
+            export CPLUS_INCLUDE_PATH=$CPLUS_INCLUDE_PATH:/usr/include/c++/12:/usr/include/c++/12/${arch}-openEuler-linux
+          fi
+
+          pip install uc-manager
+          uv pip install -r requirements-dev.txt --extra-index-url https://download.pytorch.org/whl/cpu
+          uv pip install --force-reinstall --no-deps triton-ascend==3.2.1
+          uv pip install -e . --extra-index-url https://download.pytorch.org/whl/cpu
