@@ -148,17 +148,14 @@ jobs:
 
       - name: Install vllm-project/vllm-ascend
         run: |
-          # pip install uc-manager
-          uv pip install --no-progress -r requirements-dev.txt
-          echo "==req end=="
-          uv pip install triton-ascend==3.2.1
-          echo "==triton-ascend end==  # pip install uc-manager"
+          pip install uc-manager
+          uv pip install -r requirements-dev.txt
+          uv pip install --force-reinstall --no-deps triton-ascend==3.2.1
           if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
             COMPILE_CUSTOM_KERNELS=0 uv pip install -e .
           else
             uv pip install -e .
           fi
-          echo "===isntall trition==== --force-reinstall"
           
 
       - name: Run vllm-project/vllm-ascend test
