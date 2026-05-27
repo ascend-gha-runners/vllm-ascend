@@ -34,9 +34,10 @@ defaults:
 
 # only cancel in-progress runs of the same workflow
 # and ignore the lint / 1 card / 4 cards test type
+# workflow_dispatch runs get a unique group so they execute immediately without queuing
 concurrency:
-  group: ${{ github.workflow }}-v1-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.event_name == 'workflow_dispatch' && github.run_id || format('{0}-v1-{1}', github.workflow, github.ref) }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 jobs:
   e2e-light:
