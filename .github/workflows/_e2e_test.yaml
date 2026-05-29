@@ -64,7 +64,7 @@ jobs:
   e2e-light:
     name: singlecard-light
     if: ${{ inputs.type == 'light' }}
-    runs-on: linux-aarch64-a3-test-2-label
+    runs-on: linux-aarch64-a3-test-2
     strategy:
       fail-fast: false
       matrix:
