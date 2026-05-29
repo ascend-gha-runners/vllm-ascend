@@ -2,6 +2,11 @@ name: 'e2e test'
 
 on:
   workflow_call:
+    secrets:
+      HW_OBS_AK:
+        required: false
+      HW_OBS_SK:
+        required: false
     inputs:
       vllm:
         required: true
@@ -19,18 +24,37 @@ on:
         required: false
         type: boolean
         default: false
+      image_a3_2:
+        required: false
+        type: string
+        default: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py3.11
+      image_a3_4:
+        required: false
+        type: string
+        default: m.daocloud.io/quay.io/ascend/cann:8.5.1-a3-ubuntu22.04-py3.11
+      image_310p:
+        required: false
+        type: string
+        default: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-310p-ubuntu22.04-py3.11
+
 env:
   UV_INDEX_URL: http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
   UV_EXTRA_INDEX_URL: "https://mirrors.huaweicloud.com/ascend/repos/pypi https://download.pytorch.org/whl/cpu/"
   UV_INDEX_STRATEGY: unsafe-best-match
   UV_NO_CACHE: 1
   UV_SYSTEM_PYTHON: 1
+  AWS_REGION: ap-southeast-1
+  RUNS_ON_S3_BUCKET_CACHE: ascend-ci-cache-hk
+  RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.ap-southeast-1.myhuaweicloud.com
 
 jobs:
   e2e-light:
     name: singlecard-light
     if: ${{ inputs.type == 'light' }}
-    runs-on: linux-aarch64-a2b3-1
+    runs-on: linux-aarch64-a2b3-test-1
+    permissions:
+      id-token: write  # 必须开启OIDC权限
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -67,74 +91,276 @@ jobs:
           update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20
           pip install uv
 
-      - name: Checkout vllm-project/vllm repo
-        uses: actions/checkout@v6
+#      - name: Checkout vllm-project/vllm repo
+#        uses: actions/checkout@v6
+#        with:
+#          repository: vllm-project/vllm
+#          ref: ${{ inputs.vllm }}
+#          path: ./vllm-empty
+#          fetch-depth: 1
+
+#      - name: Install vllm-project/vllm from source
+#        working-directory: ./vllm-empty
+#        run: |
+#          VLLM_TARGET_DEVICE=empty uv pip install -e .
+#          uv pip uninstall triton
+
+      - name: Get csrc hash
+        id: get_csrc_hash
+        run: |
+          CSRC_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
+            ./vllm_ascend/envs.py ./requirements.txt ./packages.txt \
+            -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
+          echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
+
+      - name: 获取 GitHub OIDC Token
+        id: get-oidc
+        uses: actions/github-script@v7
         with:
-          repository: vllm-project/vllm
-          ref: ${{ inputs.vllm }}
-          path: ./vllm-empty
-          fetch-depth: 1
+          script: |
+            // audience 需与华为云身份提供商(IdP)中配置的客户端ID一致
+            return await core.getIDToken('hw-vllm-ascend-audience');
+          result-encoding: string
 
-      - name: Install vllm-project/vllm from source
-        working-directory: ./vllm-empty
+      - name: 换取临时 AK/SK
+        id: fetch-obs-credentials
         run: |
-          VLLM_TARGET_DEVICE=empty uv pip install -e .
-          uv pip uninstall triton
+          GITHUB_OIDC_TOKEN="${{ steps.get-oidc.outputs.result }}"
+          # 调试：查看 JWT 的 aud 字段
+          echo "JWT aud field:"
+          echo "$GITHUB_OIDC_TOKEN" | cut -d '.' -f 2 | base64 -d 2>/dev/null || echo "Cannot decode JWT payload"
+          # -------------------------------------------------------------
+          # 1. 使用 GitHub OIDC Token 换取华为云 IAM Token
+          # 接口：POST /v3.0/OS-AUTH/id-token/tokens
+          # -------------------------------------------------------------
+          # 注意：scope 部分可以根据需求指定为 domain 或 project
+          IAM_AUTH_RES=$(curl -s -i -X POST "https://iam.ap-southeast-1.myhuaweicloud.com/v3.0/OS-AUTH/id-token/tokens" \
+            -H "Content-Type: application/json;charset=utf8" \
+            -H "X-Idp-Id: github-vllm-ascend" \
+            -d '{
+              "auth": {
+                "id_token": {
+                  "id": "'"$GITHUB_OIDC_TOKEN"'"
+                }
+              }
+            }')
+          
+          # 从 Response Header 中提取 X-Subject-Token
+          IAM_TOKEN=$(echo "$IAM_AUTH_RES" | grep -i '^x-subject-token:' | awk '{print $2}' | tr -d '\r')
 
-      - name: Install vllm-project/vllm-ascend
-        env:
-          PIP_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
-        run: |
-          pip install uc-manager
-          uv pip install -r requirements-dev.txt
-          uv pip install -v -e .
+          # 添加调试信息
+          echo "调试：IAM认证响应状态码: $(echo "$IAM_AUTH_RES" | head -n 1)"
+          echo "调试：响应头:"
+          echo "$IAM_AUTH_RES" | head -n 20
+          echo "调试：响应体:"
+          echo "$IAM_AUTH_RES" | sed -n '/^\r*$/,$p' | tail -n +2
 
-      - name: Run vllm-project/vllm-ascend test
-        env:
-          PYTORCH_NPU_ALLOC_CONF: max_split_size_mb:256
-          VLLM_WORKER_MULTIPROC_METHOD: spawn
-        shell: bash
-        run: |
-          set -o pipefail
-          if [ "${{ inputs.continue_on_error }}" = "true" ]; then
-            python3 .github/workflows/scripts/run_suite.py \
-              --suite e2e-singlecard-light \
-              --auto-partition-id "${{ matrix.part }}" \
-              --auto-partition-size 1 \
-              --auto-upgrade-estimated-times \
-              --continue-on-error \
-              2>&1 | tee /tmp/e2e-singlecard-light-part${{ matrix.part }}.log
-          else
-            python3 .github/workflows/scripts/run_suite.py \
-              --suite e2e-singlecard-light \
-              --auto-partition-id "${{ matrix.part }}" \
-              --auto-partition-size 1 \
-              2>&1 | tee /tmp/e2e-singlecard-light-part${{ matrix.part }}.log
+          if [ -z "$IAM_TOKEN" ]; then
+            echo "错误：未能获取到 IAM Token，请检查身份提供商及转换规则配置。"
+            exit 1
           fi
-          exit ${PIPESTATUS[0]}
 
-      - name: Summarize singlecard-light failure
-        if: ${{ always() }}
-        run: |
-          python3 .github/workflows/scripts/ci_log_summary.py \
-            --step-name "Run singlecard-light test" \
-            --log-file /tmp/e2e-singlecard-light-part${{ matrix.part }}.log \
-            --output "$GITHUB_STEP_SUMMARY"
-
-
-      - name: Upload timing data
-        uses: actions/upload-artifact@v4
-        if: ${{ inputs.continue_on_error == true && github.event_name != 'pull_request' }}
+          # -------------------------------------------------------------
+          # 2. 调用您提供的接口获取临时 AK/SK 和 SecurityToken
+          # 接口：POST /v3.0/OS-CREDENTIAL/securitytokens
+          # -------------------------------------------------------------
+          AK_SK_RES=$(curl -s -X POST "https://iam.ap-southeast-1.myhuaweicloud.com/v3.0/OS-CREDENTIAL/securitytokens" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "auth": {
+                "identity": {
+                  "methods": ["token"],
+                  "token": {
+                    "id": "'"$IAM_TOKEN"'",
+                    "duration_seconds": 900
+                  }
+                }
+              }
+            }')
+          
+          # 解析凭证
+          AK=$(echo "$AK_SK_RES" | jq -r '.credential.access')
+          SK=$(echo "$AK_SK_RES" | jq -r '.credential.secret')
+          ST=$(echo "$AK_SK_RES" | jq -r '.credential.securitytoken')
+          
+          # 安全掩码：防止在 CI 日志中打印明文
+          echo "::add-mask::$AK"
+          echo "::add-mask::$SK"
+          echo "::add-mask::$ST"
+          
+          # -------------------------------------------------------------
+          # 3. 注入环境变量
+          # -------------------------------------------------------------
+          # 兼容标准 S3 协议工具
+          echo "AWS_ACCESS_KEY_ID=$AK" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=$SK" >> $GITHUB_ENV
+          echo "AWS_SESSION_TOKEN=$ST" >> $GITHUB_ENV
+          
+          # 华为云原生 SDK 常用的环境变量名
+          echo "CLOUD_SDK_AK=$AK" >> $GITHUB_ENV
+          echo "CLOUD_SDK_SK=$SK" >> $GITHUB_ENV
+#      - name: Huawei Cloud OIDC Authentication
+#        id: huawei-oidc
+#        run: |
+#          # 步骤 1: 获取 GitHub OIDC ID Token
+#          echo "Step 1: Requesting GitHub OIDC ID Token..."
+#
+#          # 获取原始响应并解析
+#          GITHUB_ID_TOKEN_RAW=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+#            "${ACTIONS_ID_TOKEN_REQUEST_URL}")
+#
+#          echo "Raw response starts with: $(echo "$GITHUB_ID_TOKEN_RAW" | head -c 100)"
+#
+#          # 提取 JWT
+#          GITHUB_ID_TOKEN=$(echo "$GITHUB_ID_TOKEN_RAW" | jq -r '.value')
+#
+#          # 调试：查看 JWT 的 aud 字段
+#          echo "JWT aud field:"
+#          echo "$GITHUB_ID_TOKEN" | cut -d '.' -f 2 | base64 -d 2>/dev/null || echo "Cannot decode JWT payload"
+#
+#          # 步骤 2: 使用 GitHub ID Token 调用华为云接口获取华为云 Token
+#          echo "Step 2: Exchanging for Huawei Cloud Token..."
+#          jq -n --arg id_token "$GITHUB_ID_TOKEN" '{
+#            "auth": {
+#              "id_token": {
+#                "id": $id_token
+#              }
+#            }
+#          }' > /tmp/id_token_auth.json
+#
+#          HW_TOKEN_RESPONSE=$(curl -s -i -X POST \
+#            "https://iam.ap-southeast-1.myhuaweicloud.com/v3.0/OS-AUTH/id-token/tokens" \
+#            -H "Content-Type: application/json" \
+#            -H "X-Idp-Id: github-vllm-ascend" \
+#            -d @/tmp/id_token_auth.json)
+#
+#          # 从响应头 X-Subject-Token 中获取华为云 Token
+#          HW_TOKEN=$(echo "$HW_TOKEN_RESPONSE" | grep -i 'X-Subject-Token:' | tr -d '\r' | awk '{print $2}')
+#          HW_TOKEN_BODY=$(echo "$HW_TOKEN_RESPONSE" | sed -n '/^\r*$/,$p' | tail -n +2)
+#
+#          if [ -z "$HW_TOKEN" ]; then
+#            echo "::error::Failed to get Huawei Cloud Token"
+#            echo "Response headers: $(echo "$HW_TOKEN_RESPONSE" | head -20)"
+#            echo "Response body: $HW_TOKEN_BODY"
+#            exit 1
+#          fi
+#
+#          echo "Huawei Cloud Token obtained successfully"
+#
+#          # 步骤 3: 使用华为云 Token 获取临时 AK/SK
+#          echo "Step 3: Getting temporary AK/SK..."
+#
+#          jq -n --arg token "$HW_TOKEN" '{
+#            "auth": {
+#              "identity": {
+#                "methods": ["token"],
+#                "token": {
+#                  "id": $token
+#                }
+#              }
+#            }
+#          }' > /tmp/securitytoken_auth.json
+#
+#          HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+#            "https://iam.ap-southeast-1.myhuaweicloud.com/v3.0/OS-CREDENTIAL/securitytokens" \
+#            -H "Content-Type: application/json" \
+#            -d @/tmp/securitytoken_auth.json)
+#
+#          HTTP_CODE=$(echo "$HTTP_RESPONSE" | tail -n1)
+#          RESPONSE_BODY=$(echo "$HTTP_RESPONSE" | sed '$d')
+#
+#          echo "HTTP Status Code: $HTTP_CODE"
+#          echo "Response Body: $RESPONSE_BODY"
+#
+#          if [ "$HTTP_CODE" != "201" ]; then
+#            echo "::error::Failed to get temporary credentials. HTTP Code: $HTTP_CODE"
+#            exit 1
+#          fi
+#
+#          # 解析响应并设置环境变量
+#          ACCESS_KEY=$(echo "$RESPONSE_BODY" | jq -r '.credential.access // empty')
+#          SECRET_KEY=$(echo "$RESPONSE_BODY" | jq -r '.credential.secret // empty')
+#          SECURITY_TOKEN=$(echo "$RESPONSE_BODY" | jq -r '.credential.securitytoken // empty')
+#
+#          if [ -z "$ACCESS_KEY" ]; then
+#            echo "::error::Failed to parse temporary credentials from response"
+#            exit 1
+#          fi
+#
+#          echo "AWS_ACCESS_KEY_ID=$ACCESS_KEY" >> $GITHUB_ENV
+#          echo "AWS_SECRET_ACCESS_KEY=$SECRET_KEY" >> $GITHUB_ENV
+#          echo "AWS_SESSION_TOKEN=$SECURITY_TOKEN" >> $GITHUB_ENV
+#          echo "Successfully obtained temporary credentials (AK: ${ACCESS_KEY:0:10}...)"
+      - name: Cache vllm-ascend csrc
+        uses: runs-on/cache@v4
         with:
-          name: timing-data-singlecard-light-part${{ matrix.part }}
-          path: test_timing_data.json
-          if-no-files-found: warn
-          retention-days: 5
+          path: |
+            vllm_ascend/_cann_ops_custom
+            vllm_ascend/*.so
+            vllm_ascend/lib
+            vllm_ascend/include
+          key: vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+          restore-keys: |
+            vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+
+#      - name: Install vllm-project/vllm-ascend
+#        env:
+#          PIP_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
+#        run: |
+#          pip install uc-manager
+#          uv pip install -r requirements-dev.txt
+#          if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
+#            COMPILE_CUSTOM_KERNELS=0 uv pip install -v -e .
+#          else
+#            uv pip install -v -e .
+#          fi
+#
+#      - name: Run vllm-project/vllm-ascend test
+#        env:
+#          PYTORCH_NPU_ALLOC_CONF: max_split_size_mb:256
+#          VLLM_WORKER_MULTIPROC_METHOD: spawn
+#        shell: bash
+#        run: |
+#          set -o pipefail
+#          if [ "${{ inputs.continue_on_error }}" = "true" ]; then
+#            python3 .github/workflows/scripts/run_suite.py \
+#              --suite e2e-singlecard-light \
+#              --auto-partition-id "${{ matrix.part }}" \
+#              --auto-partition-size 1 \
+#              --auto-upgrade-estimated-times \
+#              --continue-on-error \
+#              2>&1 | tee /tmp/e2e-singlecard-light-part${{ matrix.part }}.log
+#          else
+#            python3 .github/workflows/scripts/run_suite.py \
+#              --suite e2e-singlecard-light \
+#              --auto-partition-id "${{ matrix.part }}" \
+#              --auto-partition-size 1 \
+#              2>&1 | tee /tmp/e2e-singlecard-light-part${{ matrix.part }}.log
+#          fi
+#          exit ${PIPESTATUS[0]}
+#
+#      - name: Summarize singlecard-light failure
+#        if: ${{ always() }}
+#        run: |
+#          python3 .github/workflows/scripts/ci_log_summary.py \
+#            --step-name "Run singlecard-light test" \
+#            --log-file /tmp/e2e-singlecard-light-part${{ matrix.part }}.log \
+#            --output "$GITHUB_STEP_SUMMARY"
+#
+#
+#      - name: Upload timing data
+#        uses: actions/upload-artifact@v4
+#        if: ${{ inputs.continue_on_error == true && github.event_name != 'pull_request' }}
+#        with:
+#          name: timing-data-singlecard-light-part${{ matrix.part }}
+#          path: test_timing_data.json
+#          if-no-files-found: warn
+#          retention-days: 5
 
   e2e-full:
     name: singlecard-full
     if: ${{ inputs.type == 'full' }}
-    runs-on: linux-aarch64-a2b3-1
+    runs-on: linux-aarch64-a2b3-test-1
     strategy:
       fail-fast: false
       matrix:
@@ -187,13 +413,37 @@ jobs:
           VLLM_TARGET_DEVICE=empty uv pip install -e .
           uv pip uninstall triton
 
+      - name: Get csrc hash
+        id: get_csrc_hash
+        run: |
+          CSRC_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
+            ./vllm_ascend/envs.py ./requirements.txt ./packages.txt \
+            -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
+          echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
+
+      - name: Cache vllm-ascend csrc
+        uses: runs-on/cache@v4
+        with:
+          path: |
+            vllm_ascend/_cann_ops_custom
+            vllm_ascend/*.so
+            vllm_ascend/lib
+            vllm_ascend/include
+          key: vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+          restore-keys: |
+            vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+
       - name: Install vllm-project/vllm-ascend
         env:
           PIP_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
         run: |
           pip install uc-manager
           uv pip install -r requirements-dev.txt
-          uv pip install -v -e .
+          if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
+            COMPILE_CUSTOM_KERNELS=0 uv pip install -v -e .
+          else
+            uv pip install -v -e .
+          fi
       - name: Run e2e test
         env:
           VLLM_WORKER_MULTIPROC_METHOD: spawn
@@ -235,119 +485,143 @@ jobs:
           if-no-files-found: warn
           retention-days: 5
 
-  e2e-2-cards-light:
-    name: multicard-2-light
-    if: ${{ inputs.type == 'light' }}
-    runs-on: linux-aarch64-a3-2
-    strategy:
-      fail-fast: false
-      matrix:
-        part: [0]
-    container:
-      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py3.11
-      env:
-        VLLM_LOGGING_LEVEL: ERROR
-        VLLM_USE_MODELSCOPE: True
-        HCCL_BUFFSIZE: 1024
-        HF_HUB_OFFLINE: 1
-    steps:
-      - name: Checkout vllm-project/vllm-ascend repo
-        uses: actions/checkout@v6
-      - name: Check npu and CANN info
-        run: |
-          npu-smi info
-          cat /usr/local/Ascend/ascend-toolkit/latest/"$(uname -i)"-linux/ascend_toolkit_install.info
-
-      - name: Config mirrors
-        run: |
-          sed -Ei 's@(ports|archive).ubuntu.com@cache-service.nginx-pypi-cache.svc.cluster.local:8081@g' /etc/apt/sources.list
-          pip config set global.index-url http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
-          pip config set global.trusted-host cache-service.nginx-pypi-cache.svc.cluster.local
-          apt-get update -y
-          apt install git -y
-          git config --global --add safe.directory /__w/vllm-ascend/vllm-ascend
-
-      - name: Install system dependencies
-        run: |
-          apt-get -y install `cat packages.txt`
-          apt-get -y install gcc g++ cmake libnuma-dev clang-15
-
-          update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 20
-          update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20
-          pip install uv
-
-      - name: Checkout vllm-project/vllm repo
-        uses: actions/checkout@v6
-        with:
-          repository: vllm-project/vllm
-          ref: ${{ inputs.vllm }}
-          path: ./vllm-empty
-          fetch-depth: 1
-
-      - name: Install vllm-project/vllm from source
-        working-directory: ./vllm-empty
-        run: |
-          VLLM_TARGET_DEVICE=empty uv pip install -e .
-          uv pip uninstall triton
-
-      - name: Install vllm-project/vllm-ascend
-        env:
-          PIP_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
-        run: |
-          pip install uc-manager
-          uv pip install -r requirements-dev.txt
-          uv pip install -v -e .
-      - name: Run vllm-project/vllm-ascend test (light)
-        env:
-          VLLM_WORKER_MULTIPROC_METHOD: spawn
-        shell: bash
-        run: |
-          set -o pipefail
-          if [ "${{ inputs.continue_on_error }}" = "true" ]; then
-            python3 .github/workflows/scripts/run_suite.py \
-              --suite e2e-2card-light \
-              --auto-partition-id "${{ matrix.part }}" \
-              --auto-partition-size 1 \
-              --auto-upgrade-estimated-times \
-              --continue-on-error \
-              2>&1 | tee /tmp/e2e-2card-light-part${{ matrix.part }}.log
-          else
-            python3 .github/workflows/scripts/run_suite.py \
-              --suite e2e-2card-light \
-              --auto-partition-id "${{ matrix.part }}" \
-              --auto-partition-size 1 \
-              2>&1 | tee /tmp/e2e-2card-light-part${{ matrix.part }}.log
-          fi
-          exit ${PIPESTATUS[0]}
-
-      - name: Summarize multicard-2-light failure
-        if: ${{ always() }}
-        run: |
-          python3 .github/workflows/scripts/ci_log_summary.py \
-            --step-name "Run multicard-2-light test" \
-            --log-file /tmp/e2e-2card-light-part${{ matrix.part }}.log \
-            --output "$GITHUB_STEP_SUMMARY"
-
-
-      - name: Upload timing data
-        uses: actions/upload-artifact@v4
-        if: ${{ inputs.continue_on_error == true && github.event_name != 'pull_request' }}
-        with:
-          name: timing-data-2card-light-part${{ matrix.part }}
-          path: test_timing_data.json
-          if-no-files-found: warn
-          retention-days: 5
+#  e2e-2-cards-light:
+#    name: multicard-2-light
+#    if: ${{ inputs.type == 'light' }}
+#    runs-on: linux-aarch64-a3-test-2
+#    strategy:
+#      fail-fast: false
+#      matrix:
+#        part: [0]
+#    container:
+#      image: ${{ inputs.image_a3_2 }}
+#      env:
+#        VLLM_LOGGING_LEVEL: ERROR
+#        VLLM_USE_MODELSCOPE: True
+#        HCCL_BUFFSIZE: 1024
+#        HF_HUB_OFFLINE: 1
+#    steps:
+#      - name: Checkout vllm-project/vllm-ascend repo
+#        uses: actions/checkout@v6
+#      - name: Check npu and CANN info
+#        run: |
+#          npu-smi info
+#          cat /usr/local/Ascend/ascend-toolkit/latest/"$(uname -i)"-linux/ascend_toolkit_install.info
+#
+#      - name: Config mirrors
+#        run: |
+#          sed -Ei 's@(ports|archive).ubuntu.com@cache-service.nginx-pypi-cache.svc.cluster.local:8081@g' /etc/apt/sources.list
+#          pip config set global.index-url http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
+#          pip config set global.trusted-host cache-service.nginx-pypi-cache.svc.cluster.local
+#          apt-get update -y
+#          apt install git -y
+#          git config --global --add safe.directory /__w/vllm-ascend/vllm-ascend
+#
+#      - name: Install system dependencies
+#        run: |
+#          apt-get -y install `cat packages.txt`
+#          apt-get -y install gcc g++ cmake libnuma-dev clang-15
+#
+#          update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 20
+#          update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 20
+#          pip install uv
+#
+#      - name: Checkout vllm-project/vllm repo
+#        uses: actions/checkout@v6
+#        with:
+#          repository: vllm-project/vllm
+#          ref: ${{ inputs.vllm }}
+#          path: ./vllm-empty
+#          fetch-depth: 1
+#
+#      - name: Install vllm-project/vllm from source
+#        working-directory: ./vllm-empty
+#        run: |
+#          VLLM_TARGET_DEVICE=empty uv pip install -e .
+#          uv pip uninstall triton
+#
+#      - name: Get csrc hash
+#        id: get_csrc_hash
+#        run: |
+#          CSRC_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
+#            ./vllm_ascend/envs.py ./requirements.txt ./packages.txt \
+#            -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
+#          echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
+#
+#      - name: Cache vllm-ascend csrc
+#        uses: runs-on/cache@v4
+#        with:
+#          path: |
+#            vllm_ascend/_cann_ops_custom
+#            vllm_ascend/*.so
+#            vllm_ascend/lib
+#            vllm_ascend/include
+#          key: vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image_a3_2 }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+#          restore-keys: |
+#            vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image_a3_2 }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+#
+#      - name: Install vllm-project/vllm-ascend
+#        env:
+#          PIP_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
+#        run: |
+#          pip install uc-manager
+#          uv pip install -r requirements-dev.txt
+#          if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
+#            COMPILE_CUSTOM_KERNELS=0 uv pip install -v -e .
+#          else
+#            uv pip install -v -e .
+#          fi
+#      - name: Run vllm-project/vllm-ascend test (light)
+#        env:
+#          VLLM_WORKER_MULTIPROC_METHOD: spawn
+#        shell: bash
+#        run: |
+#          set -o pipefail
+#          if [ "${{ inputs.continue_on_error }}" = "true" ]; then
+#            python3 .github/workflows/scripts/run_suite.py \
+#              --suite e2e-2card-light \
+#              --auto-partition-id "${{ matrix.part }}" \
+#              --auto-partition-size 1 \
+#              --auto-upgrade-estimated-times \
+#              --continue-on-error \
+#              2>&1 | tee /tmp/e2e-2card-light-part${{ matrix.part }}.log
+#          else
+#            python3 .github/workflows/scripts/run_suite.py \
+#              --suite e2e-2card-light \
+#              --auto-partition-id "${{ matrix.part }}" \
+#              --auto-partition-size 1 \
+#              2>&1 | tee /tmp/e2e-2card-light-part${{ matrix.part }}.log
+#          fi
+#          exit ${PIPESTATUS[0]}
+#
+#      - name: Summarize multicard-2-light failure
+#        if: ${{ always() }}
+#        run: |
+#          python3 .github/workflows/scripts/ci_log_summary.py \
+#            --step-name "Run multicard-2-light test" \
+#            --log-file /tmp/e2e-2card-light-part${{ matrix.part }}.log \
+#            --output "$GITHUB_STEP_SUMMARY"
+#
+#
+#      - name: Upload timing data
+#        uses: actions/upload-artifact@v4
+#        if: ${{ inputs.continue_on_error == true && github.event_name != 'pull_request' }}
+#        with:
+#          name: timing-data-2card-light-part${{ matrix.part }}
+#          path: test_timing_data.json
+#          if-no-files-found: warn
+#          retention-days: 5
 
   e2e-2-cards-full:
     name: multicard-2-full
     if: ${{ inputs.type == 'full' }}
-    runs-on: linux-aarch64-a3-2
+    runs-on: linux-aarch64-a3-test-2
     strategy:
       fail-fast: false
       matrix:
         part: [0]
     container:
-      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py3.11
+      image: ${{ inputs.image_a3_2 }}
       env:
         VLLM_LOGGING_LEVEL: ERROR
         VLLM_USE_MODELSCOPE: True
@@ -393,13 +667,37 @@ jobs:
           VLLM_TARGET_DEVICE=empty uv pip install -e .
           uv pip uninstall triton
 
+      - name: Get csrc hash
+        id: get_csrc_hash
+        run: |
+          CSRC_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
+            ./vllm_ascend/envs.py ./requirements.txt ./packages.txt \
+            -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
+          echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
+
+      - name: Cache vllm-ascend csrc
+        uses: runs-on/cache@v4
+        with:
+          path: |
+            vllm_ascend/_cann_ops_custom
+            vllm_ascend/*.so
+            vllm_ascend/lib
+            vllm_ascend/include
+          key: vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image_a3_2 }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+          restore-keys: |
+            vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image_a3_2 }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+
       - name: Install vllm-project/vllm-ascend
         env:
           PIP_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
         run: |
           pip install uc-manager
           uv pip install -r requirements-dev.txt
-          uv pip install -v -e .
+          if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
+            COMPILE_CUSTOM_KERNELS=0 uv pip install -v -e .
+          else
+            uv pip install -v -e .
+          fi
       - name: Run vllm-project/vllm-ascend test (full)
         env:
           VLLM_WORKER_MULTIPROC_METHOD: spawn
@@ -464,13 +762,13 @@ jobs:
   e2e-4-cards-full:
     name: multicard-4-full
     if: ${{ inputs.type == 'full' }}
-    runs-on: linux-aarch64-a3-4
+    runs-on: linux-aarch64-a3-test-4
     strategy:
       fail-fast: false
       matrix:
         part: [0]
     container:
-      image: m.daocloud.io/quay.io/ascend/cann:8.5.1-a3-ubuntu22.04-py3.11
+      image: ${{ inputs.image_a3_4 }}
       env:
         VLLM_LOGGING_LEVEL: ERROR
         VLLM_USE_MODELSCOPE: True
@@ -515,13 +813,37 @@ jobs:
           VLLM_TARGET_DEVICE=empty uv pip install -e .
           uv pip uninstall triton
 
+      - name: Get csrc hash
+        id: get_csrc_hash
+        run: |
+          CSRC_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
+            ./vllm_ascend/envs.py ./requirements.txt ./packages.txt \
+            -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
+          echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
+
+      - name: Cache vllm-ascend csrc
+        uses: runs-on/cache@v4
+        with:
+          path: |
+            vllm_ascend/_cann_ops_custom
+            vllm_ascend/*.so
+            vllm_ascend/lib
+            vllm_ascend/include
+          key: vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image_a3_4 }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+          restore-keys: |
+            vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image_a3_4 }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+
       - name: Install vllm-project/vllm-ascend
         env:
           PIP_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
         run: |
           pip install uc-manager
           uv pip install -r requirements-dev.txt
-          uv pip install -v -e .
+          if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
+            COMPILE_CUSTOM_KERNELS=0 uv pip install -v -e .
+          else
+            uv pip install -v -e .
+          fi
 
       - name: Run vllm-project/vllm-ascend test for V1 Engine
         env:
@@ -569,7 +891,7 @@ jobs:
     runs-on: linux-aarch64-310p-1
     if: ${{ inputs.contains_310 }}
     container:
-      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-310p-ubuntu22.04-py3.11
+      image: ${{ inputs.image_310p }}
       env:
         VLLM_LOGGING_LEVEL: ERROR
         VLLM_USE_MODELSCOPE: True
@@ -611,13 +933,37 @@ jobs:
           VLLM_TARGET_DEVICE=empty uv pip install -e .
           uv pip uninstall triton
 
+      - name: Get csrc hash
+        id: get_csrc_hash
+        run: |
+          CSRC_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
+            ./vllm_ascend/envs.py ./requirements.txt ./packages.txt \
+            -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
+          echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
+
+      - name: Cache vllm-ascend csrc
+        uses: runs-on/cache@v4
+        with:
+          path: |
+            vllm_ascend/_cann_ops_custom
+            vllm_ascend/*.so
+            vllm_ascend/lib
+            vllm_ascend/include
+          key: vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image_310p }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+          restore-keys: |
+            vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image_310p }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+
       - name: Install vllm-project/vllm-ascend
         env:
           PIP_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
         run: |
           pip install uc-manager
           uv pip install -r requirements-dev.txt
-          uv pip install -v -e .
+          if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
+            COMPILE_CUSTOM_KERNELS=0 uv pip install -v -e .
+          else
+            uv pip install -v -e .
+          fi
 
       - name: Run vllm-project/vllm-ascend test
         env:
@@ -644,7 +990,7 @@ jobs:
     runs-on: linux-aarch64-310p-4
     if: ${{ inputs.contains_310 }}
     container:
-      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-310p-ubuntu22.04-py3.11
+      image: ${{ inputs.image_310p }}
       env:
         VLLM_LOGGING_LEVEL: ERROR
         VLLM_USE_MODELSCOPE: True
@@ -686,13 +1032,37 @@ jobs:
           VLLM_TARGET_DEVICE=empty uv pip install -e .
           uv pip uninstall triton
 
+      - name: Get csrc hash
+        id: get_csrc_hash
+        run: |
+          CSRC_HASH=$(find ./csrc ./setup.py ./pyproject.toml ./CMakeLists.txt ./cmake \
+            ./vllm_ascend/envs.py ./requirements.txt ./packages.txt \
+            -type f -not -path '*/.*' | sort | xargs sha256sum | sha256sum | awk '{print $1}')
+          echo "CSRC_HASH=$CSRC_HASH" >> $GITHUB_OUTPUT
+
+      - name: Cache vllm-ascend csrc
+        uses: runs-on/cache@v4
+        with:
+          path: |
+            vllm_ascend/_cann_ops_custom
+            vllm_ascend/*.so
+            vllm_ascend/lib
+            vllm_ascend/include
+          key: vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image_310p }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+          restore-keys: |
+            vllm-ascend-build-v1-${{ runner.os }}-${{ inputs.image_310p }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+
       - name: Install vllm-project/vllm-ascend
         env:
           PIP_EXTRA_INDEX_URL: https://mirrors.huaweicloud.com/ascend/repos/pypi
         run: |
           pip install uc-manager
           uv pip install -r requirements-dev.txt
-          uv pip install -v -e .
+          if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
+            COMPILE_CUSTOM_KERNELS=0 uv pip install -v -e .
+          else
+            uv pip install -v -e .
+          fi
 
       - name: Run vllm-project/vllm-ascend test
         env:

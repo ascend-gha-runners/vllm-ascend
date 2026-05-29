@@ -493,6 +493,5 @@ __aicore__ inline void GMMSwigluCompute<mmType, sync, CHANNELDTYPE>::customDataC
     quantOutQueue.EnQue(quantLocal);
     quantScaleOutQueue.EnQue(quantScaleLocal);
 }
-
 }  // namespace GROUPED_MATMUL
 #endif  // ASCENDC_GROUPED_MATMUL_QUANT_MIXCORE_H

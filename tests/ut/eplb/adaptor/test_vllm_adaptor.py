@@ -7,7 +7,6 @@ from vllm_ascend.eplb.adaptor.vllm_adaptor import VllmEplbAdaptor
 from vllm_ascend.quantization.methods.base import QuantType
 from transformers import DeepseekV2Config
 
-
 class TestVllmAdaptor(unittest.TestCase):
     def setUp(self):
         n_routed_experts = 256
