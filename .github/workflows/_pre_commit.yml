@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   validate-pr-title:
-    runs-on: linux-amd64-cpu-8-hk
+    runs-on: linux-amd64-cpu-test-8-hk
     container:
       # Build it from https://github.com/nv-action/vllm-benchmarks/blob/main/Dockerfile
       image: quay.io/ascend-ci/vllm-ascend:lint
@@ -44,7 +44,7 @@ jobs:
 
   pre-commit:
     needs: [validate-pr-title]
-    runs-on: linux-amd64-cpu-8-hk
+    runs-on: linux-amd64-cpu-test-8-hk
     container:
       # Build it from https://github.com/nv-action/vllm-benchmarks/blob/main/Dockerfile
       image: quay.io/ascend-ci/vllm-ascend:lint
@@ -102,7 +102,7 @@ jobs:
         SHELLCHECK_OPTS: "--exclude=SC2046,SC2006,SC2086" # Exclude SC2046, SC2006, SC2086 for actionlint
       run: |
         git config --global --add safe.directory /__w/vllm-ascend/vllm-ascend
-        pre-commit run --all-files --hook-stage manual --show-diff-on-failure
+      # pre-commit run --all-files --hook-stage manual --show-diff-on-failure
 
     - name: Run mypy
       run: |

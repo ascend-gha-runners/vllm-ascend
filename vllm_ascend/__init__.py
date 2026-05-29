@@ -15,7 +15,6 @@
 # This file is a part of the vllm-ascend project.
 #
 
-
 def register():
     """Register the NPU platform."""
 

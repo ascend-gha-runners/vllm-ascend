@@ -24,6 +24,7 @@ WORKDIR /workspace
 
 COPY ./tools/mooncake_installer.sh /vllm-workspace/
 
+
 # Install clang-15 (for triton-ascend) and Mooncake
 RUN apt-get update -y && \
     apt-get install -y git vim wget net-tools gcc g++ cmake libnuma-dev libjemalloc2 clang-15 && \
