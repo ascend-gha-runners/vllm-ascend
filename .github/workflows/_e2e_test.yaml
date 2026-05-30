@@ -338,7 +338,7 @@ jobs:
   e2e-2-cards-light:
     name: multicard-2-light
     if: ${{ inputs.type == 'light' }}
-    runs-on: linux-aarch64-a3-test-2-label
+    runs-on: linux-aarch64-a3-test-4-label
     strategy:
       fail-fast: false
       matrix:
