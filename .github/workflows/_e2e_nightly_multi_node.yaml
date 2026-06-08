@@ -10,7 +10,7 @@ on:
       runner:
         required: false
         type: string
-        default: linux-aarch64-a3-0
+        default: linux-aarch64-a3-test-0-label
       image:
         required: false
         type: string
