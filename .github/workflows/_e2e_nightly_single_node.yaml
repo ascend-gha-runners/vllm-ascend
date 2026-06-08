@@ -117,7 +117,8 @@ jobs:
 
       - name: Set MAX_JOBS based on runner
         run: |
-          CARDS=$(echo "${{ inputs.runner }}" | grep -oE '[0-9]+$')
+          CARDS=$(echo "${{ inputs.runner }}" | grep -oE 'test-[0-9]+' | grep -oE '[0-9]+')
+          # CARDS=$(echo "${{ inputs.runner }}" | grep -oE '[0-9]+$')
           echo "MAX_JOBS=$((CARDS * 23))" >> $GITHUB_ENV
 
       - name: Install vllm-project/vllm-ascend
