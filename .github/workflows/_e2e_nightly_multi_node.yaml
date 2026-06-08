@@ -95,7 +95,7 @@ jobs:
       image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/vllm-ascend:nightly-cpu
       env:
         KUBECONFIG: /tmp/kubeconfig
-        NAMESPACE: vllm-project
+        NAMESPACE: ascend-gha-runners
     steps:
       - name: Decode kubeconfig
         run: |
