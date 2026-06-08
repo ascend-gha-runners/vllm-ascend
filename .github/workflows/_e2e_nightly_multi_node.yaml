@@ -234,7 +234,23 @@ jobs:
           set -euo pipefail
           SIZE="${{ inputs.size }}"
           TIMEOUT=1200
-
+          # 在循环前添加安全检查                                                                                                                                                                                                                                         
+          if [[ -z "${SIZE:-}" ]]; then
+            echo "ERROR: SIZE variable is not set"
+            exit 1
+          fi
+          
+          if [[ -z "${LWS_NAME:-}" ]]; then
+            echo "ERROR: LWS_NAME variable is not set"
+            exit 1
+          fi
+          
+          if [[ -z "${NAMESPACE:-}" ]]; then
+            echo "ERROR: NAMESPACE variable is not set"
+            exit 1
+          fi
+          
+          echo "Variables validated: LWS_NAME=${LWS_NAME}, SIZE=${SIZE}, NAMESPACE=${NAMESPACE}"
           echo "Waiting for all pods to become Running and Ready (timeout ${TIMEOUT}s)..."
           START_TIME=$(date +%s)
           while true; do
