@@ -50,7 +50,7 @@ defaults:
     shell: bash -el {0}
 
 concurrency:
-  group: ascend-nightly-${{ github.ref }}-a3
+  group: ascend-nightly-${{ github.ref }}-a3-v1
   cancel-in-progress: true
 
 env:
