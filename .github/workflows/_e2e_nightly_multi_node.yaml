@@ -155,7 +155,6 @@ jobs:
 
       - name: Clear resources
         run: |
-          sleep 300
           set -euo pipefail
           TIMEOUT=120
           SLEEP_INTERVAL=2
