@@ -196,7 +196,7 @@ jobs:
           uv pip install -r requirements-dev.txt
           uv pip install --force-reinstall --no-deps triton-ascend==3.2.1
           if find vllm_ascend -maxdepth 1 -name '*.so' -type f 2>/dev/null | grep -q .; then
-            echo "CSRC cache hit: .so files found, skip kernel compilation"
+            echo "CSRC cache hit: .so files found, skip kernel compilation test"
             COMPILE_CUSTOM_KERNELS=0 uv pip install -e .
           else
             echo "CSRC cache miss: no .so files found, compile kernels"
