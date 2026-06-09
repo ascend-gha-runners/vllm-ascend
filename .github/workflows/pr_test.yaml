@@ -158,6 +158,7 @@ jobs:
           pip install regex
           python3 .github/workflows/scripts/select_tests.py \
             --run-all-modules \
+            --exclude-npu a2 310p \
             --diff-base origin/${{ github.base_ref }}
 
   run-selected-tests:
