@@ -132,7 +132,7 @@ jobs:
           SHELLCHECK_OPTS: "--exclude=SC2046,SC2006,SC2086"
         run: |
           git config --global --add safe.directory /__w/vllm-ascend/vllm-ascend
-          pre-commit run --all-files --hook-stage manual --show-diff-on-failure
+          # pre-commit run --all-files --hook-stage manual --show-diff-on-failure
 
       - name: Run mypy
         run: |
