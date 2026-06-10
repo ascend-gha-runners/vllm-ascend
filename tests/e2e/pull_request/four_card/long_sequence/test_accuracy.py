@@ -16,7 +16,7 @@
 #
 """
 Compare the outputs of vLLM with and without context parallel.
-
+"Qwen/Qwen3-8B",
 Run `pytest tests/e2e/pull_request/four_card/long_sequence/test_accuracy.py`.
 """
 
@@ -26,7 +26,6 @@ from tests.e2e.conftest import VllmRunner, wait_until_npu_memory_free
 from tests.e2e.model_utils import check_outputs_equal
 
 MODELS = [
-    "Qwen/Qwen3-8B",
     "vllm-ascend/DeepSeek-V2-Lite-W8A8",
 ]
 

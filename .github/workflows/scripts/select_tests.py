@@ -521,6 +521,13 @@ def main():
         action="store_true",
         help="Run tests for all configured modules regardless of changed files",
     )
+    parser.add_argument(
+        "--exclude-npu",
+        nargs="+",
+        choices=["a2", "a3", "310p", "cpu"],
+        default=[],
+        help="Exclude tests routed to the given NPU type(s) (e.g. --exclude-npu a2 310p)",
+    )
 
     args = parser.parse_args()
     config = _resolve_config_inheritance(yaml.safe_load(args.config.read_text()))
@@ -577,6 +584,14 @@ def main():
                     all_groups[key].append(f)
 
     _dedup_groups(all_groups)
+
+    if args.exclude_npu:
+        excluded = set(args.exclude_npu)
+        all_groups = {
+            key: tests
+            for key, tests in all_groups.items()
+            if key[1].value not in excluded
+        }
 
     if skip_tests:
         for key in list(all_groups.keys()):

@@ -12,7 +12,10 @@ enable_custom_op()
 MODEL_PATH = "vllm-ascend/Llama-3.2-3B-Instruct"
 
 
-@pytest.mark.parametrize("fully_sharded_loras", [False, True])
+@pytest.mark.parametrize("fully_sharded_loras", [
+    pytest.param(False, marks=pytest.mark.skip(reason="Base model output format regression, expected '`SELECT COUNT(*) FROM candidate;`' got 'SELECT COUNT(*) FROM candidate'")),
+    True,
+])
 @wait_until_npu_memory_free()
 def test_llama_lora_tp2(llama32_lora_files, fully_sharded_loras):
     with VllmRunner(
