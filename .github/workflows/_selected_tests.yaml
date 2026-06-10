@@ -141,7 +141,7 @@ jobs:
       - name: Restore vllm-ascend csrc cache
         id: cache-csrc
         if: ${{ matrix.group.npu_type != 'cpu' }}
-        uses: runs-on/cache/restore@v5
+        uses: runs-on/cache@v5
         with:
           path: |
             vllm_ascend/_cann_ops_custom
