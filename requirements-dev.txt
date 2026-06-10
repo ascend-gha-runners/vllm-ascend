@@ -1,6 +1,5 @@
 -r requirements-lint.txt
 -r requirements.txt
--r requirements-cpu.txt
 modelscope>=1.35.1
 openai
 pytest >= 6.0,<9.0.0
@@ -24,3 +23,8 @@ pytest_mock
 mindstudio-probe>=8.3.0
 xlite==0.1.0rc10.dev210
 uc-manager
+
+--index-url http://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu/
+torch==2.10.0
+torchvision==0.25.0
+torchaudio==2.10.0
