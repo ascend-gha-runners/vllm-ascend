@@ -215,7 +215,7 @@ jobs:
 
       - name: Configure Huawei Cloud Credentials (save)
         id: creds-save
-        if: ${{ matrix.group.npu_type != 'cpu' && steps.csrc-filter.outputs.csrc == 'true' && steps.cache-csrc.outputs.cache-hit != 'true' }}
+        if: ${{ matrix.group.npu_type != 'cpu' && steps.cache-csrc.outputs.cache-hit != 'true' }}
         uses: ascend-gha-runners/configure-hwcloud-credentials@3be5794f565c38f9719ef1f6bec28351c929be3c
         with:
           region: ap-southeast-1
@@ -224,7 +224,7 @@ jobs:
           duration-seconds: 3600
 
       - name: Save vllm-ascend csrc cache
-        if: ${{ matrix.group.npu_type != 'cpu' && steps.csrc-filter.outputs.csrc == 'true' && steps.cache-csrc.outputs.cache-hit != 'true' }}
+        if: ${{ matrix.group.npu_type != 'cpu' && steps.cache-csrc.outputs.cache-hit != 'true' }}
         uses: runs-on/cache/save@v5
         env:
           RUNS_ON_S3_BUCKET_CACHE: vllm-ascend
