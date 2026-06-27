@@ -68,14 +68,12 @@ on:
 env:
   QUAY_REPO: quay.io/ascend/vllm-ascend
   QUAY_TEMP_REPO: quay.io/atlas-ci/vllm-atlas-temp
-  CACHE_REPO: ghcr.io/vllm-project/vllm-ascend
 
 jobs:
   build-push-digest:
     name: build
     runs-on: ${{ matrix.runner }}
     permissions:
-      packages: write
       contents: read
       id-token: write
 
@@ -183,22 +181,6 @@ jobs:
         driver: docker-container
         use: true
 
-    - name: Login to GitHub Container Registry (for cache)
-      uses: docker/login-action@v4
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Compute cache tag
-      id: cache-tag
-      run: |
-        if [ -n "${{ inputs.suffix }}" ]; then
-          echo "value=buildcache-${{ inputs.suffix }}-${{ matrix.tag }}" >> $GITHUB_OUTPUT
-        else
-          echo "value=buildcache-${{ matrix.tag }}" >> $GITHUB_OUTPUT
-        fi
-
     - name: Get csrc hash
       id: get_csrc_hash
       run: |
@@ -247,6 +229,18 @@ jobs:
             vllm_ascend/include
         key: vllm-ascend-build-v1-${{ steps.get_arch.outputs.arch }}-${{ steps.get_base_image_tag.outputs.BASE_IMAGE_TAG }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
 
+    - name: Cache Docker build layers
+      id: cache-docker
+      uses: runs-on/cache/restore@v5
+      env:
+        RUNS_ON_S3_BUCKET_CACHE: vllm-ascend
+        RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-north-4.myhuaweicloud.com
+        RUNS_ON_S3_FORCE_PATH_STYLE: "true"
+      with:
+        path: /tmp/docker-cache-${{ matrix.tag }}
+        key: docker-build-v1-${{ inputs.suffix }}-${{ matrix.tag }}-${{ hashFiles(inputs.dockerfile || 'Dockerfile') }}
+        restore-keys: |
+          docker-build-v1-${{ inputs.suffix }}-${{ matrix.tag }}-
 
     - name: Build and push
       uses: docker/build-push-action@v7
@@ -264,11 +258,24 @@ jobs:
           COMPILE_CUSTOM_KERNELS=${{ steps.cache-csrc.outputs.cache-hit == 'true' && '0' || '1' }}
           VLLM_COMMIT=${{ inputs.vllm_commit }}
         provenance: false
-        # To speed up the build, we use registry cache. The cache tag is determined by the suffix and architecture, and shared across different workflow runs.
-        # For example, the cache tag for arm64 image with suffix "openeuler" will be "buildcache-openeuler-arm64".
-        # When a new image is built and pushed, the cache will also be updated in the registry, so that next build can benefit from it.
-        cache-from: type=registry,ref=${{ env.CACHE_REPO }}:${{ steps.cache-tag.outputs.value }}
-        cache-to: ${{ inputs.should_push && format('type=registry,ref={0}:{1},mode=max', env.CACHE_REPO, steps.cache-tag.outputs.value) || '' }}
+        cache-from: type=local,src=/tmp/docker-cache-${{ matrix.tag }}
+        cache-to: type=local,dest=/tmp/docker-cache-${{ matrix.tag }}-new,mode=max
+
+    - name: Update Docker cache
+      run: |
+        rm -rf /tmp/docker-cache-${{ matrix.tag }}
+        mv /tmp/docker-cache-${{ matrix.tag }}-new /tmp/docker-cache-${{ matrix.tag }}
+
+    - name: Save Docker build layers
+      if: steps.cache-docker.outputs.cache-hit != 'true'
+      uses: runs-on/cache/save@v5
+      env:
+        RUNS_ON_S3_BUCKET_CACHE: vllm-ascend
+        RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-north-4.myhuaweicloud.com
+        RUNS_ON_S3_FORCE_PATH_STYLE: "true"
+      with:
+        path: /tmp/docker-cache-${{ matrix.tag }}
+        key: docker-build-v1-${{ inputs.suffix }}-${{ matrix.tag }}-${{ hashFiles(inputs.dockerfile || 'Dockerfile') }}
 
     # Quay.io automatically cleans up untagged digests on a regular basis, with a cycle of approximately one hour. 
     # Add temporary tags to digests to prevent them from being removed.
