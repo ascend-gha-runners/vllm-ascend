@@ -77,6 +77,7 @@ jobs:
     permissions:
       packages: write
       contents: read
+      id-token: write
 
     strategy:
       matrix:
@@ -222,9 +223,22 @@ jobs:
           *) echo "arch=$ARCH" >> $GITHUB_OUTPUT ;;
         esac
 
+    - name: Configure Huawei Cloud Credentials
+      id: creds
+      uses: ascend-gha-runners/configure-hwcloud-credentials@3be5794f565c38f9719ef1f6bec28351c929be3c
+      with:
+        region: ap-southeast-1
+        audience: hw-vllm-ascend-audience
+        idp-id: github-vllm-ascend
+        duration-seconds: 3600
+
     - name: Cache vllm-ascend csrc
       id: cache-csrc
       uses: runs-on/cache/restore@v5
+      env:
+        RUNS_ON_S3_BUCKET_CACHE: vllm-ascend
+        RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-north-4.myhuaweicloud.com
+        RUNS_ON_S3_FORCE_PATH_STYLE: "true"
       with:
         path: |
             vllm_ascend/_cann_ops_custom
