@@ -58,6 +58,7 @@ defaults:
 permissions:
   contents: read
   pull-requests: none
+  id-token: write
 
 jobs:
   selected-tests:
@@ -152,10 +153,24 @@ jobs:
               - 'CMakeLists.txt'
               - 'cmake/**'
 
+      - name: Configure Huawei Cloud Credentials
+        id: creds
+        if: ${{ matrix.group.npu_type != 'cpu' }}
+        uses: ascend-gha-runners/configure-hwcloud-credentials@3be5794f565c38f9719ef1f6bec28351c929be3c
+        with:
+          region: ap-southeast-1
+          audience: hw-vllm-ascend-audience
+          idp-id: github-vllm-ascend
+          duration-seconds: 3600
+
       - name: Restore vllm-ascend csrc cache
         id: cache-csrc
         if: ${{ matrix.group.npu_type != 'cpu' }}
         uses: runs-on/cache/restore@v5
+        env:
+          RUNS_ON_S3_BUCKET_CACHE: vllm-ascend
+          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-north-4.myhuaweicloud.com
+          RUNS_ON_S3_FORCE_PATH_STYLE: "true"
         with:
           path: |
             vllm_ascend/_cann_ops_custom
@@ -198,9 +213,23 @@ jobs:
             uv pip install -e . --no-build-isolation
           fi
 
+      - name: Configure Huawei Cloud Credentials (save)
+        id: creds-save
+        if: ${{ matrix.group.npu_type != 'cpu' && steps.csrc-filter.outputs.csrc == 'true' && steps.cache-csrc.outputs.cache-hit != 'true' }}
+        uses: ascend-gha-runners/configure-hwcloud-credentials@3be5794f565c38f9719ef1f6bec28351c929be3c
+        with:
+          region: ap-southeast-1
+          audience: hw-vllm-ascend-audience
+          idp-id: github-vllm-ascend
+          duration-seconds: 3600
+
       - name: Save vllm-ascend csrc cache
         if: ${{ matrix.group.npu_type != 'cpu' && steps.csrc-filter.outputs.csrc == 'true' && steps.cache-csrc.outputs.cache-hit != 'true' }}
         uses: runs-on/cache/save@v5
+        env:
+          RUNS_ON_S3_BUCKET_CACHE: vllm-ascend
+          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-north-4.myhuaweicloud.com
+          RUNS_ON_S3_FORCE_PATH_STYLE: "true"
         with:
           path: |
             vllm_ascend/_cann_ops_custom
