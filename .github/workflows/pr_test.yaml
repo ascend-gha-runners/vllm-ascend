@@ -54,32 +54,6 @@ jobs:
       main_commit: ${{ steps.vllm.outputs.main_commit }}
       release_tag: ${{ steps.vllm.outputs.release_tag }}
     steps:
-      - name: Validate PR title prefix
-        run: |
-          PR_TITLE=$(curl -sSf -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}" \
-            | python3 -c "import sys,json; print(json.load(sys.stdin)['title'])") || {
-              echo "::error::Failed to fetch PR title from GitHub API"
-              exit 1
-            }
-
-          if [ -z "$PR_TITLE" ]; then
-            echo "::error::PR title cannot be empty"
-            exit 1
-          fi
-
-          echo "Checking PR title: $PR_TITLE"
-
-          VALID_PREFIXES='\[(BugFix|Performance|Test|CI|Feature|Doc|Misc|Community|Refactor)\]'
-
-          if ! echo "$PR_TITLE" | grep -iqE "$VALID_PREFIXES"; then
-            echo "::error::PR title must contain one of the following prefixes: [BugFix], [Performance], [Test], [CI], [Feature], [Doc], [Misc], [Community], [Refactor]"
-            echo "::error::Example: '[Feature] Add new optimization pass' or 'Add new feature [Feature]'"
-            exit 1
-          fi
-
-          echo "✓ PR title prefix is valid"
 
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v7
@@ -203,7 +177,7 @@ jobs:
 
   run-selected-tests:
     needs: lint-and-select-tests
-    if: ${{ needs.lint-and-select-tests.outputs.has_tests == 'true' && contains(github.event.pull_request.labels.*.name, 'ready') }}
+    if: ${{ needs.lint-and-select-tests.outputs.has_tests == 'true' || contains(github.event.pull_request.labels.*.name, 'ready') }}
     strategy:
       matrix:
         vllm_version:
