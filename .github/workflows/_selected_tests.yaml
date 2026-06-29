@@ -140,6 +140,38 @@ jobs:
           idp-id: github-vllm-ascend
           duration-seconds: 3600
 
+      - name: Generate large test file
+        if: ${{ matrix.group.npu_type != 'cpu' }}
+        run: |
+          echo "Generating 1GB test file..."
+          dd if=/dev/urandom of=/tmp/test-cache-1gb bs=1M count=1024
+          ls -lh /tmp/test-cache-1gb
+
+      - name: Restore large test file cache
+        id: cache-large
+        if: ${{ matrix.group.npu_type != 'cpu' }}
+        uses: runs-on/cache/restore@v5
+        env:
+          RUNS_ON_S3_BUCKET_CACHE: vllm-ascend
+          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-north-4.myhuaweicloud.com
+          RUNS_ON_S3_FORCE_PATH_STYLE: "true"
+          RUNS_ON_AWS_REGION: cn-north-4
+        with:
+          path: /tmp/test-cache-1gb
+          key: test-large-file-1gb-v1
+
+      - name: Save large test file cache
+        if: ${{ matrix.group.npu_type != 'cpu' && steps.cache-large.outputs.cache-hit != 'true' }}
+        uses: runs-on/cache/save@v5
+        env:
+          RUNS_ON_S3_BUCKET_CACHE: vllm-ascend
+          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-north-4.myhuaweicloud.com
+          RUNS_ON_S3_FORCE_PATH_STYLE: "true"
+          RUNS_ON_AWS_REGION: cn-north-4
+        with:
+          path: /tmp/test-cache-1gb
+          key: test-large-file-1gb-v1
+
       - name: Restore vllm-ascend csrc cache
         id: cache-csrc
         if: ${{ matrix.group.npu_type != 'cpu' }}
