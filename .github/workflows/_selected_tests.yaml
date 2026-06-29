@@ -171,6 +171,7 @@ jobs:
           RUNS_ON_S3_BUCKET_CACHE: vllm-ascend
           RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-north-4.myhuaweicloud.com
           RUNS_ON_S3_FORCE_PATH_STYLE: "true"
+          RUNS_ON_AWS_REGION: cn-north-4
         with:
           path: |
             vllm_ascend/_cann_ops_custom
@@ -230,6 +231,7 @@ jobs:
           RUNS_ON_S3_BUCKET_CACHE: vllm-ascend
           RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-north-4.myhuaweicloud.com
           RUNS_ON_S3_FORCE_PATH_STYLE: "true"
+          RUNS_ON_AWS_REGION: cn-north-4
         with:
           path: |
             vllm_ascend/_cann_ops_custom
