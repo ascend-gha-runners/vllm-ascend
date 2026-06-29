@@ -162,7 +162,7 @@ jobs:
           SHELLCHECK_OPTS: "--exclude=SC2046,SC2006,SC2086"
         run: |
           git config --global --add safe.directory /__w/vllm-ascend/vllm-ascend
-          # pre-commit run --all-files --hook-stage manual --show-diff-on-failure
+          pre-commit run --all-files --hook-stage manual --show-diff-on-failure
 
       - name: Run mypy
         run: |
@@ -202,7 +202,7 @@ jobs:
 
   run-selected-tests:
     needs: lint-and-select-tests
-    if: ${{ needs.lint-and-select-tests.outputs.has_tests == 'true' || contains(github.event.pull_request.labels.*.name, 'ready') }}
+    if: ${{ needs.lint-and-select-tests.outputs.has_tests == 'true' && contains(github.event.pull_request.labels.*.name, 'ready') }}
     strategy:
       matrix:
         vllm_version:
