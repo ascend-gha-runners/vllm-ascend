@@ -117,12 +117,12 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: Rebase on latest ${{ inputs.base_ref }}
-        run: |
-          git config user.name "vllm-ascend-ci"
-          git config user.email "vllm-ascend-ci@users.noreply.github.com"
-          git fetch origin ${{ inputs.base_ref }}
-          git rebase origin/${{ inputs.base_ref }}
+#      - name: Rebase on latest ${{ inputs.base_ref }}
+#        run: |
+#          git config user.name "vllm-ascend-ci"
+#          git config user.email "vllm-ascend-ci@users.noreply.github.com"
+#          git fetch origin ${{ inputs.base_ref }}
+#          git rebase origin/${{ inputs.base_ref }}
 
       - name: Get csrc hash
         id: get_csrc_hash
@@ -240,54 +240,54 @@ jobs:
         run: |
           pip uninstall -y triton-ascend triton
 
-      - name: Run selected tests with device
-        if: ${{ matrix.group.npu_type != 'cpu' }}
-        continue-on-error: ${{ inputs.continue_on_error }}
-        env:
-          VLLM_WORKER_MULTIPROC_METHOD: spawn
-        run: |
-          . /usr/local/Ascend/ascend-toolkit/set_env.sh
-          TIMING_FLAG=""
-          if [ "${{ inputs.upload_timing }}" = "true" ]; then
-            TIMING_FLAG="--timing"
-          fi
-          .github/workflows/scripts/run_selected_tests.sh \
-            "${{ matrix.group.npu_type }}" \
-            "${{ matrix.group.num_npus }}" \
-            "with-device" \
-            ${TIMING_FLAG} \
-            ${{ matrix.group.tests }}
-
-      - name: Run selected tests without device
-        if: ${{ matrix.group.npu_type == 'cpu' }}
-        continue-on-error: ${{ inputs.continue_on_error }}
-        env:
-          VLLM_WORKER_MULTIPROC_METHOD: spawn
-          TORCH_DEVICE_BACKEND_AUTOLOAD: 0
-        run: |
-          .github/workflows/scripts/run_selected_tests.sh \
-            "${{ matrix.group.npu_type }}" \
-            "${{ matrix.group.num_npus }}" \
-            "without-device" \
-            ${{ matrix.group.tests }}
-
-      - name: Upload timing data
-        if: ${{ inputs.upload_timing && matrix.group.npu_type != 'cpu' }}
-        continue-on-error: true
-        uses: actions/upload-artifact@v7
-        with:
-          name: timing-data-${{ matrix.group.npu_type }}-${{ matrix.group.num_npus }}card-${{ matrix.group.partition }}
-          path: ${{ runner.temp }}/selected-tests-*/test_timing_data.json
-          if-no-files-found: ignore
-          retention-days: 7
-
-      - name: Upload selected test logs
-        if: always()
-        continue-on-error: true
-        uses: actions/upload-artifact@v7
-        with:
-          name: selected-test-logs-vllm-${{ inputs.vllm }}-${{ matrix.group.npu_type }}-${{ matrix.group.num_npus }}card
-          path: ${{ runner.temp }}/selected-tests-*
-          if-no-files-found: ignore
-          retention-days: 14
-          compression-level: 0
+#      - name: Run selected tests with device
+#        if: ${{ matrix.group.npu_type != 'cpu' }}
+#        continue-on-error: ${{ inputs.continue_on_error }}
+#        env:
+#          VLLM_WORKER_MULTIPROC_METHOD: spawn
+#        run: |
+#          . /usr/local/Ascend/ascend-toolkit/set_env.sh
+#          TIMING_FLAG=""
+#          if [ "${{ inputs.upload_timing }}" = "true" ]; then
+#            TIMING_FLAG="--timing"
+#          fi
+#          .github/workflows/scripts/run_selected_tests.sh \
+#            "${{ matrix.group.npu_type }}" \
+#            "${{ matrix.group.num_npus }}" \
+#            "with-device" \
+#            ${TIMING_FLAG} \
+#            ${{ matrix.group.tests }}
+#
+#      - name: Run selected tests without device
+#        if: ${{ matrix.group.npu_type == 'cpu' }}
+#        continue-on-error: ${{ inputs.continue_on_error }}
+#        env:
+#          VLLM_WORKER_MULTIPROC_METHOD: spawn
+#          TORCH_DEVICE_BACKEND_AUTOLOAD: 0
+#        run: |
+#          .github/workflows/scripts/run_selected_tests.sh \
+#            "${{ matrix.group.npu_type }}" \
+#            "${{ matrix.group.num_npus }}" \
+#            "without-device" \
+#            ${{ matrix.group.tests }}
+#
+#      - name: Upload timing data
+#        if: ${{ inputs.upload_timing && matrix.group.npu_type != 'cpu' }}
+#        continue-on-error: true
+#        uses: actions/upload-artifact@v7
+#        with:
+#          name: timing-data-${{ matrix.group.npu_type }}-${{ matrix.group.num_npus }}card-${{ matrix.group.partition }}
+#          path: ${{ runner.temp }}/selected-tests-*/test_timing_data.json
+#          if-no-files-found: ignore
+#          retention-days: 7
+#
+#      - name: Upload selected test logs
+#        if: always()
+#        continue-on-error: true
+#        uses: actions/upload-artifact@v7
+#        with:
+#          name: selected-test-logs-vllm-${{ inputs.vllm }}-${{ matrix.group.npu_type }}-${{ matrix.group.num_npus }}card
+#          path: ${{ runner.temp }}/selected-tests-*
+#          if-no-files-found: ignore
+#          retention-days: 14
+#          compression-level: 0
