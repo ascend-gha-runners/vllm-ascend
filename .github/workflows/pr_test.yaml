@@ -55,8 +55,8 @@ jobs:
     container:
       image: quay.io/ascend-ci/vllm-ascend:lint
     outputs:
-      has_tests: ${{ steps.scope.outputs.has_tests || steps.noop.outputs.has_tests }}
-      test_groups: ${{ steps.scope.outputs.test_groups || steps.noop.outputs.test_groups }}
+      has_tests: ${{ steps.filter_a3.outputs.has_tests || steps.scope.outputs.has_tests || steps.noop.outputs.has_tests }}
+      test_groups: ${{ steps.filter_a3.outputs.test_groups || steps.scope.outputs.test_groups || steps.noop.outputs.test_groups }}
       matched_modules: ${{ steps.scope.outputs.matched_modules || steps.noop.outputs.matched_modules }}
       main_commit: ${{ steps.vllm.outputs.main_commit }}
       release_tag: ${{ steps.vllm.outputs.release_tag }}
@@ -197,6 +197,24 @@ jobs:
           pip install regex
           python3 .github/workflows/scripts/select_tests.py \
             --diff-base origin/${{ github.base_ref }}
+
+      - name: Filter test groups to A3 only
+        if: steps.scope.outputs.test_groups != ''
+        run: |
+          FILTERED=$(python3 -c "
+          import json, sys
+          groups = json.loads(sys.argv[1])
+          filtered = [g for g in groups if g.get('npu_type') == 'a3']
+          print(json.dumps(filtered, separators=(',', ':')))
+          " '${{ steps.scope.outputs.test_groups }}')
+          HAS_TESTS=$(python3 -c "
+          import json, sys
+          groups = json.loads(sys.argv[1])
+          print('true' if groups else 'false')
+          " "$FILTERED")
+          echo "test_groups=$FILTERED" >> "$GITHUB_OUTPUT"
+          echo "has_tests=$HAS_TESTS" >> "$GITHUB_OUTPUT"
+        id: filter_a3
 
       - name: Set no-tests output when source paths unchanged
         id: noop
