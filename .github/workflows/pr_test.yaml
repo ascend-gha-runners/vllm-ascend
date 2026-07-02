@@ -41,15 +41,22 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  actions: read
+  id-token: write
+
 jobs:
   lint-and-select-tests:
     if: ${{ github.event.action != 'labeled' || github.event.label.name == 'ready' }}
-    runs-on: linux-amd64-cpu-8-hk
+    runs-on: linux-amd64-cpu-test-8-hk
     container:
       image: quay.io/ascend-ci/vllm-ascend:lint
     outputs:
-      has_tests: ${{ steps.scope.outputs.has_tests || steps.noop.outputs.has_tests }}
-      test_groups: ${{ steps.scope.outputs.test_groups || steps.noop.outputs.test_groups }}
+      has_tests: ${{ steps.filter_a3.outputs.has_tests || steps.scope.outputs.has_tests || steps.noop.outputs.has_tests }}
+      test_groups: ${{ steps.filter_a3.outputs.test_groups || steps.scope.outputs.test_groups || steps.noop.outputs.test_groups }}
       matched_modules: ${{ steps.scope.outputs.matched_modules || steps.noop.outputs.matched_modules }}
       main_commit: ${{ steps.vllm.outputs.main_commit }}
       release_tag: ${{ steps.vllm.outputs.release_tag }}
@@ -191,6 +198,20 @@ jobs:
           python3 .github/workflows/scripts/select_tests.py \
             --diff-base origin/${{ github.base_ref }}
 
+      - name: Filter test groups to A3 only
+        if: steps.scope.outputs.test_groups != ''
+        env:
+          TEST_GROUPS_JSON: ${{ steps.scope.outputs.test_groups }}
+        run: |
+          python3 << 'EOF' > "$GITHUB_OUTPUT"
+          import json, os
+          groups = json.loads(os.environ['TEST_GROUPS_JSON'])
+          filtered = [g for g in groups if g.get('npu_type') == 'a3']
+          print(f"test_groups={json.dumps(filtered, separators=(',', ':'))}")
+          print(f"has_tests={'true' if filtered else 'false'}")
+          EOF
+        id: filter_a3
+
       - name: Set no-tests output when source paths unchanged
         id: noop
         if: steps.filter.outputs.src != 'true'
@@ -213,5 +234,4 @@ jobs:
     with:
       vllm: ${{ matrix.vllm_version }}
       ref: ${{ github.event.pull_request.head.sha }}
-      base_ref: ${{ github.base_ref }}
       test_groups: ${{ needs.lint-and-select-tests.outputs.test_groups }}
