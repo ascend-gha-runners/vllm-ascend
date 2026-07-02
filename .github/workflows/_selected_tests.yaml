@@ -32,11 +32,6 @@ on:
         required: false
         default: ''
         description: 'The vllm-ascend ref to test.'
-      base_ref:
-        type: string
-        required: false
-        default: 'main'
-        description: 'The base branch to rebase onto (e.g. main, v0.8.x).'
       upload_timing:
         type: boolean
         required: false
@@ -57,7 +52,7 @@ defaults:
 
 permissions:
   contents: read
-  pull-requests: none
+  pull-requests: write
   id-token: write
 
 jobs:
@@ -83,6 +78,11 @@ jobs:
         UV_NO_CACHE: 1
         UV_SYSTEM_PYTHON: 1
     steps:
+      - name: Check NPU availability
+        if: ${{ matrix.group.npu_type != 'cpu' }}
+        run: |
+          npu-smi info
+
       - name: Install packages
         run: |
           sed -Ei 's@(ports|archive).ubuntu.com@cache-service.nginx-pypi-cache.svc.cluster.local:8081@g' /etc/apt/sources.list
@@ -94,7 +94,7 @@ jobs:
           pip install uv
 
       - name: Checkout vllm-project/vllm repo
-        uses: actions/checkout@v7
+        uses: actions/checkout@v6
         with:
           repository: vllm-project/vllm
           ref: ${{ inputs.vllm }}
@@ -107,11 +107,17 @@ jobs:
           pip uninstall -y triton
 
       - name: Checkout vllm-project/vllm-ascend repo
-        uses: actions/checkout@v7
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref || github.ref }}
           fetch-depth: 0
-          submodules: recursive
+
+      - name: Rebase on latest main
+        run: |
+          git config user.name "vllm-ascend-ci"
+          git config user.email "vllm-ascend-ci@users.noreply.github.com"
+          git fetch origin main
+          git rebase origin/main
 
       - name: Get csrc hash
         id: get_csrc_hash
@@ -130,6 +136,17 @@ jobs:
             *) echo "arch=$ARCH" >> $GITHUB_OUTPUT ;;
           esac
 
+      - uses: dorny/paths-filter@v4
+        id: csrc-filter
+        if: ${{ matrix.group.npu_type != 'cpu' }}
+        with:
+          filters: |
+            csrc:
+              - 'csrc/**'
+              - 'setup.py'
+              - 'CMakeLists.txt'
+              - 'cmake/**'
+
       - name: Configure Huawei Cloud Credentials
         id: creds
         if: ${{ matrix.group.npu_type != 'cpu' }}
@@ -139,38 +156,6 @@ jobs:
           audience: hw-vllm-ascend-audience
           idp-id: github-vllm-ascend
           duration-seconds: 3600
-
-      - name: Generate large test file
-        if: ${{ matrix.group.npu_type != 'cpu' }}
-        run: |
-          echo "Generating 1GB test file..."
-          dd if=/dev/urandom of=/tmp/test-cache-1gb bs=1M count=1024
-          ls -lh /tmp/test-cache-1gb
-
-      - name: Restore large test file cache
-        id: cache-large
-        if: ${{ matrix.group.npu_type != 'cpu' }}
-        uses: runs-on/cache/restore@v5
-        env:
-          RUNS_ON_S3_BUCKET_CACHE: vllm-ascend
-          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-north-4.myhuaweicloud.com
-          RUNS_ON_S3_FORCE_PATH_STYLE: "true"
-          RUNS_ON_AWS_REGION: cn-north-4
-        with:
-          path: /tmp/test-cache-1gb
-          key: test-large-file-1gb-v1
-
-      - name: Save large test file cache
-        if: ${{ matrix.group.npu_type != 'cpu' && steps.cache-large.outputs.cache-hit != 'true' }}
-        uses: runs-on/cache/save@v5
-        env:
-          RUNS_ON_S3_BUCKET_CACHE: vllm-ascend
-          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-north-4.myhuaweicloud.com
-          RUNS_ON_S3_FORCE_PATH_STYLE: "true"
-          RUNS_ON_AWS_REGION: cn-north-4
-        with:
-          path: /tmp/test-cache-1gb
-          key: test-large-file-1gb-v1
 
       - name: Restore vllm-ascend csrc cache
         id: cache-csrc
@@ -189,6 +174,25 @@ jobs:
             vllm_ascend/include
           key: vllm-ascend-build-v1-${{ steps.get_arch.outputs.arch }}-${{ matrix.group.image_tag }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
 
+      - name: Install Mooncake wheel
+        if: ${{ matrix.group.npu_type != 'cpu' }}
+        run: |
+          set -euxo pipefail
+
+          apt-get install -y --no-install-recommends \
+            libibverbs1 \
+            ibverbs-providers \
+            librdmacm1 \
+            libnuma1 \
+            libcurl4
+          ldconfig
+
+          MOONCAKE_WHEEL="mooncake_transfer_engine_ascend-0.3.9-cp312-cp312-manylinux_2_35_aarch64.whl"
+          pip install --no-cache-dir --no-deps \
+            "https://vllm-ascend.obs.cn-north-4.myhuaweicloud.com/vllm-ascend/${MOONCAKE_WHEEL}"
+
+          pip show mooncake-transfer-engine-ascend || true
+
       - name: Install vllm-project/vllm-ascend with device
         if: ${{ matrix.group.npu_type != 'cpu' }}
         run: |
@@ -206,7 +210,7 @@ jobs:
 
       - name: Configure Huawei Cloud Credentials (save)
         id: creds-save
-        if: ${{ matrix.group.npu_type != 'cpu' && steps.cache-csrc.outputs.cache-hit != 'true' }}
+        if: ${{ matrix.group.npu_type != 'cpu' && steps.csrc-filter.outputs.csrc == 'true' && steps.cache-csrc.outputs.cache-hit != 'true' }}
         uses: ascend-gha-runners/configure-hwcloud-credentials@3be5794f565c38f9719ef1f6bec28351c929be3c
         with:
           region: ap-southeast-1
@@ -215,7 +219,7 @@ jobs:
           duration-seconds: 3600
 
       - name: Save vllm-ascend csrc cache
-        if: ${{ matrix.group.npu_type != 'cpu' && steps.cache-csrc.outputs.cache-hit != 'true' }}
+        if: ${{ matrix.group.npu_type != 'cpu' && steps.csrc-filter.outputs.csrc == 'true' && steps.cache-csrc.outputs.cache-hit != 'true' }}
         uses: runs-on/cache/save@v5
         env:
           RUNS_ON_S3_BUCKET_CACHE: vllm-ascend
@@ -229,3 +233,70 @@ jobs:
             vllm_ascend/lib
             vllm_ascend/include
           key: vllm-ascend-build-v1-${{ steps.get_arch.outputs.arch }}-${{ matrix.group.image_tag }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+
+      - name: Install vllm-project/vllm-ascend no device
+        if: ${{ matrix.group.npu_type == 'cpu' }}
+        env:
+          SOC_VERSION: ascend910b1
+          COMPILE_CUSTOM_KERNELS: 0
+        run: |
+          pip install uc-manager
+          uv pip install -r requirements-dev.txt
+          uv pip install -e .
+
+      - name: Uninstall Triton for 310P tests
+        if: ${{ matrix.group.npu_type != 'cpu' && matrix.group.npu_type == '310p' }}
+        run: |
+          pip uninstall -y triton-ascend triton
+
+      - name: Run selected tests with device
+        if: ${{ matrix.group.npu_type != 'cpu' }}
+        continue-on-error: ${{ inputs.continue_on_error }}
+        env:
+          VLLM_WORKER_MULTIPROC_METHOD: spawn
+        run: |
+          . /usr/local/Ascend/ascend-toolkit/set_env.sh
+          TIMING_FLAG=""
+          if [ "${{ inputs.upload_timing }}" = "true" ]; then
+            TIMING_FLAG="--timing"
+          fi
+          .github/workflows/scripts/run_selected_tests.sh \
+            "${{ matrix.group.npu_type }}" \
+            "${{ matrix.group.num_npus }}" \
+            "with-device" \
+            ${TIMING_FLAG} \
+            ${{ matrix.group.tests }}
+
+      - name: Run selected tests without device
+        if: ${{ matrix.group.npu_type == 'cpu' }}
+        continue-on-error: ${{ inputs.continue_on_error }}
+        env:
+          VLLM_WORKER_MULTIPROC_METHOD: spawn
+          TORCH_DEVICE_BACKEND_AUTOLOAD: 0
+        run: |
+          .github/workflows/scripts/run_selected_tests.sh \
+            "${{ matrix.group.npu_type }}" \
+            "${{ matrix.group.num_npus }}" \
+            "without-device" \
+            ${{ matrix.group.tests }}
+
+      - name: Upload timing data
+        if: ${{ inputs.upload_timing && matrix.group.npu_type != 'cpu' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: timing-data-${{ matrix.group.npu_type }}-${{ matrix.group.num_npus }}card-${{ matrix.group.partition }}
+          path: ${{ runner.temp }}/selected-tests-*/test_timing_data.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload selected test logs
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: selected-test-logs-vllm-${{ inputs.vllm }}-${{ matrix.group.npu_type }}-${{ matrix.group.num_npus }}card
+          path: ${{ runner.temp }}/selected-tests-*
+          if-no-files-found: ignore
+          retention-days: 14
+          compression-level: 0
