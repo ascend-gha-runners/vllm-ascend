@@ -192,7 +192,6 @@ jobs:
     with:
       vllm: ${{ matrix.vllm_version }}
       ref: ${{ needs.e2e-test.outputs.pr_sha }}
-      base_ref: ${{ needs.e2e-test.outputs.pr_base_ref }}
       test_groups: ${{ needs.e2e-test.outputs.test_groups }}
 
   report:
