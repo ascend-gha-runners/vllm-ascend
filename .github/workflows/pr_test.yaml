@@ -234,5 +234,4 @@ jobs:
     with:
       vllm: ${{ matrix.vllm_version }}
       ref: ${{ github.event.pull_request.head.sha }}
-      base_ref: ${{ github.base_ref }}
       test_groups: ${{ needs.lint-and-select-tests.outputs.test_groups }}
