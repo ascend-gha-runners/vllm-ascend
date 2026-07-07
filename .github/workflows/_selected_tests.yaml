@@ -82,10 +82,10 @@ jobs:
         UV_NO_CACHE: 1
         UV_SYSTEM_PYTHON: 1
     steps:
-      - name: Check NPU availability
-        if: ${{ matrix.group.npu_type != 'cpu' }}
-        run: |
-          npu-smi info
+#      - name: Check NPU availability
+#        if: ${{ matrix.group.npu_type != 'cpu' }}
+#        run: |
+#          npu-smi info
 
       - name: Install packages
         run: |
