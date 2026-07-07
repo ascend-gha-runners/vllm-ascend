@@ -54,7 +54,8 @@ jobs:
       main_commit: ${{ steps.vllm.outputs.main_commit }}
       release_tag: ${{ steps.vllm.outputs.release_tag }}
     steps:
-
+      - name: Force Git Protocol v1
+        run: git config --global protocol.version 1
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v7
         with:
