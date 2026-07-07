@@ -4,27 +4,27 @@
         "npu_num": 1,
         "image_tag": "9.1.0-beta.1-310p-ubuntu22.04-py3.12"
     },
-    "linux-aarch64-310p-2": {
+    "linux-arm64-cpu-test-24": {
         "chip": "310p",
         "npu_num": 2,
         "image_tag": "9.1.0-beta.1-310p-ubuntu22.04-py3.12"
     },
-    "linux-aarch64-310p-4": {
+    "linux-arm64-cpu-test-24": {
         "chip": "310p",
         "npu_num": 4,
         "image_tag": "9.1.0-beta.1-310p-ubuntu22.04-py3.12"
     },
-    "linux-aarch64-a3-test-2": {
+    "linux-aarch64-a3-test-2-gy006": {
         "chip": "a3",
         "npu_num": 2,
         "image_tag": "9.0.0-a3-ubuntu22.04-py3.12"
     },
-    "linux-aarch64-a3-test-4": {
+    "linux-arm64-cpu-test-24": {
         "chip": "a3",
         "npu_num": 4,
         "image_tag": "9.0.0-a3-ubuntu22.04-py3.12"
     },
-    "linux-aarch64-a3-test-8": {
+    "linux-arm64-cpu-test-24": {
         "chip": "a3",
         "npu_num": 8,
         "image_tag": "9.0.0-a3-ubuntu22.04-py3.12"
