@@ -46,7 +46,7 @@
 | **gh-proxy-no-proxy** | **OK** | **85MB in 3s, 27MB/s** |
 | **gh-proxy-via-proxy** | **OK** | **85MB in 1s, 81MB/s**（squid 缓存命中加速） |
 | gitee-homepage-no-proxy | OK | 642KB in 2s |
-| gitee-homepage-via-proxy | OK | 642KB in 2s
+| gitee-homepage-via-proxy | OK | 642KB in 2s |
 
 ## 如何运行
 
