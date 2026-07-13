@@ -20,3 +20,8 @@ self-hosted-runner:
     - linux-aarch64-a2b3-2
     - linux-aarch64-a2b3-4
     - linux-aarch64-a2b3-8
+    - linux-aarch64-a3-test-2-cn12-001
+    - linux-aarch64-cpu-2-buildkit-gy006
+    - linux-amd64-cpu-test-8-hk
+    - linux-aarch64-a2b3-test-0
+    - linux-aarch64-a2-1-vnpu-gy006
