@@ -126,6 +126,33 @@ jobs:
           path: ./vllm-empty
           ref: ${{ steps.vllm.outputs.main_commit }}
 
+      - name: Get pre-commit hash
+        id: get_precommit_hash
+        run: |
+          PRECOMMIT_HASH=$(sha256sum .pre-commit-config.yaml | awk '{print $1}')
+          echo "PRECOMMIT_HASH=$PRECOMMIT_HASH" >> $GITHUB_OUTPUT
+
+      - name: Configure Huawei Cloud Credentials
+        id: creds
+        uses: ascend-gha-runners/configure-hwcloud-credentials@3be5794f565c38f9719ef1f6bec28351c929be3c
+        with:
+          region: ap-southeast-1
+          audience: hw-vllm-ascend-audience
+          idp-id: github-vllm-ascend
+          duration-seconds: 3600
+
+      - name: Restore pre-commit cache
+        id: cache-precommit-restore
+        uses: runs-on/cache/restore@v5
+        env:
+          RUNS_ON_S3_BUCKET_CACHE: vllm-ascend
+          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-north-4.myhuaweicloud.com
+          RUNS_ON_S3_FORCE_PATH_STYLE: "true"
+          RUNS_ON_AWS_REGION: cn-north-4
+        with:
+          path: /tmp/pre-commit-cache
+          key: pre-commit-v1-${{ steps.get_precommit_hash.outputs.PRECOMMIT_HASH }}
+
       - uses: dorny/paths-filter@v4
         id: filter
         with:
@@ -162,6 +189,7 @@ jobs:
 
       - name: Run pre-commit
         env:
+          PRE_COMMIT_HOME: /tmp/pre-commit-cache
           PRE_COMMIT_COLOR: always
           FORCE_COLOR: "1"
           TERM: xterm-256color
@@ -169,6 +197,18 @@ jobs:
         run: |
           git config --global --add safe.directory /__w/vllm-ascend/vllm-ascend
           pre-commit run --all-files --hook-stage manual --show-diff-on-failure
+
+      - name: Save pre-commit cache
+        if: ${{ steps.cache-precommit-restore.outputs.cache-hit != 'true' }}
+        uses: runs-on/cache/save@v5
+        env:
+          RUNS_ON_S3_BUCKET_CACHE: vllm-ascend
+          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-north-4.myhuaweicloud.com
+          RUNS_ON_S3_FORCE_PATH_STYLE: "true"
+          RUNS_ON_AWS_REGION: cn-north-4
+        with:
+          path: /tmp/pre-commit-cache
+          key: pre-commit-v1-${{ steps.get_precommit_hash.outputs.PRECOMMIT_HASH }}
 
       - name: Run mypy
         run: |
