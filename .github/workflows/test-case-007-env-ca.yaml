@@ -204,17 +204,6 @@ jobs:
           cp /tmp/ca-bundle-bootstrap.bak /etc/pki/tls/certs/ca-bundle.crt
           rm /tmp/ca-bundle-bootstrap.bak
 
-      # Real actions/checkout, run right at the point where CA trust is a genuine blank
-      # slate (right after the openEuler revert, right before Case 00). This is expected
-      # to hit the exact chicken-and-egg problem documented above: actions/checkout uses
-      # git internally, git only trusts GIT_SSL_CAINFO/system trust store (see Case 04),
-      # neither is set here, so git's HTTPS clone through squid's SSL-bump should FAIL.
-      # continue-on-error so a FAIL here doesn't block the rest of the case matrix —
-      # this step exists purely to observe/prove the behavior, not to assert it.
-      - name: actions/checkout - observe behavior with zero CA trust configured
-        continue-on-error: true
-        uses: actions/checkout@v4
-
       # ────────────────────────────────────────────────────────────────
       # 每个 case 只设置一种 CA 信任机制（用 GitHub Actions 原生的 step-level
       # `env:`，只在这一个 step 里生效，不会泄漏到别的 case），同一个 case 里
