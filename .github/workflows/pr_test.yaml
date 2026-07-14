@@ -47,11 +47,32 @@ permissions:
   id-token: write
 
 jobs:
+  get-credentials:
+    runs-on: linux-amd64-cpu-test-8-hk
+    outputs:
+      ak: ${{ steps.creds.outputs.aws-access-key-id }}
+      sk: ${{ steps.creds.outputs.aws-secret-access-key }}
+      st: ${{ steps.creds.outputs.aws-session-token }}
+    steps:
+      - name: Configure Huawei Cloud Credentials
+        id: creds
+        uses: ascend-gha-runners/configure-hwcloud-credentials@3be5794f565c38f9719ef1f6bec28351c929be3c
+        with:
+          region: ap-southeast-1
+          audience: hw-vllm-ascend-audience
+          idp-id: github-vllm-ascend
+          duration-seconds: 3600
+
   lint-and-select-tests:
+    needs: get-credentials
     if: ${{ github.event.action != 'labeled' || github.event.label.name == 'ready' }}
     runs-on: linux-amd64-cpu-test-8-hk
     container:
       image: quay.io/ascend-ci/vllm-ascend:lint
+    env:
+      AWS_ACCESS_KEY_ID: ${{ needs.get-credentials.outputs.ak }}
+      AWS_SECRET_ACCESS_KEY: ${{ needs.get-credentials.outputs.sk }}
+      AWS_SESSION_TOKEN: ${{ needs.get-credentials.outputs.st }}
     outputs:
       has_tests: ${{ steps.scope.outputs.has_tests || steps.noop.outputs.has_tests }}
       test_groups: ${{ steps.scope.outputs.test_groups || steps.noop.outputs.test_groups }}
@@ -160,20 +181,13 @@ jobs:
           pip install uc-manager
           uv pip install -r requirements-dev.txt --extra-index-url https://download.pytorch.org/whl/cpu
 
-      - name: Configure Huawei Cloud Credentials
-        id: creds
-        uses: ascend-gha-runners/configure-hwcloud-credentials@main
-        with:
-          region: ap-southeast-1
-          audience: hw-vllm-ascend-audience
-          idp-id: github-vllm-ascend
-          duration-seconds: 1800
-
       - name: Restore pre-commit cache
-        uses: runs-on/cache@v4
+        uses: runs-on/cache/restore@v5
         env:
-          RUNS_ON_S3_ENDPOINT: https://obs.ap-southeast-1.myhuaweicloud.com
-          RUNS_ON_S3_BUCKET: ascend-ci-cache-hk
+          RUNS_ON_S3_BUCKET_CACHE: ascend-ci-cache-hk
+          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.ap-southeast-1.myhuaweicloud.com
+          RUNS_ON_S3_FORCE_PATH_STYLE: "true"
+          RUNS_ON_AWS_REGION: ap-southeast-1
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
@@ -190,10 +204,12 @@ jobs:
 
       - name: Save pre-commit cache
         if: always()
-        uses: runs-on/cache@v4
+        uses: runs-on/cache/save@v5
         env:
-          RUNS_ON_S3_ENDPOINT: https://obs.ap-southeast-1.myhuaweicloud.com
-          RUNS_ON_S3_BUCKET: ascend-ci-cache-hk
+          RUNS_ON_S3_BUCKET_CACHE: ascend-ci-cache-hk
+          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.ap-southeast-1.myhuaweicloud.com
+          RUNS_ON_S3_FORCE_PATH_STYLE: "true"
+          RUNS_ON_AWS_REGION: ap-southeast-1
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
