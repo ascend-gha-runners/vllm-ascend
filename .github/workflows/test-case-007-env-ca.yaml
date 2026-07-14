@@ -87,12 +87,14 @@ jobs:
             echo "PIP=OK"
           else
             echo "PIP=FAIL"
+            echo "PIP_DEBUG: $(echo "$out" | tail -5 | tr '\n' ' ')"
           fi
 
           if python3 -c "import requests; requests.get('${TARGET_URL}', timeout=10)" >"$WORKDIR/requests.log" 2>&1; then
             echo "REQUESTS=OK"
           else
             echo "REQUESTS=FAIL"
+            echo "REQUESTS_DEBUG: $(tail -3 "$WORKDIR/requests.log" | tr '\n' ' ')"
           fi
 
           rm -rf "$WORKDIR"
