@@ -65,6 +65,7 @@ jobs:
             tar -xzf /tmp/obsutil.tar.gz -C /tmp
             OBSUTIL_DIR=$(find /tmp -maxdepth 1 -name "obsutil_linux_${OBSUTIL_ARCH}_*" -type d | head -1)
             chmod +x "${OBSUTIL_DIR}/obsutil"
+            export PATH="${OBSUTIL_DIR}:${PATH}"
             echo "${OBSUTIL_DIR}" >> $GITHUB_PATH
           fi
           obsutil config -i="${HW_OBS_AK}" -k="${HW_OBS_SK}" -e=obs.ap-southeast-1.myhuaweicloud.com
@@ -104,6 +105,19 @@ jobs:
           HW_OBS_AK: ${{ secrets.HW_OBS_AK }}
           HW_OBS_SK: ${{ secrets.HW_OBS_SK }}
         run: |
+          if ! command -v obsutil &>/dev/null; then
+            ARCH=$(uname -m)
+            case "$ARCH" in
+              x86_64) OBSUTIL_ARCH="amd64" ;;
+              aarch64|arm64) OBSUTIL_ARCH="arm64" ;;
+            esac
+            curl -sSL "https://obs-community.obs.cn-north-1.myhuaweicloud.com/obsutil/current/obsutil_linux_${OBSUTIL_ARCH}.tar.gz" -o /tmp/obsutil.tar.gz
+            tar -xzf /tmp/obsutil.tar.gz -C /tmp
+            OBSUTIL_DIR=$(find /tmp -maxdepth 1 -name "obsutil_linux_${OBSUTIL_ARCH}_*" -type d | head -1)
+            chmod +x "${OBSUTIL_DIR}/obsutil"
+            export PATH="${OBSUTIL_DIR}:${PATH}"
+          fi
+          obsutil config -i="${HW_OBS_AK}" -k="${HW_OBS_SK}" -e=obs.ap-southeast-1.myhuaweicloud.com
           ARCHIVE_DIR=$(mktemp -d)
           ARCHIVE_PATH="${ARCHIVE_DIR}/cache.tgz"
           tar -czf "${ARCHIVE_PATH}" -C ~ .cache/pre-commit
