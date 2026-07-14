@@ -55,10 +55,11 @@ jobs:
             *) echo "CANARY=NOT_BUMPED ($issuer)" ;;
           esac
 
-          if curl -fsS --max-time 10 -o /dev/null "$TARGET_URL" 2>"$WORKDIR/curl.err"; then
+          if curl -fsS --max-time 30 -o /dev/null "$TARGET_URL" 2>"$WORKDIR/curl.err"; then
             echo "CURL=OK"
           else
             echo "CURL=FAIL"
+            echo "CURL_DEBUG: $(tr '\n' ' ' < "$WORKDIR/curl.err")"
           fi
 
           tries=0
