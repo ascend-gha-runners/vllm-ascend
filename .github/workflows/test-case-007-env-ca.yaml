@@ -40,7 +40,12 @@ jobs:
           # 客户端成功"，不用跳到另一个文件里找 case 分支。
           set -u
           SQUID_CA="${SQUID_CA:-/etc/squid-ca/squid-ca.pem}"
-          TARGET_URL="${TARGET_URL:-https://pypi.org}"
+          # pypi.org 直连国内到 squid 这段链路观测到过限速/偶发超时,噪音大,
+          # 干扰的是"信任机制生不生效"这个信号本身。换成清华 pypi 镜像
+          # (repo 里 Dockerfile/Dockerfile.openEuler 已经在用的同一个源),
+          # 域名不在 squid 的 splice 白名单里,一样会被 ssl_bump 拦截,
+          # 金丝雀检测逻辑不受影响。
+          TARGET_URL="${TARGET_URL:-https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/}"
           GIT_TARGET="${GIT_TARGET:-https://github.com/octocat/Hello-World}"
           WORKDIR="$(mktemp -d /tmp/env-ca-check.XXXXXX)"
 
@@ -82,7 +87,10 @@ jobs:
             echo "PYTHON_URLLIB=FAIL"
           fi
 
-          out=$(python3 -m pip install --no-cache-dir --force-reinstall --no-deps $PIP_EXTRA_FLAGS requests 2>&1)
+          # 显式指向跟金丝雀/curl/requests 同一个域名的镜像索引,不用 pip 默认的
+          # pypi.org——否则这一项测的信任目标跟其他 4 项不是同一个域名,
+          # 金丝雀检测"squid 拦了没"这件事就对不上号了。
+          out=$(python3 -m pip install --no-cache-dir --force-reinstall --no-deps --index-url "$TARGET_URL" $PIP_EXTRA_FLAGS requests 2>&1)
           echo "$out" >"$WORKDIR/pip.log"
           if echo "$out" | grep -qE "Collecting|Downloading" && echo "$out" | grep -q "Successfully installed"; then
             echo "PIP=OK"
