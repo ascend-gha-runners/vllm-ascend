@@ -1,0 +1,72 @@
+name: test-case-007-env-ca
+
+on:
+  workflow_dispatch:
+
+jobs:
+  env-ca-matrix:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ubuntu-24.04
+            image: swr.cn-southwest-2.myhuaweicloud.com/modelfoundry/ubuntu:24.04
+            pkg_mgr: apt
+          - name: openeuler-24.03
+            image: swr.cn-southwest-2.myhuaweicloud.com/modelfoundry/openeuler/openeuler:24.03
+            pkg_mgr: dnf
+    runs-on: linux-aarch64-cpu-2-buildkit-gy006
+    container:
+      image: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # squid CA 由 runner infra 自动挂载在 /etc/squid-ca/squid-ca.pem，
+      # 这里只做存在性检查，不做任何信任配置——每个 case 自己负责配置信任机制。
+      - name: Check squid CA is mounted
+        run: |
+          if [ ! -f /etc/squid-ca/squid-ca.pem ]; then
+            echo "::error::/etc/squid-ca/squid-ca.pem not found on this runner" >&2
+            exit 1
+          fi
+          echo "squid CA present."
+
+      # 安装测试所需的工具本身，用显式 --cert 引导安装，跟后面每个 case
+      # 要验证的信任机制无关（case 00 测的是"什么都不配置"时 curl/git/pip/python 的行为，
+      # 不是"能不能装上 curl/git/pip"）。
+      - name: Install prerequisites
+        run: |
+          if [ "${{ matrix.pkg_mgr }}" = "apt" ]; then
+            apt-get update
+            apt-get install -y --no-install-recommends curl git ca-certificates python3 python3-pip
+          else
+            dnf install -y curl git ca-certificates python3 python3-pip
+          fi
+          python3 -m pip install --help 2>/dev/null | grep -q break-system-packages && BSP=--break-system-packages || BSP=
+          python3 -m pip install --no-cache-dir --cert /etc/squid-ca/squid-ca.pem $BSP requests
+
+      - name: Case 00 - negative control (no CA trust at all)
+        run: sh test-case-007-env-ca/run_case.sh 00
+
+      - name: Case 01 - SSL_CERT_FILE
+        run: sh test-case-007-env-ca/run_case.sh 01
+
+      - name: Case 02 - SSL_CERT_DIR
+        run: sh test-case-007-env-ca/run_case.sh 02
+
+      - name: Case 03 - CURL_CA_BUNDLE
+        run: sh test-case-007-env-ca/run_case.sh 03
+
+      - name: Case 04 - GIT_SSL_CAINFO
+        run: sh test-case-007-env-ca/run_case.sh 04
+
+      - name: Case 05 - REQUESTS_CA_BUNDLE
+        run: sh test-case-007-env-ca/run_case.sh 05
+
+      - name: Case 06 - PIP_CERT
+        run: sh test-case-007-env-ca/run_case.sh 06
+
+      # 必须最后跑：这是唯一一个改系统级信任存储的 case，跑完之后同一个容器里
+      # 所有客户端都会永久信任 squid CA，如果放在前面会污染后续 case 的判定。
+      - name: Case 08 - positive control (system-wide CA trust rebuild)
+        run: sh test-case-007-env-ca/run_case.sh 08
