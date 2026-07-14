@@ -25,62 +25,79 @@ jobs:
     container:
       image: ${{ matrix.image }}
     steps:
-      # 装测试要用的工具本身（git/curl/python/pip），这一步必须在 checkout 之前:
-      # 这两个镜像都是干净的裸镜像,git 都没装,checkout 内部会直接调 system git,
-      # 装不了 git 后面全部 UNKNOWN。
-      #
-      # 走内网 cache-service（plain HTTP，.svc.cluster.local，不经过 squid、
-      # 不需要任何 CA 信任），不走 squid+外网源——跟 push_build_csrc_cache.yaml
-      # 里 "Config mirrors" 的做法一致。这一步跟每个 case 要验证的信任机制无关：
-      # case 00 测的是"什么都不配置"时 curl/git/pip/python 的行为，不是
-      # "能不能装上 curl/git/pip"。
-      - name: Install prerequisites (ubuntu)
-        if: matrix.os == 'ubuntu'
-        env:
-          HTTP_PROXY: ""
-          HTTPS_PROXY: ""
-          http_proxy: ""
-          https_proxy: ""
+      # 这个 workflow 不需要签出仓库代码——唯一用到的文件是下面这个检测脚本，
+      # 直接内嵌在 workflow 里，省掉 actions/checkout（连带省掉它需要的
+      # git 二进制 + CA 信任这一整套引导逻辑，两个镜像都是裸镜像，没必要
+      # 为了"签出自己"这件事单独解决一次信任问题）。
+      - name: Write check helper script
         run: |
-          for f in /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
-            [ -f "$f" ] && sed -Ei 's@(ports|archive)\.ubuntu\.com@cache-service.nginx-pypi-cache.svc.cluster.local:8081@g' "$f"
+          mkdir -p /tmp/env-ca-case-007
+          cat > /tmp/env-ca-case-007/check_all.sh <<'SCRIPT_EOF'
+          #!/bin/sh
+          # 跑 5 种客户端的信任检测 + 1 次金丝雀检测，把结果打印成 KEY=VALUE
+          # （每行一个），不对任何结果做期望值判断——期望值判断放在下面每个
+          # case 步骤旁边，一眼就能看到"这个 case 设置了哪个变量、期望哪个
+          # 客户端成功"，不用跳到另一个文件里找 case 分支。
+          set -u
+          SQUID_CA="${SQUID_CA:-/etc/squid-ca/squid-ca.pem}"
+          TARGET_URL="${TARGET_URL:-https://pypi.org}"
+          GIT_TARGET="${GIT_TARGET:-https://github.com/octocat/Hello-World}"
+          WORKDIR="$(mktemp -d /tmp/env-ca-check.XXXXXX)"
+
+          PIP_EXTRA_FLAGS=""
+          if python3 -m pip install --help 2>/dev/null | grep -q "break-system-packages"; then
+            PIP_EXTRA_FLAGS="--break-system-packages"
+          fi
+
+          issuer=$(curl -s --max-time 10 --cacert "$SQUID_CA" -v -o /dev/null "$TARGET_URL" 2>&1 | grep -i "issuer:")
+          case "$issuer" in
+            *SquidCacheCA*) echo "CANARY=BUMPED" ;;
+            *) echo "CANARY=NOT_BUMPED ($issuer)" ;;
+          esac
+
+          if curl -fsS --max-time 10 -o /dev/null "$TARGET_URL" 2>"$WORKDIR/curl.err"; then
+            echo "CURL=OK"
+          else
+            echo "CURL=FAIL"
+          fi
+
+          tries=0
+          R_GIT=FAIL
+          while [ "$tries" -lt 3 ]; do
+            rm -rf "$WORKDIR/git-clone"
+            if git clone --depth 1 "$GIT_TARGET" "$WORKDIR/git-clone" >"$WORKDIR/git.log" 2>&1; then
+              R_GIT=OK
+              break
+            fi
+            grep -qi "ssl\|certificate" "$WORKDIR/git.log" && break
+            tries=$((tries + 1))
+            sleep 3
           done
-          apt-get update -y
-          apt-get install -y --no-install-recommends git curl ca-certificates python3 python3-pip
-          BSP=""
-          python3 -m pip install --help 2>/dev/null | grep -q break-system-packages && BSP=--break-system-packages
-          python3 -m pip install --no-cache-dir $BSP \
-            --index-url http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple \
-            --trusted-host cache-service.nginx-pypi-cache.svc.cluster.local \
-            requests
+          echo "GIT=$R_GIT"
 
-      - name: Install prerequisites (openeuler)
-        if: matrix.os == 'openeuler'
-        env:
-          HTTP_PROXY: ""
-          HTTPS_PROXY: ""
-          http_proxy: ""
-          https_proxy: ""
-        run: |
-          sed -Ei 's@https?://[^/]+/(openeuler|centos|fedora)@http://cache-service.nginx-pypi-cache.svc.cluster.local:8081/\1@g' /etc/yum.repos.d/*.repo
-          yum install -y git curl ca-certificates python3 python3-pip
-          BSP=""
-          python3 -m pip install --help 2>/dev/null | grep -q break-system-packages && BSP=--break-system-packages
-          python3 -m pip install --no-cache-dir $BSP \
-            --index-url http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple \
-            --trusted-host cache-service.nginx-pypi-cache.svc.cluster.local \
-            requests
+          if python3 -c "import urllib.request; urllib.request.urlopen('${TARGET_URL}', timeout=10)" >"$WORKDIR/urllib.log" 2>&1; then
+            echo "PYTHON_URLLIB=OK"
+          else
+            echo "PYTHON_URLLIB=FAIL"
+          fi
 
-      # 只给 checkout 内部的 git 操作临时信任 squid CA，跑完 checkout 立刻撤销——
-      # 不能用 update-ca-certificates 之类的系统级方案，那会让下面 Case 00
-      # （"完全不配置任何信任"）从一开始就不是真的空白状态。
-      - name: Bootstrap git trust for checkout only (reverted right after)
-        run: git config --global http.sslCAInfo /etc/squid-ca/squid-ca.pem
+          out=$(python3 -m pip install --no-cache-dir --force-reinstall --no-deps $PIP_EXTRA_FLAGS requests 2>&1)
+          echo "$out" >"$WORKDIR/pip.log"
+          if echo "$out" | grep -qE "Collecting|Downloading" && echo "$out" | grep -q "Successfully installed"; then
+            echo "PIP=OK"
+          else
+            echo "PIP=FAIL"
+          fi
 
-      - uses: actions/checkout@v4
+          if python3 -c "import requests; requests.get('${TARGET_URL}', timeout=10)" >"$WORKDIR/requests.log" 2>&1; then
+            echo "REQUESTS=OK"
+          else
+            echo "REQUESTS=FAIL"
+          fi
 
-      - name: Revert bootstrap trust so Case 00 starts from a real blank slate
-        run: git config --global --unset http.sslCAInfo || true
+          rm -rf "$WORKDIR"
+          SCRIPT_EOF
+          chmod +x /tmp/env-ca-case-007/check_all.sh
 
       - name: Check squid CA is mounted
         run: |
@@ -89,6 +106,26 @@ jobs:
             exit 1
           fi
           echo "squid CA present."
+
+      # 装测试要用的工具本身（git/curl/python/pip）。这一步跟每个 case 要验证
+      # 的信任机制无关——case 00 测的是"什么都不配置"时 curl/git/pip/python
+      # 的行为，不是"能不能装上 curl/git/pip"。两个镜像默认源都不需要额外配置。
+      - name: Install prerequisites (ubuntu)
+        if: matrix.os == 'ubuntu'
+        run: |
+          apt-get update -y
+          apt-get install -y --no-install-recommends git curl ca-certificates python3 python3-pip
+          BSP=""
+          python3 -m pip install --help 2>/dev/null | grep -q break-system-packages && BSP=--break-system-packages
+          python3 -m pip install --no-cache-dir $BSP requests
+
+      - name: Install prerequisites (openeuler)
+        if: matrix.os == 'openeuler'
+        run: |
+          yum install -y git curl ca-certificates python3 python3-pip
+          BSP=""
+          python3 -m pip install --help 2>/dev/null | grep -q break-system-packages && BSP=--break-system-packages
+          python3 -m pip install --no-cache-dir $BSP requests
 
       # ────────────────────────────────────────────────────────────────
       # 每个 case 只设置一种 CA 信任机制（用 GitHub Actions 原生的 step-level
@@ -99,7 +136,7 @@ jobs:
 
       - name: Case 00 - negative control (no CA trust at all)
         run: |
-          out="$(sh test-case-007-env-ca/check_all.sh)"
+          out="$(sh /tmp/env-ca-case-007/check_all.sh)"
           echo "$out"
           echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
           echo "$out" | grep -qx "CURL=FAIL"           || { echo "::error::expected CURL=FAIL"; exit 1; }
@@ -112,7 +149,7 @@ jobs:
         env:
           SSL_CERT_FILE: /etc/squid-ca/squid-ca.pem
         run: |
-          out="$(sh test-case-007-env-ca/check_all.sh)"
+          out="$(sh /tmp/env-ca-case-007/check_all.sh)"
           echo "$out"
           # curl / python-urllib 走 OpenSSL 默认信任路径 -> 认这个变量 -> OK
           # git 不认 SSL_CERT_FILE，只认 GIT_SSL_CAINFO / 系统信任 -> FAIL
@@ -136,7 +173,7 @@ jobs:
         env:
           SSL_CERT_DIR: /tmp/env-ca-case02-capath
         run: |
-          out="$(sh test-case-007-env-ca/check_all.sh)"
+          out="$(sh /tmp/env-ca-case-007/check_all.sh)"
           echo "$out"
           # 跟 SSL_CERT_FILE 是同一类机制（OpenSSL 默认路径），预期模式相同
           echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
@@ -150,7 +187,7 @@ jobs:
         env:
           CURL_CA_BUNDLE: /etc/squid-ca/squid-ca.pem
         run: |
-          out="$(sh test-case-007-env-ca/check_all.sh)"
+          out="$(sh /tmp/env-ca-case-007/check_all.sh)"
           echo "$out"
           # curl-CLI 专属变量，其他客户端都不认
           echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
@@ -164,7 +201,7 @@ jobs:
         env:
           GIT_SSL_CAINFO: /etc/squid-ca/squid-ca.pem
         run: |
-          out="$(sh test-case-007-env-ca/check_all.sh)"
+          out="$(sh /tmp/env-ca-case-007/check_all.sh)"
           echo "$out"
           # git-CLI 专属变量，其他客户端都不认
           echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
@@ -178,9 +215,9 @@ jobs:
         env:
           REQUESTS_CA_BUNDLE: /etc/squid-ca/squid-ca.pem
         run: |
-          out="$(sh test-case-007-env-ca/check_all.sh)"
+          out="$(sh /tmp/env-ca-case-007/check_all.sh)"
           echo "$out"
-          # requests 库自己读取的变量：pip 内部用 requests 实现网络请求,所以也认;
+          # requests 库自己读取的变量：pip 内部用 requests 库实现网络请求,所以也认;
           # 裸 requests 调用同样认——这个变量正好补上了裸 requests 的信任盲区
           echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
           echo "$out" | grep -qx "CURL=FAIL"           || { echo "::error::expected CURL=FAIL"; exit 1; }
@@ -193,7 +230,7 @@ jobs:
         env:
           PIP_CERT: /etc/squid-ca/squid-ca.pem
         run: |
-          out="$(sh test-case-007-env-ca/check_all.sh)"
+          out="$(sh /tmp/env-ca-case-007/check_all.sh)"
           echo "$out"
           # pip 专属变量，裸 requests 不认（pip 内部虽然用 requests 库发请求，
           # 但 PIP_CERT 是 pip 自己读取并显式传给它内部 session 的，不是
@@ -220,7 +257,7 @@ jobs:
             echo "::error::no known system CA trust update command found"
             exit 1
           fi
-          out="$(sh test-case-007-env-ca/check_all.sh)"
+          out="$(sh /tmp/env-ca-case-007/check_all.sh)"
           echo "$out"
           # 系统级信任覆盖 curl/git/python-urllib/pip；裸 requests 依旧 FAIL——
           # 它只认内置 certifi，系统信任重建救不了它，这是这张表里唯一的盲区
