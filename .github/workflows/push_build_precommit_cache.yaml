@@ -59,7 +59,7 @@ jobs:
           echo "AWS_REGION=ap-southeast-1" >> $GITHUB_ENV
           echo "RUNS_ON_RUNNER_NAME=" >> $GITHUB_ENV
           echo "AWS_ACCESS_KEY_ID=${{ secrets.HW_OBS_AK }}" >> $GITHUB_ENV
-          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.OBS_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.HW_OBS_SK }}" >> $GITHUB_ENV
 
       - name: Check if cache exists
         id: check-cache
