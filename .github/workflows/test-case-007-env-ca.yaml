@@ -90,7 +90,10 @@ jobs:
           # 显式指向跟金丝雀/curl/requests 同一个域名的镜像索引,不用 pip 默认的
           # pypi.org——否则这一项测的信任目标跟其他 4 项不是同一个域名,
           # 金丝雀检测"squid 拦了没"这件事就对不上号了。
-          out=$(python3 -m pip install --no-cache-dir --force-reinstall --no-deps --index-url "$TARGET_URL" $PIP_EXTRA_FLAGS requests 2>&1)
+          # 注意：不能加 --no-deps——第一次真正安装 requests 时如果不带依赖,
+          # urllib3 装不上,后面 REQUESTS 检测直接 ModuleNotFoundError,
+          # 跟信任机制毫无关系,会把结果搞乱（这里踩过坑,已确认）。
+          out=$(python3 -m pip install --no-cache-dir --force-reinstall --index-url "$TARGET_URL" $PIP_EXTRA_FLAGS requests 2>&1)
           echo "$out" >"$WORKDIR/pip.log"
           # 一律打印最后几行,不只在 FAIL 分支打印——上一轮出现过一次无法解释的
           # PIP=OK,需要看到 pip 的原始输出才能确认它是不是真的走了网络,
@@ -242,13 +245,20 @@ jobs:
         run: |
           out="$(sh /tmp/env-ca-case-007/check_all.sh)"
           echo "$out"
-          # curl-CLI 专属变量，其他客户端都不认
+          # 最初以为这是 curl-CLI 专属变量，其他客户端都不认——实测发现不对，
+          # 已在 pip/requests 官方源码里核实：requests 库的
+          # Session.merge_environment_settings() 显式写了
+          # "Look for requests environment configuration and be compatible
+          # with cURL"，会在 REQUESTS_CA_BUNDLE 之后把 CURL_CA_BUNDLE 当 fallback
+          # 读——不是 pip 自己的逻辑，是 requests 库本身的行为。pip 内部发请求
+          # 用的也是 requests，所以 PIP 和裸 REQUESTS 都会认这个变量。
+          # git / python3 urllib（走 stdlib ssl，不经过 requests 库）不认。
           echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
           echo "$out" | grep -qx "CURL=OK"             || { echo "::error::expected CURL=OK"; exit 1; }
           echo "$out" | grep -qx "GIT=FAIL"            || { echo "::error::expected GIT=FAIL"; exit 1; }
           echo "$out" | grep -qx "PYTHON_URLLIB=FAIL"  || { echo "::error::expected PYTHON_URLLIB=FAIL"; exit 1; }
-          echo "$out" | grep -qx "PIP=FAIL"            || { echo "::error::expected PIP=FAIL"; exit 1; }
-          echo "$out" | grep -qx "REQUESTS=FAIL"       || { echo "::error::expected REQUESTS=FAIL"; exit 1; }
+          echo "$out" | grep -qx "PIP=OK"              || { echo "::error::expected PIP=OK (requests-library CURL_CA_BUNDLE fallback)"; exit 1; }
+          echo "$out" | grep -qx "REQUESTS=OK"         || { echo "::error::expected REQUESTS=OK (requests-library CURL_CA_BUNDLE fallback)"; exit 1; }
 
       - name: Case 04 - GIT_SSL_CAINFO
         env:
