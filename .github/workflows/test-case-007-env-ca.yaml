@@ -2,6 +2,12 @@ name: test-case-007-env-ca
 
 on:
   workflow_dispatch:
+  # TEMPORARY: push trigger for pre-merge verification on this branch only.
+  # workflow_dispatch requires the file to already exist on the default branch,
+  # so this is the standard way to test-run a brand new workflow before merging.
+  # Remove this `push:` block before merging to main.
+  push:
+    branches: [test/env-ca-case-007]
 
 jobs:
   env-ca-matrix:
