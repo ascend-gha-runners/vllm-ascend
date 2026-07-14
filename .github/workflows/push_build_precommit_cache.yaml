@@ -70,7 +70,7 @@ jobs:
           fi
           obsutil config -i="${HW_OBS_AK}" -k="${HW_OBS_SK}" -e=obs.ap-southeast-1.myhuaweicloud.com
           CACHE_KEY="pre-commit-$(sha256sum .pre-commit-config.yaml | awk '{print $1}')"
-          if obsutil ls "obs://ascend-ci-cache-hk/precommit-cache/${CACHE_KEY}" --limit=1 2>/dev/null | grep -q "${CACHE_KEY}"; then
+          if obsutil stat "obs://ascend-ci-cache-hk/precommit-cache/${CACHE_KEY}" &>/dev/null; then
             echo "cache-hit=true" >> $GITHUB_OUTPUT
             echo "Cache already exists, skipping rebuild"
           else
