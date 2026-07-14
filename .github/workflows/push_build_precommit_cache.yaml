@@ -48,35 +48,34 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set OBS cache configuration
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
-        run: |
-          echo "RUNS_ON_S3_BUCKET_CACHE=ascend-ci-cache-hk" >> $GITHUB_ENV
-          echo "RUNS_ON_S3_BUCKET_ENDPOINT=https://obs.ap-southeast-1.myhuaweicloud.com" >> $GITHUB_ENV
-          echo "AWS_S3_FORCE_PATH_STYLE=true" >> $GITHUB_ENV
-          echo "AWS_REGION=ap-southeast-1" >> $GITHUB_ENV
-          echo "RUNS_ON_RUNNER_NAME=" >> $GITHUB_ENV
-          echo "AWS_ACCESS_KEY_ID=${{ secrets.HW_OBS_AK }}" >> $GITHUB_ENV
-          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.HW_OBS_SK }}" >> $GITHUB_ENV
-
       - name: Check if cache exists
         id: check-cache
-        uses: runs-on/cache/restore@v5
         env:
-          RUNS_ON_S3_BUCKET_CACHE: ascend-ci-cache-hk
-          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.ap-southeast-1.myhuaweicloud.com
-          AWS_S3_FORCE_PATH_STYLE: 'true'
-          RUNS_ON_S3_FORCE_PATH_STYLE: 'true'
-          AWS_REGION: ap-southeast-1
-          RUNS_ON_RUNNER_NAME: ''
-          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
-        with:
-          path: ~/.cache/pre-commit
-          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
-          lookup-only: true
+          HW_OBS_AK: ${{ secrets.HW_OBS_AK }}
+          HW_OBS_SK: ${{ secrets.HW_OBS_SK }}
+        run: |
+          # Install obsutil if not present
+          if ! command -v obsutil &>/dev/null; then
+            ARCH=$(uname -m)
+            case "$ARCH" in
+              x86_64) OBSUTIL_ARCH="amd64" ;;
+              aarch64|arm64) OBSUTIL_ARCH="arm64" ;;
+            esac
+            curl -sSL "https://obs-community.obs.cn-north-1.myhuaweicloud.com/obsutil/current/obsutil_linux_${OBSUTIL_ARCH}.tar.gz" -o /tmp/obsutil.tar.gz
+            tar -xzf /tmp/obsutil.tar.gz -C /tmp
+            OBSUTIL_DIR=$(find /tmp -maxdepth 1 -name "obsutil_linux_${OBSUTIL_ARCH}_*" -type d | head -1)
+            chmod +x "${OBSUTIL_DIR}/obsutil"
+            echo "${OBSUTIL_DIR}" >> $GITHUB_PATH
+          fi
+          obsutil config -i="${HW_OBS_AK}" -k="${HW_OBS_SK}" -e=obs.ap-southeast-1.myhuaweicloud.com
+          CACHE_KEY="pre-commit-$(sha256sum .pre-commit-config.yaml | awk '{print $1}')"
+          if obsutil ls "obs://ascend-ci-cache-hk/precommit-cache/${CACHE_KEY}" --limit=1 2>/dev/null | grep -q "${CACHE_KEY}"; then
+            echo "cache-hit=true" >> $GITHUB_OUTPUT
+            echo "Cache already exists, skipping rebuild"
+          else
+            echo "cache-hit=false" >> $GITHUB_OUTPUT
+            echo "Cache not found, will rebuild"
+          fi
 
       - name: Install pre-commit
         if: steps.check-cache.outputs.cache-hit != 'true'
@@ -101,16 +100,13 @@ jobs:
 
       - name: Save pre-commit cache
         if: always() && steps.check-cache.outputs.cache-hit != 'true'
-        uses: runs-on/cache/save@v5
         env:
-          RUNS_ON_S3_BUCKET_CACHE: ascend-ci-cache-hk
-          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.ap-southeast-1.myhuaweicloud.com
-          AWS_S3_FORCE_PATH_STYLE: 'true'
-          RUNS_ON_S3_FORCE_PATH_STYLE: 'true'
-          AWS_REGION: ap-southeast-1
-          RUNS_ON_RUNNER_NAME: ''
-          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
-        with:
-          path: ~/.cache/pre-commit
-          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+          HW_OBS_AK: ${{ secrets.HW_OBS_AK }}
+          HW_OBS_SK: ${{ secrets.HW_OBS_SK }}
+        run: |
+          ARCHIVE_DIR=$(mktemp -d)
+          ARCHIVE_PATH="${ARCHIVE_DIR}/cache.tgz"
+          tar -czf "${ARCHIVE_PATH}" -C ~ .cache/pre-commit
+          CACHE_KEY="pre-commit-$(sha256sum .pre-commit-config.yaml | awk '{print $1}')"
+          obsutil cp "${ARCHIVE_PATH}" "obs://ascend-ci-cache-hk/precommit-cache/${CACHE_KEY}" -f
+          echo "Cache saved to obs://ascend-ci-cache-hk/precommit-cache/${CACHE_KEY}"
