@@ -92,6 +92,10 @@ jobs:
           # 金丝雀检测"squid 拦了没"这件事就对不上号了。
           out=$(python3 -m pip install --no-cache-dir --force-reinstall --no-deps --index-url "$TARGET_URL" $PIP_EXTRA_FLAGS requests 2>&1)
           echo "$out" >"$WORKDIR/pip.log"
+          # 一律打印最后几行,不只在 FAIL 分支打印——上一轮出现过一次无法解释的
+          # PIP=OK,需要看到 pip 的原始输出才能确认它是不是真的走了网络,
+          # 而不是猜。
+          echo "PIP_TRANSCRIPT_TAIL: $(echo "$out" | tail -5 | tr '\n' ' ')"
           if echo "$out" | grep -qE "Collecting|Downloading" && echo "$out" | grep -q "Successfully installed"; then
             echo "PIP=OK"
           else
