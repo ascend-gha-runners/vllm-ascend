@@ -82,7 +82,7 @@ jobs:
 
       - name: Clean stale pre-commit cache
         if: steps.check-cache.outputs.cache-hit != 'true'
-        run: pre-commit clean
+        run: rm -rf ~/.cache/pre-commit
 
       - name: Run pre-commit (populate cache)
         if: steps.check-cache.outputs.cache-hit != 'true'
