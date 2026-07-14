@@ -49,7 +49,7 @@ permissions:
 jobs:
   lint-and-select-tests:
     if: ${{ github.event.action != 'labeled' || github.event.label.name == 'ready' }}
-    runs-on: linux-amd64-cpu-8-hk
+    runs-on: linux-amd64-cpu-test-8-hk
     container:
       image: quay.io/ascend-ci/vllm-ascend:lint
     outputs:
@@ -174,8 +174,6 @@ jobs:
         env:
           S3_ENDPOINT: https://obs.ap-southeast-1.myhuaweicloud.com
           S3_BUCKET: ascend-ci-cache-hk
-          S3_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
-          S3_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
@@ -189,6 +187,19 @@ jobs:
         run: |
           git config --global --add safe.directory /__w/vllm-ascend/vllm-ascend
           pre-commit run --all-files --hook-stage manual --show-diff-on-failure
+
+      - name: Save pre-commit cache
+        if: always()
+        uses: runs-on/cache@v4
+        env:
+          S3_ENDPOINT: https://obs.ap-southeast-1.myhuaweicloud.com
+          S3_BUCKET: ascend-ci-cache-hk
+          S3_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
+          S3_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+          save-always: true
 
       - name: Run mypy
         run: |
