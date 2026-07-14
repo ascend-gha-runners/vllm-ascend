@@ -50,16 +50,16 @@ jobs:
 
       - name: Set OBS cache configuration
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.OBS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.OBS_SECRET_ACCESS_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
         run: |
           echo "RUNS_ON_S3_BUCKET_CACHE=ascend-ci-cache-hk" >> $GITHUB_ENV
           echo "RUNS_ON_S3_BUCKET_ENDPOINT=https://obs.ap-southeast-1.myhuaweicloud.com" >> $GITHUB_ENV
           echo "AWS_S3_FORCE_PATH_STYLE=true" >> $GITHUB_ENV
           echo "AWS_REGION=ap-southeast-1" >> $GITHUB_ENV
           echo "RUNS_ON_RUNNER_NAME=" >> $GITHUB_ENV
-          echo "AWS_ACCESS_KEY_ID=${{ secrets.OBS_ACCESS_KEY_ID }}" >> $GITHUB_ENV
-          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.OBS_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
+          echo "AWS_ACCESS_KEY_ID=${{ secrets.HW_OBS_AK }}" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.HW_OBS_SK }}" >> $GITHUB_ENV
 
       - name: Check if cache exists
         id: check-cache
