@@ -190,11 +190,14 @@ jobs:
           curl -fsS --max-time 180 -o /tmp/get-pip.py https://bootstrap.pypa.io/get-pip.py
           BSP=""
           python3 -m pip install --help 2>/dev/null | grep -q break-system-packages && BSP=--break-system-packages
-          python3 /tmp/get-pip.py --no-cache-dir --force-reinstall $BSP
+          # --ignore-installed: 系统自带的 pip 24.0 是 apt 装的，没有 pip 自己的
+          # RECORD 文件，--force-reinstall 会先尝试卸载它然后报错退出。
+          # --ignore-installed 跳过卸载，直接把新版本装到前面。
+          python3 /tmp/get-pip.py --no-cache-dir --ignore-installed $BSP
           new_version="$(python3 -m pip --version)"
           echo "PIP_VERSION: stock=[$old_version] upgraded=[$new_version]"
 
-          out=$(python3 -m pip install --no-cache-dir --force-reinstall --no-deps $BSP requests 2>&1)
+          out=$(python3 -m pip install --no-cache-dir --force-reinstall --no-deps --index-url "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/" $BSP requests 2>&1)
           echo "$out" | tail -8
           if echo "$out" | grep -qE "Collecting|Downloading" && echo "$out" | grep -q "Successfully installed"; then
             echo "PIP_UPGRADED_DEFAULT_BEHAVIOR=OK"
