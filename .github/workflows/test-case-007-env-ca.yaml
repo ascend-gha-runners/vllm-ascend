@@ -129,7 +129,7 @@ jobs:
         if: matrix.os == 'ubuntu'
         run: |
           apt-get update -y
-          apt-get install -y --no-install-recommends git curl ca-certificates python3 python3-pip
+          apt-get install -y --no-install-recommends git curl ca-certificates python3 python3-pip python3-venv
 
       - name: Install prerequisites (openeuler)
         if: matrix.os == 'openeuler'
@@ -186,24 +186,28 @@ jobs:
         env:
           SSL_CERT_FILE: /etc/squid-ca/squid-ca.pem
         run: |
+          # 隔离在独立 venv 里做这个实验——上一版直接在系统 Python 上
+          # --ignore-installed 升级 pip，污染了全局 site-packages（新 pip
+          # 把 requests/urllib3 装到了 /usr/local/lib，覆盖了系统 pip 后面
+          # 几个 case 找到的版本），导致 Case 02 复用了这次升级后的状态，
+          # 而不是"仍在测 stock pip"。venv 保证这次实验完全不影响后续 case。
           old_version="$(python3 -m pip --version)"
+          python3 -m venv /tmp/env-ca-case01b-venv
+          . /tmp/env-ca-case01b-venv/bin/activate
           curl -fsS --max-time 180 -o /tmp/get-pip.py https://bootstrap.pypa.io/get-pip.py
-          BSP=""
-          python3 -m pip install --help 2>/dev/null | grep -q break-system-packages && BSP=--break-system-packages
-          # --ignore-installed: 系统自带的 pip 24.0 是 apt 装的，没有 pip 自己的
-          # RECORD 文件，--force-reinstall 会先尝试卸载它然后报错退出。
-          # --ignore-installed 跳过卸载，直接把新版本装到前面。
-          python3 /tmp/get-pip.py --no-cache-dir --ignore-installed $BSP
+          python3 /tmp/get-pip.py --no-cache-dir
           new_version="$(python3 -m pip --version)"
-          echo "PIP_VERSION: stock=[$old_version] upgraded=[$new_version]"
+          echo "PIP_VERSION: stock=[$old_version] upgraded(in venv)=[$new_version]"
 
-          out=$(python3 -m pip install --no-cache-dir --force-reinstall --no-deps --index-url "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/" $BSP requests 2>&1)
+          out=$(python3 -m pip install --no-cache-dir --force-reinstall --no-deps --index-url "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/" requests 2>&1)
           echo "$out" | tail -8
           if echo "$out" | grep -qE "Collecting|Downloading" && echo "$out" | grep -q "Successfully installed"; then
             echo "PIP_UPGRADED_DEFAULT_BEHAVIOR=OK"
           else
             echo "PIP_UPGRADED_DEFAULT_BEHAVIOR=FAIL"
           fi
+          deactivate
+          rm -rf /tmp/env-ca-case01b-venv
 
       - name: Case 02 - SSL_CERT_DIR (prepare hashed capath)
         run: |
