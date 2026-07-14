@@ -178,7 +178,7 @@ jobs:
           SSL_CERT_FILE: /etc/squid-ca/squid-ca.pem
         run: |
           old_version="$(python3 -m pip --version)"
-          curl -fsS --max-time 20 -o /tmp/get-pip.py https://bootstrap.pypa.io/get-pip.py
+          curl -fsS --max-time 90 -o /tmp/get-pip.py https://bootstrap.pypa.io/get-pip.py
           BSP=""
           python3 -m pip install --help 2>/dev/null | grep -q break-system-packages && BSP=--break-system-packages
           python3 /tmp/get-pip.py --no-cache-dir --force-reinstall $BSP
