@@ -25,10 +25,17 @@ jobs:
     container:
       image: ${{ matrix.image }}
     steps:
+      # 只给 checkout 内部的 git 操作临时信任 squid CA，跑完 checkout 立刻撤销——
+      # 不能用 update-ca-certificates 之类的系统级方案，那会让下面 Case 00
+      # （"完全不配置任何信任"）从一开始就不是真的空白状态。
+      - name: Bootstrap git trust for checkout only (reverted right after)
+        run: git config --global http.sslCAInfo /etc/squid-ca/squid-ca.pem
+
       - uses: actions/checkout@v4
 
-      # squid CA 由 runner infra 自动挂载在 /etc/squid-ca/squid-ca.pem，
-      # 这里只做存在性检查，不做任何信任配置——每个 case 自己负责配置信任机制。
+      - name: Revert bootstrap trust so Case 00 starts from a real blank slate
+        run: git config --global --unset http.sslCAInfo || true
+
       - name: Check squid CA is mounted
         run: |
           if [ ! -f /etc/squid-ca/squid-ca.pem ]; then
@@ -37,9 +44,9 @@ jobs:
           fi
           echo "squid CA present."
 
-      # 安装测试所需的工具本身，用显式 --cert 引导安装，跟后面每个 case
-      # 要验证的信任机制无关（case 00 测的是"什么都不配置"时 curl/git/pip/python 的行为，
-      # 不是"能不能装上 curl/git/pip"）。
+      # 安装测试所需的工具本身，用显式 --cert 引导安装，跟每个 case 要验证的
+      # 信任机制无关——case 00 测的是"什么都不配置"时 curl/git/pip/python 的行为，
+      # 不是"能不能装上 curl/git/pip"。
       - name: Install prerequisites
         run: |
           if [ "${{ matrix.pkg_mgr }}" = "apt" ]; then
@@ -48,31 +55,147 @@ jobs:
           else
             dnf install -y curl git ca-certificates python3 python3-pip
           fi
-          python3 -m pip install --help 2>/dev/null | grep -q break-system-packages && BSP=--break-system-packages || BSP=
+          BSP=""
+          python3 -m pip install --help 2>/dev/null | grep -q break-system-packages && BSP=--break-system-packages
           python3 -m pip install --no-cache-dir --cert /etc/squid-ca/squid-ca.pem $BSP requests
 
+      # ────────────────────────────────────────────────────────────────
+      # 每个 case 只设置一种 CA 信任机制（用 GitHub Actions 原生的 step-level
+      # `env:`，只在这一个 step 里生效，不会泄漏到别的 case），同一个 case 里
+      # 测全部 5 种客户端：curl / git / python3 urllib / pip / 裸 python requests。
+      # 期望值直接写在这个 case 步骤旁边，不用跳到别的文件里找。
+      # ────────────────────────────────────────────────────────────────
+
       - name: Case 00 - negative control (no CA trust at all)
-        run: sh test-case-007-env-ca/run_case.sh 00
+        run: |
+          out="$(sh test-case-007-env-ca/check_all.sh)"
+          echo "$out"
+          echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
+          echo "$out" | grep -qx "CURL=FAIL"           || { echo "::error::expected CURL=FAIL"; exit 1; }
+          echo "$out" | grep -qx "GIT=FAIL"            || { echo "::error::expected GIT=FAIL"; exit 1; }
+          echo "$out" | grep -qx "PYTHON_URLLIB=FAIL"  || { echo "::error::expected PYTHON_URLLIB=FAIL"; exit 1; }
+          echo "$out" | grep -qx "PIP=FAIL"            || { echo "::error::expected PIP=FAIL"; exit 1; }
+          echo "$out" | grep -qx "REQUESTS=FAIL"       || { echo "::error::expected REQUESTS=FAIL"; exit 1; }
 
       - name: Case 01 - SSL_CERT_FILE
-        run: sh test-case-007-env-ca/run_case.sh 01
+        env:
+          SSL_CERT_FILE: /etc/squid-ca/squid-ca.pem
+        run: |
+          out="$(sh test-case-007-env-ca/check_all.sh)"
+          echo "$out"
+          # curl / python-urllib 走 OpenSSL 默认信任路径 -> 认这个变量 -> OK
+          # git 不认 SSL_CERT_FILE，只认 GIT_SSL_CAINFO / 系统信任 -> FAIL
+          # pip 自己的 SSL 上下文会在 certifi 之外叠加 OpenSSL 默认路径 -> OK
+          # 裸 requests 只认内置 certifi，不看这个变量 -> FAIL
+          echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
+          echo "$out" | grep -qx "CURL=OK"             || { echo "::error::expected CURL=OK"; exit 1; }
+          echo "$out" | grep -qx "GIT=FAIL"            || { echo "::error::expected GIT=FAIL"; exit 1; }
+          echo "$out" | grep -qx "PYTHON_URLLIB=OK"    || { echo "::error::expected PYTHON_URLLIB=OK"; exit 1; }
+          echo "$out" | grep -qx "PIP=OK"              || { echo "::error::expected PIP=OK"; exit 1; }
+          echo "$out" | grep -qx "REQUESTS=FAIL"       || { echo "::error::expected REQUESTS=FAIL"; exit 1; }
+
+      - name: Case 02 - SSL_CERT_DIR (prepare hashed capath)
+        run: |
+          rm -rf /tmp/env-ca-case02-capath
+          mkdir -p /tmp/env-ca-case02-capath
+          cp /etc/squid-ca/squid-ca.pem /tmp/env-ca-case02-capath/
+          openssl rehash /tmp/env-ca-case02-capath
 
       - name: Case 02 - SSL_CERT_DIR
-        run: sh test-case-007-env-ca/run_case.sh 02
+        env:
+          SSL_CERT_DIR: /tmp/env-ca-case02-capath
+        run: |
+          out="$(sh test-case-007-env-ca/check_all.sh)"
+          echo "$out"
+          # 跟 SSL_CERT_FILE 是同一类机制（OpenSSL 默认路径），预期模式相同
+          echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
+          echo "$out" | grep -qx "CURL=OK"             || { echo "::error::expected CURL=OK"; exit 1; }
+          echo "$out" | grep -qx "GIT=FAIL"            || { echo "::error::expected GIT=FAIL"; exit 1; }
+          echo "$out" | grep -qx "PYTHON_URLLIB=OK"    || { echo "::error::expected PYTHON_URLLIB=OK"; exit 1; }
+          echo "$out" | grep -qx "PIP=OK"              || { echo "::error::expected PIP=OK"; exit 1; }
+          echo "$out" | grep -qx "REQUESTS=FAIL"       || { echo "::error::expected REQUESTS=FAIL"; exit 1; }
 
       - name: Case 03 - CURL_CA_BUNDLE
-        run: sh test-case-007-env-ca/run_case.sh 03
+        env:
+          CURL_CA_BUNDLE: /etc/squid-ca/squid-ca.pem
+        run: |
+          out="$(sh test-case-007-env-ca/check_all.sh)"
+          echo "$out"
+          # curl-CLI 专属变量，其他客户端都不认
+          echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
+          echo "$out" | grep -qx "CURL=OK"             || { echo "::error::expected CURL=OK"; exit 1; }
+          echo "$out" | grep -qx "GIT=FAIL"            || { echo "::error::expected GIT=FAIL"; exit 1; }
+          echo "$out" | grep -qx "PYTHON_URLLIB=FAIL"  || { echo "::error::expected PYTHON_URLLIB=FAIL"; exit 1; }
+          echo "$out" | grep -qx "PIP=FAIL"            || { echo "::error::expected PIP=FAIL"; exit 1; }
+          echo "$out" | grep -qx "REQUESTS=FAIL"       || { echo "::error::expected REQUESTS=FAIL"; exit 1; }
 
       - name: Case 04 - GIT_SSL_CAINFO
-        run: sh test-case-007-env-ca/run_case.sh 04
+        env:
+          GIT_SSL_CAINFO: /etc/squid-ca/squid-ca.pem
+        run: |
+          out="$(sh test-case-007-env-ca/check_all.sh)"
+          echo "$out"
+          # git-CLI 专属变量，其他客户端都不认
+          echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
+          echo "$out" | grep -qx "CURL=FAIL"           || { echo "::error::expected CURL=FAIL"; exit 1; }
+          echo "$out" | grep -qx "GIT=OK"              || { echo "::error::expected GIT=OK"; exit 1; }
+          echo "$out" | grep -qx "PYTHON_URLLIB=FAIL"  || { echo "::error::expected PYTHON_URLLIB=FAIL"; exit 1; }
+          echo "$out" | grep -qx "PIP=FAIL"            || { echo "::error::expected PIP=FAIL"; exit 1; }
+          echo "$out" | grep -qx "REQUESTS=FAIL"       || { echo "::error::expected REQUESTS=FAIL"; exit 1; }
 
       - name: Case 05 - REQUESTS_CA_BUNDLE
-        run: sh test-case-007-env-ca/run_case.sh 05
+        env:
+          REQUESTS_CA_BUNDLE: /etc/squid-ca/squid-ca.pem
+        run: |
+          out="$(sh test-case-007-env-ca/check_all.sh)"
+          echo "$out"
+          # requests 库自己读取的变量：pip 内部用 requests 实现网络请求,所以也认;
+          # 裸 requests 调用同样认——这个变量正好补上了裸 requests 的信任盲区
+          echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
+          echo "$out" | grep -qx "CURL=FAIL"           || { echo "::error::expected CURL=FAIL"; exit 1; }
+          echo "$out" | grep -qx "GIT=FAIL"            || { echo "::error::expected GIT=FAIL"; exit 1; }
+          echo "$out" | grep -qx "PYTHON_URLLIB=FAIL"  || { echo "::error::expected PYTHON_URLLIB=FAIL"; exit 1; }
+          echo "$out" | grep -qx "PIP=OK"              || { echo "::error::expected PIP=OK"; exit 1; }
+          echo "$out" | grep -qx "REQUESTS=OK"         || { echo "::error::expected REQUESTS=OK"; exit 1; }
 
       - name: Case 06 - PIP_CERT
-        run: sh test-case-007-env-ca/run_case.sh 06
+        env:
+          PIP_CERT: /etc/squid-ca/squid-ca.pem
+        run: |
+          out="$(sh test-case-007-env-ca/check_all.sh)"
+          echo "$out"
+          # pip 专属变量，裸 requests 不认（pip 内部虽然用 requests 库发请求，
+          # 但 PIP_CERT 是 pip 自己读取并显式传给它内部 session 的，不是
+          # requests 库自己去读环境变量）
+          echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
+          echo "$out" | grep -qx "CURL=FAIL"           || { echo "::error::expected CURL=FAIL"; exit 1; }
+          echo "$out" | grep -qx "GIT=FAIL"            || { echo "::error::expected GIT=FAIL"; exit 1; }
+          echo "$out" | grep -qx "PYTHON_URLLIB=FAIL"  || { echo "::error::expected PYTHON_URLLIB=FAIL"; exit 1; }
+          echo "$out" | grep -qx "PIP=OK"              || { echo "::error::expected PIP=OK"; exit 1; }
+          echo "$out" | grep -qx "REQUESTS=FAIL"       || { echo "::error::expected REQUESTS=FAIL"; exit 1; }
 
       # 必须最后跑：这是唯一一个改系统级信任存储的 case，跑完之后同一个容器里
-      # 所有客户端都会永久信任 squid CA，如果放在前面会污染后续 case 的判定。
+      # 所有客户端都会永久信任 squid CA，放在前面会污染前面 case 的判定。
       - name: Case 08 - positive control (system-wide CA trust rebuild)
-        run: sh test-case-007-env-ca/run_case.sh 08
+        run: |
+          if command -v update-ca-certificates >/dev/null 2>&1; then
+            cp /etc/squid-ca/squid-ca.pem /usr/local/share/ca-certificates/squid-ca.crt
+            update-ca-certificates
+          elif command -v update-ca-trust >/dev/null 2>&1; then
+            mkdir -p /etc/pki/ca-trust/source/anchors
+            cp /etc/squid-ca/squid-ca.pem /etc/pki/ca-trust/source/anchors/squid-ca.pem
+            update-ca-trust extract
+          else
+            echo "::error::no known system CA trust update command found"
+            exit 1
+          fi
+          out="$(sh test-case-007-env-ca/check_all.sh)"
+          echo "$out"
+          # 系统级信任覆盖 curl/git/python-urllib/pip；裸 requests 依旧 FAIL——
+          # 它只认内置 certifi，系统信任重建救不了它，这是这张表里唯一的盲区
+          echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
+          echo "$out" | grep -qx "CURL=OK"             || { echo "::error::expected CURL=OK"; exit 1; }
+          echo "$out" | grep -qx "GIT=OK"              || { echo "::error::expected GIT=OK"; exit 1; }
+          echo "$out" | grep -qx "PYTHON_URLLIB=OK"    || { echo "::error::expected PYTHON_URLLIB=OK"; exit 1; }
+          echo "$out" | grep -qx "PIP=OK"              || { echo "::error::expected PIP=OK"; exit 1; }
+          echo "$out" | grep -qx "REQUESTS=FAIL"       || { echo "::error::expected REQUESTS=FAIL"; exit 1; }
