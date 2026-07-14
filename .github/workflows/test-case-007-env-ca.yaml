@@ -140,21 +140,39 @@ jobs:
 
       # Ubuntu's default mirror is plain http:// (see check_all.sh comment above and
       # actual apt logs — ports.ubuntu.com over http, no TLS involved), so apt itself
-      # never needs CA trust here. This step tests, independent of apt, whether the
-      # same manual-cat approach used for openEuler's yum bundle also works for the
-      # Debian/Ubuntu compiled bundle path (/etc/ssl/certs/ca-certificates.crt) — using
-      # curl against the same squid-fronted HTTPS target as the canary check.
-      - name: Test apt (ubuntu) - manual cat to ca-certificates.crt
+      # never needs CA trust here. This step tests, independent of the main apt
+      # config, whether the same manual-cat approach used for openEuler's yum bundle
+      # also works for apt against a real HTTPS mirror — proven via an actual
+      # `apt-get install`, not just a curl request, since apt has its own transport
+      # layer and a passing curl doesn't guarantee apt itself trusts the bundle.
+      # Isolated via -o Dir::Etc::sourcelist/-sourceparts so it never touches the
+      # real /etc/apt/sources.list used by the step above.
+      - name: Test apt (ubuntu) - manual cat to ca-certificates.crt, verified via apt-get install
         if: matrix.os == 'ubuntu'
         run: |
           cp /etc/ssl/certs/ca-certificates.crt /tmp/ca-certificates-bootstrap.bak
           cat /etc/squid-ca/squid-ca.pem >> /etc/ssl/certs/ca-certificates.crt
-          if curl -fsS --max-time 30 -o /dev/null "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/"; then
-            echo "APT_BUNDLE_MANUAL_CAT_TEST=OK (curl trusted squid CA via manual cat)"
+
+          codename="$(. /etc/os-release && echo "$VERSION_CODENAME")"
+          echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports/ ${codename} main" > /tmp/squid-cat-test.list
+
+          out=$(apt-get update -y \
+                  -o Dir::Etc::sourcelist="/tmp/squid-cat-test.list" \
+                  -o Dir::Etc::sourceparts="/dev/null" 2>&1 \
+                && apt-get install -y --no-install-recommends --download-only \
+                     -o Dir::Etc::sourcelist="/tmp/squid-cat-test.list" \
+                     -o Dir::Etc::sourceparts="/dev/null" \
+                     bc 2>&1)
+          rc=$?
+          echo "$out" | tail -10
+          if [ "$rc" -eq 0 ]; then
+            echo "APT_BUNDLE_MANUAL_CAT_TEST=OK (apt-get install succeeded over HTTPS with manual-cat CA)"
           else
             echo "APT_BUNDLE_MANUAL_CAT_TEST=FAIL"
           fi
+
           # Restore so Case 00 starts from a real blank slate, same as openEuler revert.
+          rm -f /tmp/squid-cat-test.list /var/cache/apt/archives/bc*.deb
           cp /tmp/ca-certificates-bootstrap.bak /etc/ssl/certs/ca-certificates.crt
           rm /tmp/ca-certificates-bootstrap.bak
 
