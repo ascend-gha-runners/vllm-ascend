@@ -138,6 +138,26 @@ jobs:
           apt-get update -y
           apt-get install -y --no-install-recommends git curl ca-certificates python3 python3-pip python3-venv
 
+      # Ubuntu's default mirror is plain http:// (see check_all.sh comment above and
+      # actual apt logs — ports.ubuntu.com over http, no TLS involved), so apt itself
+      # never needs CA trust here. This step tests, independent of apt, whether the
+      # same manual-cat approach used for openEuler's yum bundle also works for the
+      # Debian/Ubuntu compiled bundle path (/etc/ssl/certs/ca-certificates.crt) — using
+      # curl against the same squid-fronted HTTPS target as the canary check.
+      - name: Test apt (ubuntu) - manual cat to ca-certificates.crt
+        if: matrix.os == 'ubuntu'
+        run: |
+          cp /etc/ssl/certs/ca-certificates.crt /tmp/ca-certificates-bootstrap.bak
+          cat /etc/squid-ca/squid-ca.pem >> /etc/ssl/certs/ca-certificates.crt
+          if curl -fsS --max-time 30 -o /dev/null "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/"; then
+            echo "APT_BUNDLE_MANUAL_CAT_TEST=OK (curl trusted squid CA via manual cat)"
+          else
+            echo "APT_BUNDLE_MANUAL_CAT_TEST=FAIL"
+          fi
+          # Restore so Case 00 starts from a real blank slate, same as openEuler revert.
+          cp /tmp/ca-certificates-bootstrap.bak /etc/ssl/certs/ca-certificates.crt
+          rm /tmp/ca-certificates-bootstrap.bak
+
       # openEuler 的 yum 默认源全部是 HTTPS（mirrors.openeuler.org /
       # repo.openeuler.org），装 git/curl 本身就要先有 CA 信任——跟 ubuntu
       # 侧当初 actions/checkout 遇到的鸡生蛋问题是同一类。用 squid CA 引导
@@ -145,16 +165,19 @@ jobs:
       - name: Install prerequisites (openeuler)
         if: matrix.os == 'openeuler'
         run: |
-          mkdir -p /etc/pki/ca-trust/source/anchors
-          cp /etc/squid-ca/squid-ca.pem /etc/pki/ca-trust/source/anchors/squid-ca-bootstrap.pem
-          update-ca-trust extract
+          # Test: manual cat to compiled bundle instead of update-ca-trust anchor mechanism.
+          # Backup first so revert is a clean restore — no need to re-run update-ca-trust.
+          cp /etc/pki/tls/certs/ca-bundle.crt /tmp/ca-bundle-bootstrap.bak
+          cat /etc/squid-ca/squid-ca.pem >> /etc/pki/tls/certs/ca-bundle.crt
+          echo "yum bootstrap method: manual cat >> /etc/pki/tls/certs/ca-bundle.crt"
           yum install -y git curl ca-certificates python3 python3-pip
 
       - name: Revert openEuler bootstrap trust so Case 00 starts from a real blank slate
         if: matrix.os == 'openeuler'
         run: |
-          rm -f /etc/pki/ca-trust/source/anchors/squid-ca-bootstrap.pem
-          update-ca-trust extract
+          # Restore from backup — exact inverse of the cat above, no update-ca-trust needed.
+          cp /tmp/ca-bundle-bootstrap.bak /etc/pki/tls/certs/ca-bundle.crt
+          rm /tmp/ca-bundle-bootstrap.bak
 
       # ────────────────────────────────────────────────────────────────
       # 每个 case 只设置一种 CA 信任机制（用 GitHub Actions 原生的 step-level
@@ -203,6 +226,7 @@ jobs:
       # 特殊 flag 的命令重新测一次,只记录结果,不预设期望值——这个 case 存在的
       # 目的就是回答这个问题,不是拿它断言一个已经知道的答案。
       - name: Case 01b - SSL_CERT_FILE, does upgrading pip change the default behavior?
+        continue-on-error: true   # 探索性实验，bootstrap.pypa.io 偶发 503 不应杀掉后续 case
         env:
           SSL_CERT_FILE: /etc/squid-ca/squid-ca.pem
         run: |
