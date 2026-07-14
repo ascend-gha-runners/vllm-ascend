@@ -17,14 +17,60 @@ jobs:
         include:
           - name: ubuntu-24.04
             image: swr.cn-southwest-2.myhuaweicloud.com/modelfoundry/ubuntu:24.04
-            pkg_mgr: apt
+            os: ubuntu
           - name: openeuler-24.03
             image: swr.cn-southwest-2.myhuaweicloud.com/modelfoundry/openeuler/openeuler:24.03
-            pkg_mgr: dnf
+            os: openeuler
     runs-on: linux-aarch64-cpu-2-buildkit-gy006
     container:
       image: ${{ matrix.image }}
     steps:
+      # 装测试要用的工具本身（git/curl/python/pip），这一步必须在 checkout 之前:
+      # 这两个镜像都是干净的裸镜像,git 都没装,checkout 内部会直接调 system git,
+      # 装不了 git 后面全部 UNKNOWN。
+      #
+      # 走内网 cache-service（plain HTTP，.svc.cluster.local，不经过 squid、
+      # 不需要任何 CA 信任），不走 squid+外网源——跟 push_build_csrc_cache.yaml
+      # 里 "Config mirrors" 的做法一致。这一步跟每个 case 要验证的信任机制无关：
+      # case 00 测的是"什么都不配置"时 curl/git/pip/python 的行为，不是
+      # "能不能装上 curl/git/pip"。
+      - name: Install prerequisites (ubuntu)
+        if: matrix.os == 'ubuntu'
+        env:
+          HTTP_PROXY: ""
+          HTTPS_PROXY: ""
+          http_proxy: ""
+          https_proxy: ""
+        run: |
+          for f in /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
+            [ -f "$f" ] && sed -Ei 's@(ports|archive)\.ubuntu\.com@cache-service.nginx-pypi-cache.svc.cluster.local:8081@g' "$f"
+          done
+          apt-get update -y
+          apt-get install -y --no-install-recommends git curl ca-certificates python3 python3-pip
+          BSP=""
+          python3 -m pip install --help 2>/dev/null | grep -q break-system-packages && BSP=--break-system-packages
+          python3 -m pip install --no-cache-dir $BSP \
+            --index-url http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple \
+            --trusted-host cache-service.nginx-pypi-cache.svc.cluster.local \
+            requests
+
+      - name: Install prerequisites (openeuler)
+        if: matrix.os == 'openeuler'
+        env:
+          HTTP_PROXY: ""
+          HTTPS_PROXY: ""
+          http_proxy: ""
+          https_proxy: ""
+        run: |
+          sed -Ei 's@https?://[^/]+/(openeuler|centos|fedora)@http://cache-service.nginx-pypi-cache.svc.cluster.local:8081/\1@g' /etc/yum.repos.d/*.repo
+          yum install -y git curl ca-certificates python3 python3-pip
+          BSP=""
+          python3 -m pip install --help 2>/dev/null | grep -q break-system-packages && BSP=--break-system-packages
+          python3 -m pip install --no-cache-dir $BSP \
+            --index-url http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple \
+            --trusted-host cache-service.nginx-pypi-cache.svc.cluster.local \
+            requests
+
       # 只给 checkout 内部的 git 操作临时信任 squid CA，跑完 checkout 立刻撤销——
       # 不能用 update-ca-certificates 之类的系统级方案，那会让下面 Case 00
       # （"完全不配置任何信任"）从一开始就不是真的空白状态。
@@ -43,21 +89,6 @@ jobs:
             exit 1
           fi
           echo "squid CA present."
-
-      # 安装测试所需的工具本身，用显式 --cert 引导安装，跟每个 case 要验证的
-      # 信任机制无关——case 00 测的是"什么都不配置"时 curl/git/pip/python 的行为，
-      # 不是"能不能装上 curl/git/pip"。
-      - name: Install prerequisites
-        run: |
-          if [ "${{ matrix.pkg_mgr }}" = "apt" ]; then
-            apt-get update
-            apt-get install -y --no-install-recommends curl git ca-certificates python3 python3-pip
-          else
-            dnf install -y curl git ca-certificates python3 python3-pip
-          fi
-          BSP=""
-          python3 -m pip install --help 2>/dev/null | grep -q break-system-packages && BSP=--break-system-packages
-          python3 -m pip install --no-cache-dir --cert /etc/squid-ca/squid-ca.pem $BSP requests
 
       # ────────────────────────────────────────────────────────────────
       # 每个 case 只设置一种 CA 信任机制（用 GitHub Actions 原生的 step-level
