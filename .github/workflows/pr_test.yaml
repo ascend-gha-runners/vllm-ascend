@@ -47,11 +47,32 @@ permissions:
   id-token: write
 
 jobs:
+  get-credentials:
+    runs-on: linux-amd64-cpu-test-8-hk
+    outputs:
+      ak: ${{ steps.creds.outputs.aws-access-key-id }}
+      sk: ${{ steps.creds.outputs.aws-secret-access-key }}
+      st: ${{ steps.creds.outputs.aws-session-token }}
+    steps:
+      - name: Configure Huawei Cloud Credentials
+        id: creds
+        uses: ascend-gha-runners/configure-hwcloud-credentials@3be5794f565c38f9719ef1f6bec28351c929be3c
+        with:
+          region: ap-southeast-1
+          audience: hw-vllm-ascend-audience
+          idp-id: github-vllm-ascend
+          duration-seconds: 3600
+
   lint-and-select-tests:
+    needs: get-credentials
     if: ${{ github.event.action != 'labeled' || github.event.label.name == 'ready' }}
-    runs-on: linux-amd64-cpu-8-hk
+    runs-on: linux-amd64-cpu-test-8-hk
     container:
       image: quay.io/ascend-ci/vllm-ascend:lint
+    env:
+      AWS_ACCESS_KEY_ID: ${{ needs.get-credentials.outputs.ak }}
+      AWS_SECRET_ACCESS_KEY: ${{ needs.get-credentials.outputs.sk }}
+      AWS_SESSION_TOKEN: ${{ needs.get-credentials.outputs.st }}
     outputs:
       has_tests: ${{ steps.scope.outputs.has_tests || steps.noop.outputs.has_tests }}
       test_groups: ${{ steps.scope.outputs.test_groups || steps.noop.outputs.test_groups }}
@@ -161,33 +182,15 @@ jobs:
           uv pip install -r requirements-dev.txt --extra-index-url https://download.pytorch.org/whl/cpu
 
       - name: Restore pre-commit cache
-        run: |
-          # Install obsutil if not present
-          if ! command -v obsutil &>/dev/null; then
-            ARCH=$(uname -m)
-            case "$ARCH" in
-              x86_64) OBSUTIL_ARCH="amd64" ;;
-              aarch64|arm64) OBSUTIL_ARCH="arm64" ;;
-            esac
-            curl -sSL "https://obs-community.obs.cn-north-1.myhuaweicloud.com/obsutil/current/obsutil_linux_${OBSUTIL_ARCH}.tar.gz" -o /tmp/obsutil.tar.gz
-            tar -xzf /tmp/obsutil.tar.gz -C /tmp
-            OBSUTIL_DIR=$(find /tmp -maxdepth 1 -name "obsutil_linux_${OBSUTIL_ARCH}_*" -type d | head -1)
-            chmod +x "${OBSUTIL_DIR}/obsutil"
-            export PATH="${OBSUTIL_DIR}:${PATH}"
-            echo "${OBSUTIL_DIR}" >> $GITHUB_PATH
-          fi
-          # Use read-only AK/SK from pod env (injected via envFrom from Vault)
-          obsutil config -i="${AWS_ACCESS_KEY_ID}" -k="${AWS_SECRET_ACCESS_KEY}" -e=obs.ap-southeast-1.myhuaweicloud.com
-          CACHE_KEY="pre-commit-$(sha256sum .pre-commit-config.yaml | awk '{print $1}')"
-          if obsutil stat "obs://ascend-ci-cache-hk/precommit-cache/${CACHE_KEY}" &>/dev/null; then
-            ARCHIVE_DIR=$(mktemp -d)
-            obsutil cp "obs://ascend-ci-cache-hk/precommit-cache/${CACHE_KEY}" "${ARCHIVE_DIR}/cache.tgz" -f
-            mkdir -p ~/.cache/pre-commit
-            tar -xzf "${ARCHIVE_DIR}/cache.tgz" -C ~
-            echo "Cache restored successfully"
-          else
-            echo "Cache not found, pre-commit will build from scratch"
-          fi
+        uses: runs-on/cache/restore@v5
+        env:
+          RUNS_ON_S3_BUCKET_CACHE: ascend-ci-cache-hk
+          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.ap-southeast-1.myhuaweicloud.com
+          RUNS_ON_S3_FORCE_PATH_STYLE: "true"
+          RUNS_ON_AWS_REGION: ap-southeast-1
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: Run pre-commit
         env:
@@ -198,6 +201,18 @@ jobs:
         run: |
           git config --global --add safe.directory /__w/vllm-ascend/vllm-ascend
           pre-commit run --all-files --hook-stage manual --show-diff-on-failure
+
+      - name: Save pre-commit cache
+        if: always()
+        uses: runs-on/cache/save@v5
+        env:
+          RUNS_ON_S3_BUCKET_CACHE: ascend-ci-cache-hk
+          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.ap-southeast-1.myhuaweicloud.com
+          RUNS_ON_S3_FORCE_PATH_STYLE: "true"
+          RUNS_ON_AWS_REGION: ap-southeast-1
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: Run mypy
         run: |
