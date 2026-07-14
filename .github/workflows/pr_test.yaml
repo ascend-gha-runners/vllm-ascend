@@ -161,9 +161,6 @@ jobs:
           uv pip install -r requirements-dev.txt --extra-index-url https://download.pytorch.org/whl/cpu
 
       - name: Restore pre-commit cache
-        env:
-          HW_OBS_AK: ${{ secrets.HW_OBS_AK }}
-          HW_OBS_SK: ${{ secrets.HW_OBS_SK }}
         run: |
           # Install obsutil if not present
           if ! command -v obsutil &>/dev/null; then
@@ -179,7 +176,8 @@ jobs:
             export PATH="${OBSUTIL_DIR}:${PATH}"
             echo "${OBSUTIL_DIR}" >> $GITHUB_PATH
           fi
-          obsutil config -i="${HW_OBS_AK}" -k="${HW_OBS_SK}" -e=obs.ap-southeast-1.myhuaweicloud.com
+          # Use read-only AK/SK from pod env (injected via envFrom from Vault)
+          obsutil config -i="${AWS_ACCESS_KEY_ID}" -k="${AWS_SECRET_ACCESS_KEY}" -e=obs.ap-southeast-1.myhuaweicloud.com
           CACHE_KEY="pre-commit-$(sha256sum .pre-commit-config.yaml | awk '{print $1}')"
           if obsutil stat "obs://ascend-ci-cache-hk/precommit-cache/${CACHE_KEY}" &>/dev/null; then
             ARCHIVE_DIR=$(mktemp -d)
