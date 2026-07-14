@@ -110,22 +110,20 @@ jobs:
       # 装测试要用的工具本身（git/curl/python/pip）。这一步跟每个 case 要验证
       # 的信任机制无关——case 00 测的是"什么都不配置"时 curl/git/pip/python
       # 的行为，不是"能不能装上 curl/git/pip"。两个镜像默认源都不需要额外配置。
+      # 注意：这里不预装 requests 库——check_all.sh 自己每个 case 都会跑一次
+      # `pip install requests`，第一个信任配置生效的 case（Case 01）会把它
+      # 真正装上，之后的 case 直接复用。提前用 squid CA 引导装一次纯粹是鸡生蛋：
+      # 装它本身就需要一种信任机制，而这正是要测的东西。
       - name: Install prerequisites (ubuntu)
         if: matrix.os == 'ubuntu'
         run: |
           apt-get update -y
           apt-get install -y --no-install-recommends git curl ca-certificates python3 python3-pip
-          BSP=""
-          python3 -m pip install --help 2>/dev/null | grep -q break-system-packages && BSP=--break-system-packages
-          python3 -m pip install --no-cache-dir $BSP requests
 
       - name: Install prerequisites (openeuler)
         if: matrix.os == 'openeuler'
         run: |
           yum install -y git curl ca-certificates python3 python3-pip
-          BSP=""
-          python3 -m pip install --help 2>/dev/null | grep -q break-system-packages && BSP=--break-system-packages
-          python3 -m pip install --no-cache-dir $BSP requests
 
       # ────────────────────────────────────────────────────────────────
       # 每个 case 只设置一种 CA 信任机制（用 GitHub Actions 原生的 step-level
