@@ -28,7 +28,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 defaults:
   run:
@@ -49,22 +48,18 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configure Huawei Cloud Credentials
-        id: hwcloud-creds
-        uses: ascend-gha-runners/configure-hwcloud-credentials@3be5794f565c38f9719ef1f6bec28351c929be3c
-        with:
-          region: ap-southeast-1
-          audience: hw-vllm-ascend-audience
-          idp-id: github-vllm-ascend
-
       - name: Set OBS cache configuration
-        if: steps.hwcloud-creds.outputs.success == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.OBS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.OBS_SECRET_ACCESS_KEY }}
         run: |
           echo "RUNS_ON_S3_BUCKET_CACHE=ascend-ci-cache-hk" >> $GITHUB_ENV
           echo "RUNS_ON_S3_BUCKET_ENDPOINT=obs.ap-southeast-1.myhuaweicloud.com" >> $GITHUB_ENV
           echo "AWS_S3_FORCE_PATH_STYLE=true" >> $GITHUB_ENV
           echo "AWS_REGION=ap-southeast-1" >> $GITHUB_ENV
           echo "RUNS_ON_RUNNER_NAME=" >> $GITHUB_ENV
+          echo "AWS_ACCESS_KEY_ID=${{ secrets.OBS_ACCESS_KEY_ID }}" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.OBS_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
 
       - name: Check if cache exists
         id: check-cache
@@ -96,7 +91,7 @@ jobs:
           pre-commit run --all-files --hook-stage manual --show-diff-on-failure
 
       - name: Save pre-commit cache
-        if: always() && steps.hwcloud-creds.outputs.success == 'true' && steps.check-cache.outputs.cache-hit != 'true'
+        if: always() && steps.check-cache.outputs.cache-hit != 'true'
         uses: runs-on/cache/save@v5
         with:
           path: ~/.cache/pre-commit
