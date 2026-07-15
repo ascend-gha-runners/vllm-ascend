@@ -183,8 +183,7 @@ jobs:
 
           if command -v yum >/dev/null 2>&1; then
             yum clean metadata >/dev/null 2>&1
-            yum makecache --disablerepo='*' --enablerepo='os' \
-              --setopt=timeout=10 --setopt=retries=1 \
+            yum makecache --setopt=timeout=10 --setopt=retries=1 \
               >"$WORKDIR/yum.log" 2>&1
             rc=$?
             if [ "$rc" -eq 0 ]; then
@@ -243,4 +242,4 @@ jobs:
           # yum: reads NO env var — relies on postStart cat >> ca-bundle.crt
           echo "$out" | grep -qx "YUM=OK" || \
             echo "$out" | grep -qx "YUM=N/A" || \
-            { echo "::warning::expected YUM=OK or YUM=N/A"; }
+            { echo "::error::expected YUM=OK or YUM=N/A"; exit 1; }
