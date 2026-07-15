@@ -11,12 +11,12 @@ Provides two logging mechanisms:
 """
 
 import logging
-import os
-import sys
+import os,sys
 from datetime import datetime
 
 from vllm import envs
 from vllm.logging_utils import ColoredFormatter, NewLineFormatter
+import warnings
 
 _FORMAT = "%(levelname)s %(asctime)s [%(fileinfo)s:%(lineno)d] %(message)s"
 _DATE_FORMAT = "%m-%d %H:%M:%S"
@@ -68,7 +68,7 @@ def _format_with_ascend_prefix(self, record, super_format):
     if record.filename == module + ".py":
         prefix = "[vllm-ascend]"
     else:
-        prefix = f"[vllm-ascend] [{module}]"
+        prefix = f"[vllm-ascend] [{module}]"   
     orig_msg = record.msg
     orig_args = record.args
     try:
@@ -206,3 +206,4 @@ def configure_ascend_logging() -> None:
     ascend_logger.addHandler(handler)
     ascend_logger.setLevel(envs.VLLM_LOGGING_LEVEL)
     ascend_logger.propagate = False
+
