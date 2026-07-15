@@ -97,7 +97,7 @@ jobs:
           #!/bin/sh
           set -u
           TARGET_URL="https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/"
-          GIT_TARGET="https://github.com/octocat/Hello-World"
+          GIT_TARGET="https://gitcode.com/octocat/Hello-World"
           WORKDIR="$(mktemp -d /tmp/or2ac4.XXXXXX)"
 
           PIP_EXTRA_FLAGS=""
