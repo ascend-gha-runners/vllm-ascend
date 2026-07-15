@@ -374,6 +374,47 @@ jobs:
           echo "$out" | grep -qx "PIP=OK"              || { echo "::error::expected PIP=OK"; exit 1; }
           echo "$out" | grep -qx "REQUESTS=FAIL"       || { echo "::error::expected REQUESTS=FAIL"; exit 1; }
 
+      # openEuler's wget is compiled with GnuTLS and does NOT read
+      # SSL_CERT_FILE/SSL_CERT_DIR (OpenSSL-specific). Two additional cases
+      # test the GnuTLS equivalents. Expected wget=OK on openEuler, wget=FAIL
+      # on Ubuntu (whose wget uses OpenSSL) — demoted to warnings on wget
+      # since the OS split prevents a single hard assertion. All other tools
+      # use OpenSSL/pip/certifi and are unaffected by GnuTLS env vars.
+      - name: Case 07 - GNUTLS_CA_FILE
+        env:
+          GNUTLS_CA_FILE: /etc/squid-ca/squid-ca.pem
+        run: |
+          out="$(sh /tmp/env-ca-case-007/check_all.sh)"
+          echo "$out"
+          echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
+          echo "$out" | grep -qx "CURL=FAIL"           || { echo "::error::expected CURL=FAIL (OpenSSL, not GnuTLS)"; exit 1; }
+          echo "$out" | grep -qx "WGET=OK"             || { echo "::warning::expected WGET=OK (GnuTLS-compiled wget reads GNUTLS_CA_FILE, but only present on openEuler)"; }
+          echo "$out" | grep -qx "GIT=FAIL"            || { echo "::error::expected GIT=FAIL"; exit 1; }
+          echo "$out" | grep -qx "PYTHON_URLLIB=FAIL"  || { echo "::error::expected PYTHON_URLLIB=FAIL"; exit 1; }
+          echo "$out" | grep -qx "PIP=FAIL"            || { echo "::error::expected PIP=FAIL"; exit 1; }
+          echo "$out" | grep -qx "REQUESTS=FAIL"       || { echo "::error::expected REQUESTS=FAIL"; exit 1; }
+
+      - name: Case 07b - GNUTLS_CA_DIR (prepare hashed capath)
+        run: |
+          rm -rf /tmp/env-ca-case07b-capath
+          mkdir -p /tmp/env-ca-case07b-capath
+          cp /etc/squid-ca/squid-ca.pem /tmp/env-ca-case07b-capath/
+          openssl rehash /tmp/env-ca-case07b-capath
+
+      - name: Case 07b - GNUTLS_CA_DIR
+        env:
+          GNUTLS_CA_DIR: /tmp/env-ca-case07b-capath
+        run: |
+          out="$(sh /tmp/env-ca-case-007/check_all.sh)"
+          echo "$out"
+          echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
+          echo "$out" | grep -qx "CURL=FAIL"           || { echo "::error::expected CURL=FAIL (OpenSSL, not GnuTLS)"; exit 1; }
+          echo "$out" | grep -qx "WGET=OK"             || { echo "::warning::expected WGET=OK (GnuTLS-compiled wget reads GNUTLS_CA_DIR, but only present on openEuler)"; }
+          echo "$out" | grep -qx "GIT=FAIL"            || { echo "::error::expected GIT=FAIL"; exit 1; }
+          echo "$out" | grep -qx "PYTHON_URLLIB=FAIL"  || { echo "::error::expected PYTHON_URLLIB=FAIL"; exit 1; }
+          echo "$out" | grep -qx "PIP=FAIL"            || { echo "::error::expected PIP=FAIL"; exit 1; }
+          echo "$out" | grep -qx "REQUESTS=FAIL"       || { echo "::error::expected REQUESTS=FAIL"; exit 1; }
+
       # 必须最后跑：这是唯一一个改系统级信任存储的 case，跑完之后同一个容器里
       # 所有客户端都会永久信任 squid CA，放在前面会污染前面 case 的判定。
       - name: Case 08 - positive control (system-wide CA trust rebuild)
