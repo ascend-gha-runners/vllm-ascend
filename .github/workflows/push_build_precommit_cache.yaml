@@ -61,6 +61,16 @@ jobs:
           echo "=== All AWS_/RUNS_ON_ vars ==="
           env | grep -E "^AWS_|^RUNS_ON_" | sort
 
+      - name: Configure AWS S3 path-style addressing
+        run: |
+          mkdir -p /root/.aws
+          cat > /root/.aws/config << 'EOF'
+          [default]
+          s3 =
+            addressing_style = path
+          EOF
+          cat /root/.aws/config
+
       - name: Check if cache exists
         id: check-cache
         uses: runs-on/cache/restore@v5
