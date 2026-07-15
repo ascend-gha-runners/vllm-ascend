@@ -15,8 +15,7 @@
 #
 
 import gc
-import os
-import time
+import os,time
 from copy import copy
 
 import torch
@@ -76,7 +75,7 @@ def _is_draft_model(vllm_config: VllmConfig, model_config: ModelConfig | None = 
 
 
 def _get_rfork_worker_attr(vllm_config: VllmConfig, model_config: ModelConfig) -> str:
-    return "rfork_draft_worker" if _is_draft_model(vllm_config, model_config) else "rfork_worker"
+    return "rfork_draft_worker0" if _is_draft_model(vllm_config, model_config) else "rfork_worker"
 
 
 def _get_ep_rank(vllm_config: VllmConfig) -> int | None:
