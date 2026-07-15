@@ -15,7 +15,8 @@
 #
 
 import gc
-import os,time
+import os
+import time
 from copy import copy
 
 import torch
