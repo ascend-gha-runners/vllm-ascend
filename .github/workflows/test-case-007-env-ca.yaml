@@ -120,6 +120,34 @@ jobs:
             echo "REQUESTS_DEBUG: $(tail -3 "$WORKDIR/requests.log" | tr '\n' ' ')"
           fi
 
+          # --- apt probe (HTTPS source, isolated from default HTTP sources) ---
+          if command -v apt-get >/dev/null 2>&1; then
+            . /etc/os-release 2>/dev/null
+            echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports/ ${VERSION_CODENAME:-noble} main" >"$WORKDIR/apt.list"
+            if apt-get update -y -o Dir::Etc::sourcelist="$WORKDIR/apt.list" \
+                 -o Dir::Etc::sourceparts="/dev/null" >"$WORKDIR/apt.log" 2>&1; then
+              echo "APT=OK"
+            else
+              echo "APT=FAIL"
+              echo "APT_DEBUG: $(tail -3 "$WORKDIR/apt.log" | tr '\n' ' ')"
+            fi
+            rm -f "$WORKDIR/apt.list"
+          else
+            echo "APT=N/A"
+          fi
+
+          # --- yum probe (existing HTTPS repos through squid ssl_bump) ---
+          if command -v yum >/dev/null 2>&1; then
+            if yum repolist --refresh >"$WORKDIR/yum.log" 2>&1; then
+              echo "YUM=OK"
+            else
+              echo "YUM=FAIL"
+              echo "YUM_DEBUG: $(tail -3 "$WORKDIR/yum.log" | tr '\n' ' ')"
+            fi
+          else
+            echo "YUM=N/A"
+          fi
+
           rm -rf "$WORKDIR"
           SCRIPT_EOF
           chmod +x /tmp/env-ca-case-007/check_all.sh
@@ -218,6 +246,8 @@ jobs:
           echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
           echo "$out" | grep -qx "CURL=FAIL"           || { echo "::error::expected CURL=FAIL"; exit 1; }
           echo "$out" | grep -qx "WGET=FAIL"           || { echo "::warning::expected WGET=FAIL"; }
+          echo "$out" | grep -qx "APT=FAIL"           || { echo "::warning::expected APT=FAIL (apt reads no CA env var)"; }
+          echo "$out" | grep -qx "YUM=FAIL"           || { echo "::warning::expected YUM=FAIL"; }
           echo "$out" | grep -qx "GIT=FAIL"            || { echo "::error::expected GIT=FAIL"; exit 1; }
           echo "$out" | grep -qx "PYTHON_URLLIB=FAIL"  || { echo "::error::expected PYTHON_URLLIB=FAIL"; exit 1; }
           echo "$out" | grep -qx "PIP=FAIL"            || { echo "::error::expected PIP=FAIL"; exit 1; }
@@ -242,6 +272,8 @@ jobs:
           echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
           echo "$out" | grep -qx "CURL=OK"             || { echo "::error::expected CURL=OK"; exit 1; }
           echo "$out" | grep -qx "WGET=OK"             || { echo "::warning::expected WGET=OK"; }
+          echo "$out" | grep -qx "APT=FAIL"           || { echo "::warning::expected APT=FAIL (apt reads no CA env var)"; }
+          echo "$out" | grep -qx "YUM=FAIL"           || { echo "::warning::expected YUM=FAIL"; }
           echo "$out" | grep -qx "GIT=FAIL"            || { echo "::error::expected GIT=FAIL"; exit 1; }
           echo "$out" | grep -qx "PYTHON_URLLIB=OK"    || { echo "::error::expected PYTHON_URLLIB=OK"; exit 1; }
           echo "$out" | grep -qx "PIP=FAIL"            || { echo "::error::expected PIP=FAIL (stock pip, truststore not enabled)"; exit 1; }
@@ -299,6 +331,8 @@ jobs:
           echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
           echo "$out" | grep -qx "CURL=OK"             || { echo "::error::expected CURL=OK"; exit 1; }
           echo "$out" | grep -qx "WGET=OK"             || { echo "::warning::expected WGET=OK"; }
+          echo "$out" | grep -qx "APT=FAIL"           || { echo "::warning::expected APT=FAIL (apt reads no CA env var)"; }
+          echo "$out" | grep -qx "YUM=FAIL"           || { echo "::warning::expected YUM=FAIL"; }
           echo "$out" | grep -qx "GIT=FAIL"            || { echo "::error::expected GIT=FAIL"; exit 1; }
           echo "$out" | grep -qx "PYTHON_URLLIB=OK"    || { echo "::error::expected PYTHON_URLLIB=OK"; exit 1; }
           echo "$out" | grep -qx "PIP=FAIL"            || { echo "::error::expected PIP=FAIL (stock pip, see Case 01)"; exit 1; }
@@ -321,6 +355,8 @@ jobs:
           echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
           echo "$out" | grep -qx "CURL=OK"             || { echo "::error::expected CURL=OK"; exit 1; }
           echo "$out" | grep -qx "WGET=FAIL"           || { echo "::warning::expected WGET=FAIL (CURL_CA_BUNDLE is curl-specific, wget does not read it)"; }
+          echo "$out" | grep -qx "APT=FAIL"           || { echo "::warning::expected APT=FAIL (apt reads no CA env var)"; }
+          echo "$out" | grep -qx "YUM=FAIL"           || { echo "::warning::expected YUM=FAIL (libcurl reads CURL_CA_BUNDLE, yum may ignore)"; }
           echo "$out" | grep -qx "GIT=FAIL"            || { echo "::error::expected GIT=FAIL"; exit 1; }
           echo "$out" | grep -qx "PYTHON_URLLIB=FAIL"  || { echo "::error::expected PYTHON_URLLIB=FAIL"; exit 1; }
           echo "$out" | grep -qx "PIP=OK"              || { echo "::error::expected PIP=OK (requests-library CURL_CA_BUNDLE fallback)"; exit 1; }
@@ -336,6 +372,8 @@ jobs:
           echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
           echo "$out" | grep -qx "CURL=FAIL"           || { echo "::error::expected CURL=FAIL"; exit 1; }
           echo "$out" | grep -qx "WGET=FAIL"           || { echo "::warning::expected WGET=FAIL"; }
+          echo "$out" | grep -qx "APT=FAIL"           || { echo "::warning::expected APT=FAIL (apt reads no CA env var)"; }
+          echo "$out" | grep -qx "YUM=FAIL"           || { echo "::warning::expected YUM=FAIL"; }
           echo "$out" | grep -qx "GIT=OK"              || { echo "::error::expected GIT=OK"; exit 1; }
           echo "$out" | grep -qx "PYTHON_URLLIB=FAIL"  || { echo "::error::expected PYTHON_URLLIB=FAIL"; exit 1; }
           echo "$out" | grep -qx "PIP=FAIL"            || { echo "::error::expected PIP=FAIL"; exit 1; }
@@ -352,6 +390,8 @@ jobs:
           echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
           echo "$out" | grep -qx "CURL=FAIL"           || { echo "::error::expected CURL=FAIL"; exit 1; }
           echo "$out" | grep -qx "WGET=FAIL"           || { echo "::warning::expected WGET=FAIL"; }
+          echo "$out" | grep -qx "APT=FAIL"           || { echo "::warning::expected APT=FAIL (apt reads no CA env var)"; }
+          echo "$out" | grep -qx "YUM=FAIL"           || { echo "::warning::expected YUM=FAIL"; }
           echo "$out" | grep -qx "GIT=FAIL"            || { echo "::error::expected GIT=FAIL"; exit 1; }
           echo "$out" | grep -qx "PYTHON_URLLIB=FAIL"  || { echo "::error::expected PYTHON_URLLIB=FAIL"; exit 1; }
           echo "$out" | grep -qx "PIP=OK"              || { echo "::error::expected PIP=OK"; exit 1; }
@@ -369,6 +409,8 @@ jobs:
           echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
           echo "$out" | grep -qx "CURL=FAIL"           || { echo "::error::expected CURL=FAIL"; exit 1; }
           echo "$out" | grep -qx "WGET=FAIL"           || { echo "::warning::expected WGET=FAIL"; }
+          echo "$out" | grep -qx "APT=FAIL"           || { echo "::warning::expected APT=FAIL (apt reads no CA env var)"; }
+          echo "$out" | grep -qx "YUM=FAIL"           || { echo "::warning::expected YUM=FAIL"; }
           echo "$out" | grep -qx "GIT=FAIL"            || { echo "::error::expected GIT=FAIL"; exit 1; }
           echo "$out" | grep -qx "PYTHON_URLLIB=FAIL"  || { echo "::error::expected PYTHON_URLLIB=FAIL"; exit 1; }
           echo "$out" | grep -qx "PIP=OK"              || { echo "::error::expected PIP=OK"; exit 1; }
@@ -389,6 +431,8 @@ jobs:
           echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
           echo "$out" | grep -qx "CURL=FAIL"           || { echo "::error::expected CURL=FAIL (OpenSSL, not GnuTLS)"; exit 1; }
           echo "$out" | grep -qx "WGET=OK"             || { echo "::warning::expected WGET=OK (GnuTLS-compiled wget reads GNUTLS_CA_FILE, but only present on openEuler)"; }
+          echo "$out" | grep -qx "APT=FAIL"           || { echo "::warning::expected APT=FAIL (apt reads no CA env var)"; }
+          echo "$out" | grep -qx "YUM=FAIL"           || { echo "::warning::expected YUM=FAIL"; }
           echo "$out" | grep -qx "GIT=FAIL"            || { echo "::error::expected GIT=FAIL"; exit 1; }
           echo "$out" | grep -qx "PYTHON_URLLIB=FAIL"  || { echo "::error::expected PYTHON_URLLIB=FAIL"; exit 1; }
           echo "$out" | grep -qx "PIP=FAIL"            || { echo "::error::expected PIP=FAIL"; exit 1; }
@@ -410,6 +454,8 @@ jobs:
           echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
           echo "$out" | grep -qx "CURL=FAIL"           || { echo "::error::expected CURL=FAIL (OpenSSL, not GnuTLS)"; exit 1; }
           echo "$out" | grep -qx "WGET=OK"             || { echo "::warning::expected WGET=OK (GnuTLS-compiled wget reads GNUTLS_CA_DIR, but only present on openEuler)"; }
+          echo "$out" | grep -qx "APT=FAIL"           || { echo "::warning::expected APT=FAIL (apt reads no CA env var)"; }
+          echo "$out" | grep -qx "YUM=FAIL"           || { echo "::warning::expected YUM=FAIL"; }
           echo "$out" | grep -qx "GIT=FAIL"            || { echo "::error::expected GIT=FAIL"; exit 1; }
           echo "$out" | grep -qx "PYTHON_URLLIB=FAIL"  || { echo "::error::expected PYTHON_URLLIB=FAIL"; exit 1; }
           echo "$out" | grep -qx "PIP=FAIL"            || { echo "::error::expected PIP=FAIL"; exit 1; }
@@ -437,6 +483,8 @@ jobs:
           echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
           echo "$out" | grep -qx "CURL=OK"             || { echo "::error::expected CURL=OK"; exit 1; }
           echo "$out" | grep -qx "WGET=OK"             || { echo "::warning::expected WGET=OK"; }
+          echo "$out" | grep -qx "APT=OK"           || { echo "::warning::expected APT=OK (apt reads no CA env var)"; }
+          echo "$out" | grep -qx "YUM=OK"           || { echo "::warning::expected YUM=OK"; }
           echo "$out" | grep -qx "GIT=OK"              || { echo "::error::expected GIT=OK"; exit 1; }
           echo "$out" | grep -qx "PYTHON_URLLIB=OK"    || { echo "::error::expected PYTHON_URLLIB=OK"; exit 1; }
           echo "$out" | grep -qx "PIP=OK"              || { echo "::error::expected PIP=OK"; exit 1; }
