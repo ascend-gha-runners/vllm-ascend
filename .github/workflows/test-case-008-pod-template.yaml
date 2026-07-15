@@ -88,6 +88,7 @@ jobs:
         timeout-minutes: 5
         run: |
           cat /etc/squid-ca/squid-ca.pem >> /etc/pki/tls/certs/ca-bundle.crt 2>/dev/null || true
+          command -v update-ca-trust >/dev/null 2>&1 && update-ca-trust extract 2>/dev/null || true
           yum install -y git curl wget python3 python3-pip
 
       # ── Main test: run all tool probes, expect everything = OK ──
