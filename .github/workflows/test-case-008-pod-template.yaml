@@ -87,9 +87,6 @@ jobs:
         if: matrix.os == 'openeuler'
         timeout-minutes: 5
         run: |
-          mkdir -p /etc/pki/ca-trust/source/anchors
-          cp /etc/squid-ca/squid-ca.pem /etc/pki/ca-trust/source/anchors/squid-ca.crt
-          update-ca-trust extract
           yum install -y git curl wget python3 python3-pip
 
       # ── Main test: run all tool probes, expect everything = OK ──
