@@ -79,7 +79,7 @@ jobs:
         if: matrix.os == 'ubuntu'
         run: |
           apt-get update -y
-          apt-get install -y --no-install-recommends git curl wget ca-certificates python3 python3-pip python3-venv
+          apt-get install -y --no-install-recommends git curl wget python3 python3-pip python3-venv
 
       - name: Install prerequisites (openeuler)
         if: matrix.os == 'openeuler'
@@ -97,7 +97,7 @@ jobs:
           #!/bin/sh
           set -u
           TARGET_URL="https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/"
-          GIT_TARGET="https://gitcode.com/octocat/Hello-World"
+          GIT_TARGET="https://gitcode.com/ccijunk/hello-world.git"
           WORKDIR="$(mktemp -d /tmp/or2ac4.XXXXXX)"
 
           PIP_EXTRA_FLAGS=""
