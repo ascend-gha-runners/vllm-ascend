@@ -217,7 +217,7 @@ jobs:
           echo "$out"
           echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
           echo "$out" | grep -qx "CURL=FAIL"           || { echo "::error::expected CURL=FAIL"; exit 1; }
-          echo "$out" | grep -qx "WGET=FAIL"           || { echo "::warning::expected WGET=FAIL" }
+          echo "$out" | grep -qx "WGET=FAIL"           || { echo "::warning::expected WGET=FAIL"; }
           echo "$out" | grep -qx "GIT=FAIL"            || { echo "::error::expected GIT=FAIL"; exit 1; }
           echo "$out" | grep -qx "PYTHON_URLLIB=FAIL"  || { echo "::error::expected PYTHON_URLLIB=FAIL"; exit 1; }
           echo "$out" | grep -qx "PIP=FAIL"            || { echo "::error::expected PIP=FAIL"; exit 1; }
@@ -241,7 +241,7 @@ jobs:
           # 裸 requests 只认内置 certifi，不看这个变量 -> FAIL
           echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
           echo "$out" | grep -qx "CURL=OK"             || { echo "::error::expected CURL=OK"; exit 1; }
-          echo "$out" | grep -qx "WGET=OK"             || { echo "::warning::expected WGET=OK" }
+          echo "$out" | grep -qx "WGET=OK"             || { echo "::warning::expected WGET=OK"; }
           echo "$out" | grep -qx "GIT=FAIL"            || { echo "::error::expected GIT=FAIL"; exit 1; }
           echo "$out" | grep -qx "PYTHON_URLLIB=OK"    || { echo "::error::expected PYTHON_URLLIB=OK"; exit 1; }
           echo "$out" | grep -qx "PIP=FAIL"            || { echo "::error::expected PIP=FAIL (stock pip, truststore not enabled)"; exit 1; }
@@ -298,7 +298,7 @@ jobs:
           # 关于版本相关性的记录,这里不重复跑一遍升级测试)。
           echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
           echo "$out" | grep -qx "CURL=OK"             || { echo "::error::expected CURL=OK"; exit 1; }
-          echo "$out" | grep -qx "WGET=OK"             || { echo "::warning::expected WGET=OK" }
+          echo "$out" | grep -qx "WGET=OK"             || { echo "::warning::expected WGET=OK"; }
           echo "$out" | grep -qx "GIT=FAIL"            || { echo "::error::expected GIT=FAIL"; exit 1; }
           echo "$out" | grep -qx "PYTHON_URLLIB=OK"    || { echo "::error::expected PYTHON_URLLIB=OK"; exit 1; }
           echo "$out" | grep -qx "PIP=FAIL"            || { echo "::error::expected PIP=FAIL (stock pip, see Case 01)"; exit 1; }
@@ -320,7 +320,7 @@ jobs:
           # git / python3 urllib（走 stdlib ssl，不经过 requests 库）不认。
           echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
           echo "$out" | grep -qx "CURL=OK"             || { echo "::error::expected CURL=OK"; exit 1; }
-          echo "$out" | grep -qx "WGET=FAIL"           || { echo "::warning::expected WGET=FAIL (CURL_CA_BUNDLE is curl-specific, wget does not read it)" }
+          echo "$out" | grep -qx "WGET=FAIL"           || { echo "::warning::expected WGET=FAIL (CURL_CA_BUNDLE is curl-specific, wget does not read it)"; }
           echo "$out" | grep -qx "GIT=FAIL"            || { echo "::error::expected GIT=FAIL"; exit 1; }
           echo "$out" | grep -qx "PYTHON_URLLIB=FAIL"  || { echo "::error::expected PYTHON_URLLIB=FAIL"; exit 1; }
           echo "$out" | grep -qx "PIP=OK"              || { echo "::error::expected PIP=OK (requests-library CURL_CA_BUNDLE fallback)"; exit 1; }
@@ -335,7 +335,7 @@ jobs:
           # git-CLI 专属变量，其他客户端都不认
           echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
           echo "$out" | grep -qx "CURL=FAIL"           || { echo "::error::expected CURL=FAIL"; exit 1; }
-          echo "$out" | grep -qx "WGET=FAIL"           || { echo "::warning::expected WGET=FAIL" }
+          echo "$out" | grep -qx "WGET=FAIL"           || { echo "::warning::expected WGET=FAIL"; }
           echo "$out" | grep -qx "GIT=OK"              || { echo "::error::expected GIT=OK"; exit 1; }
           echo "$out" | grep -qx "PYTHON_URLLIB=FAIL"  || { echo "::error::expected PYTHON_URLLIB=FAIL"; exit 1; }
           echo "$out" | grep -qx "PIP=FAIL"            || { echo "::error::expected PIP=FAIL"; exit 1; }
@@ -351,7 +351,7 @@ jobs:
           # 裸 requests 调用同样认——这个变量正好补上了裸 requests 的信任盲区
           echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
           echo "$out" | grep -qx "CURL=FAIL"           || { echo "::error::expected CURL=FAIL"; exit 1; }
-          echo "$out" | grep -qx "WGET=FAIL"           || { echo "::warning::expected WGET=FAIL" }
+          echo "$out" | grep -qx "WGET=FAIL"           || { echo "::warning::expected WGET=FAIL"; }
           echo "$out" | grep -qx "GIT=FAIL"            || { echo "::error::expected GIT=FAIL"; exit 1; }
           echo "$out" | grep -qx "PYTHON_URLLIB=FAIL"  || { echo "::error::expected PYTHON_URLLIB=FAIL"; exit 1; }
           echo "$out" | grep -qx "PIP=OK"              || { echo "::error::expected PIP=OK"; exit 1; }
@@ -368,7 +368,7 @@ jobs:
           # requests 库自己去读环境变量）
           echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
           echo "$out" | grep -qx "CURL=FAIL"           || { echo "::error::expected CURL=FAIL"; exit 1; }
-          echo "$out" | grep -qx "WGET=FAIL"           || { echo "::warning::expected WGET=FAIL" }
+          echo "$out" | grep -qx "WGET=FAIL"           || { echo "::warning::expected WGET=FAIL"; }
           echo "$out" | grep -qx "GIT=FAIL"            || { echo "::error::expected GIT=FAIL"; exit 1; }
           echo "$out" | grep -qx "PYTHON_URLLIB=FAIL"  || { echo "::error::expected PYTHON_URLLIB=FAIL"; exit 1; }
           echo "$out" | grep -qx "PIP=OK"              || { echo "::error::expected PIP=OK"; exit 1; }
@@ -395,7 +395,7 @@ jobs:
           # 它只认内置 certifi，系统信任重建救不了它，这是这张表里唯一的盲区
           echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
           echo "$out" | grep -qx "CURL=OK"             || { echo "::error::expected CURL=OK"; exit 1; }
-          echo "$out" | grep -qx "WGET=OK"             || { echo "::warning::expected WGET=OK" }
+          echo "$out" | grep -qx "WGET=OK"             || { echo "::warning::expected WGET=OK"; }
           echo "$out" | grep -qx "GIT=OK"              || { echo "::error::expected GIT=OK"; exit 1; }
           echo "$out" | grep -qx "PYTHON_URLLIB=OK"    || { echo "::error::expected PYTHON_URLLIB=OK"; exit 1; }
           echo "$out" | grep -qx "PIP=OK"              || { echo "::error::expected PIP=OK"; exit 1; }
