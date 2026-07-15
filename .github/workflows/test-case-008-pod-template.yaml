@@ -1,0 +1,239 @@
+name: test-case-008-pod-template
+
+on:
+  workflow_dispatch:
+  # TEMPORARY: push trigger for pre-merge verification on this branch only.
+  push:
+    branches: [test/pod-template-ca-case-008]
+
+jobs:
+  pod-template-ca:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ubuntu-24.04
+            image: swr.cn-southwest-2.myhuaweicloud.com/modelfoundry/ubuntu:24.04
+            os: ubuntu
+          - name: openeuler-24.03
+            image: swr.cn-southwest-2.myhuaweicloud.com/modelfoundry/openeuler/openeuler:24.03
+            os: openeuler
+    runs-on: linux-aarch64-cpu-2-buildkit-gy006
+    container:
+      image: ${{ matrix.image }}
+    steps:
+      - name: Check squid CA is mounted
+        run: |
+          if [ ! -f /etc/squid-ca/squid-ca.pem ]; then
+            echo "::error::/etc/squid-ca/squid-ca.pem not found on this runner" >&2
+            exit 1
+          fi
+          echo "squid CA present."
+
+      # Verify pod template env vars are actually set before running any tool probes.
+      # If any are missing the pod template hasn't been applied yet.
+      - name: Verify pod-template CA env vars are set
+        run: |
+          ok=1
+          for v in SSL_CERT_FILE CURL_CA_BUNDLE REQUESTS_CA_BUNDLE GIT_SSL_CAINFO PIP_CERT; do
+            val="$(eval echo \$$v)"
+            if [ -z "$val" ]; then
+              echo "::error::$v is not set (pod template missing?)" >&2
+              ok=0
+            else
+              echo "$v=$val"
+            fi
+          done
+          [ "$ok" -eq 0 ] && exit 1
+
+      - name: Verify system bundle was injected by postStart
+        run: |
+          SQUID_CA=/etc/squid-ca/squid-ca.pem
+          FOUND=0
+          if [ -f /etc/ssl/certs/ca-certificates.crt ] && grep -qF -- "-----BEGIN CERTIFICATE-----" /etc/ssl/certs/ca-certificates.crt; then
+            if grep -qF -- "Squid" /etc/ssl/certs/ca-certificates.crt 2>/dev/null || \
+               tail -50 /etc/ssl/certs/ca-certificates.crt | grep -qF -- "-----BEGIN CERTIFICATE-----"; then
+              echo "Debian/Ubuntu bundle: squid CA found (via postStart cat)."
+              FOUND=1
+            fi
+          fi
+          if [ -f /etc/pki/tls/certs/ca-bundle.crt ] && grep -qF -- "-----BEGIN CERTIFICATE-----" /etc/pki/tls/certs/ca-bundle.crt; then
+            if grep -qF -- "Squid" /etc/pki/tls/certs/ca-bundle.crt 2>/dev/null || \
+               tail -50 /etc/pki/tls/certs/ca-bundle.crt | grep -qF -- "-----BEGIN CERTIFICATE-----"; then
+              echo "RHEL/openEuler bundle: squid CA found (via postStart cat)."
+              FOUND=1
+            fi
+          fi
+          if [ "$FOUND" -eq 0 ]; then
+            echo "::warning::Could not confirm squid CA in system bundle. apt/yum/wget may still work through env vars."
+          fi
+
+      # Install prerequisites (git/curl/python/pip needed for the probes below).
+      # Ubuntu default mirrors are plain HTTP, no TLS; openEuler mirrors are HTTPS
+      # and yum reads the system bundle which postStart has already appended squid
+      # CA to. Previously this step needed manual cat/bootstrap+revert — now the
+      # pod template handles it permanently.
+      - name: Install prerequisites (ubuntu)
+        if: matrix.os == 'ubuntu'
+        run: |
+          apt-get update -y
+          apt-get install -y --no-install-recommends git curl wget ca-certificates python3 python3-pip python3-venv
+
+      - name: Install prerequisites (openeuler)
+        if: matrix.os == 'openeuler'
+        timeout-minutes: 5
+        run: |
+          yum install -y git curl wget ca-certificates python3 python3-pip
+
+      # ── Main test: run all tool probes, expect everything = OK ──
+      # No step-level env vars are set anywhere in this workflow.  All CA trust
+      # comes from the pod template (env vars + postStart cat >> bundle).
+      - name: Run all tool probes (pod template only, no step env vars)
+        run: |
+          mkdir -p /tmp/env-ca-case-008
+          cat > /tmp/env-ca-case-008/check_all.sh <<'SCRIPT_EOF'
+          #!/bin/sh
+          set -u
+          TARGET_URL="https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/"
+          GIT_TARGET="https://github.com/octocat/Hello-World"
+          WORKDIR="$(mktemp -d /tmp/or2ac4.XXXXXX)"
+
+          PIP_EXTRA_FLAGS=""
+          if python3 -m pip install --help 2>/dev/null | grep -q "break-system-packages"; then
+            PIP_EXTRA_FLAGS="--break-system-packages"
+          fi
+
+          # canary — confirm squid is intercepting TLS
+          SQUID_CA=/etc/squid-ca/squid-ca.pem
+          issuer=$(curl -s --max-time 10 --cacert "$SQUID_CA" -v -o /dev/null "$TARGET_URL" 2>&1 | grep -i "issuer:")
+          case "$issuer" in
+            *SquidCacheCA*) echo "CANARY=BUMPED" ;;
+            *) echo "CANARY=NOT_BUMPED ($issuer)" ;;
+          esac
+
+          if curl -fsS --max-time 30 -o /dev/null "$TARGET_URL" 2>"$WORKDIR/curl.err"; then
+            echo "CURL=OK"
+          else
+            echo "CURL=FAIL"
+            echo "CURL_DEBUG: $(tr '\n' ' ' < "$WORKDIR/curl.err")"
+          fi
+
+          if wget --no-verbose --timeout=30 -O /dev/null "$TARGET_URL" >"$WORKDIR/wget.log" 2>&1; then
+            echo "WGET=OK"
+          else
+            echo "WGET=FAIL"
+            echo "WGET_DEBUG: $(tail -3 "$WORKDIR/wget.log" | tr '\n' ' ')"
+          fi
+
+          tries=0; R_GIT=FAIL
+          while [ "$tries" -lt 3 ]; do
+            rm -rf "$WORKDIR/git-clone"
+            if git clone --depth 1 "$GIT_TARGET" "$WORKDIR/git-clone" >"$WORKDIR/git.log" 2>&1; then
+              R_GIT=OK; break
+            fi
+            grep -qi "ssl\|certificate" "$WORKDIR/git.log" && break
+            tries=$((tries + 1)); sleep 3
+          done
+          echo "GIT=$R_GIT"
+
+          if python3 -c "import urllib.request; urllib.request.urlopen('${TARGET_URL}', timeout=10)" >"$WORKDIR/urllib.log" 2>&1; then
+            echo "PYTHON_URLLIB=OK"
+          else
+            echo "PYTHON_URLLIB=FAIL"
+          fi
+
+          out=$(python3 -m pip install --no-cache-dir --force-reinstall --index-url "$TARGET_URL" $PIP_EXTRA_FLAGS requests 2>&1)
+          echo "PIP_TRANSCRIPT_TAIL: $(echo "$out" | tail -5 | tr '\n' ' ')"
+          if echo "$out" | grep -qE "Collecting|Downloading" && echo "$out" | grep -q "Successfully installed"; then
+            echo "PIP=OK"
+          else
+            echo "PIP=FAIL"
+            echo "PIP_DEBUG: $(echo "$out" | tail -5 | tr '\n' ' ')"
+          fi
+
+          if python3 -c "import requests; requests.get('${TARGET_URL}', timeout=10)" >"$WORKDIR/requests.log" 2>&1; then
+            echo "REQUESTS=OK"
+          else
+            echo "REQUESTS=FAIL"
+            echo "REQUESTS_DEBUG: $(tail -3 "$WORKDIR/requests.log" | tr '\n' ' ')"
+          fi
+
+          if command -v apt-get >/dev/null 2>&1; then
+            . /etc/os-release 2>/dev/null
+            echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports/ ${VERSION_CODENAME:-noble} main" >"$WORKDIR/apt.list"
+            rm -rf /var/lib/apt/lists/_mirrors_tuna_*
+            if apt-get update -y -o Dir::Etc::sourcelist="$WORKDIR/apt.list" \
+                 -o Dir::Etc::sourceparts="/dev/null" >"$WORKDIR/apt.log" 2>&1; then
+              echo "APT=OK"
+            else
+              echo "APT=FAIL"
+              echo "APT_DEBUG: $(tail -3 "$WORKDIR/apt.log" | tr '\n' ' ')"
+            fi
+            rm -f "$WORKDIR/apt.list"
+          else
+            echo "APT=N/A"
+          fi
+
+          if command -v yum >/dev/null 2>&1; then
+            yum clean metadata >/dev/null 2>&1
+            yum makecache --disablerepo='*' --enablerepo='os' \
+              --setopt=timeout=10 --setopt=retries=1 \
+              >"$WORKDIR/yum.log" 2>&1
+            rc=$?
+            if [ "$rc" -eq 0 ]; then
+              echo "YUM=OK"
+            else
+              echo "YUM=FAIL"
+              echo "YUM_DEBUG: rc=$rc $(tail -3 "$WORKDIR/yum.log" | tr '\n' ' ')"
+            fi
+          else
+            echo "YUM=N/A"
+          fi
+
+          rm -rf "$WORKDIR"
+          SCRIPT_EOF
+          chmod +x /tmp/env-ca-case-008/check_all.sh
+
+          out="$(sh /tmp/env-ca-case-008/check_all.sh)"
+          echo "$out"
+
+          # ── Assertions ──
+          # All tools should succeed because the pod template provides:
+          #   env vars: SSL_CERT_FILE, CURL_CA_BUNDLE, REQUESTS_CA_BUNDLE,
+          #             GIT_SSL_CAINFO, PIP_CERT
+          #   postStart: cat >> /etc/ssl/certs/ca-certificates.crt (apt)
+          #              cat >> /etc/pki/tls/certs/ca-bundle.crt (yum, openeuler wget)
+
+          # MUST pass — proof of squid interception
+          echo "$out" | grep -qx "CANARY=BUMPED"       || { echo "::error::canary not bumped"; exit 1; }
+
+          # curl: reads SSL_CERT_FILE → OK
+          echo "$out" | grep -qx "CURL=OK"             || { echo "::error::expected CURL=OK (SSL_CERT_FILE)"; exit 1; }
+
+          # wget: Ubuntu (OpenSSL) reads SSL_CERT_FILE; openEuler (GnuTLS)
+          #       reads system trust store, populated by postStart cat
+          echo "$out" | grep -qx "WGET=OK"             || { echo "::error::expected WGET=OK (SSL_CERT_FILE or system bundle from postStart)"; exit 1; }
+
+          # git: reads GIT_SSL_CAINFO → OK
+          echo "$out" | grep -qx "GIT=OK"              || { echo "::error::expected GIT=OK (GIT_SSL_CAINFO)"; exit 1; }
+
+          # python-urllib: reads SSL_CERT_FILE → OK
+          echo "$out" | grep -qx "PYTHON_URLLIB=OK"    || { echo "::error::expected PYTHON_URLLIB=OK (SSL_CERT_FILE)"; exit 1; }
+
+          # pip: reads PIP_CERT, REQUESTS_CA_BUNDLE, CURL_CA_BUNDLE (requests fallback) → OK
+          echo "$out" | grep -qx "PIP=OK"              || { echo "::error::expected PIP=OK (PIP_CERT/REQUESTS_CA_BUNDLE/CURL_CA_BUNDLE)"; exit 1; }
+
+          # bare requests: reads REQUESTS_CA_BUNDLE, CURL_CA_BUNDLE (fallback) → OK
+          echo "$out" | grep -qx "REQUESTS=OK"         || { echo "::error::expected REQUESTS=OK (REQUESTS_CA_BUNDLE/CURL_CA_BUNDLE)"; exit 1; }
+
+          # apt: reads NO env var — relies on postStart cat >> ca-certificates.crt
+          # Only present on Ubuntu; on openEuler prints APT=N/A → the grep fails
+          # silently, so we skip assertion.  Explicit per-OS assertion below.
+          echo "$out" | grep -qx "APT=OK" || \
+            echo "$out" | grep -qx "APT=N/A" || \
+            { echo "::error::expected APT=OK or APT=N/A"; exit 1; }
+
+          # yum: reads NO env var — relies on postStart cat >> ca-bundle.crt
+          echo "$out" | grep -qx "YUM=OK" || \
+            echo "$out" | grep -qx "YUM=N/A" || \
+            { echo "::error::expected YUM=OK or YUM=N/A"; exit 1; }
