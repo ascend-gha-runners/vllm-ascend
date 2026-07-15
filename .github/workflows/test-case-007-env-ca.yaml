@@ -121,14 +121,10 @@ jobs:
           fi
 
           # --- apt probe (HTTPS source, isolated from default HTTP sources) ---
-          # Clear apt's list cache first — otherwise apt-get update may reuse
-          # metadata cached by the bootstrap step (which ran with squid CA
-          # temporarily trusted), producing false OKs in cases where no CA
-          # trust is configured.
           if command -v apt-get >/dev/null 2>&1; then
             . /etc/os-release 2>/dev/null
             echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports/ ${VERSION_CODENAME:-noble} main" >"$WORKDIR/apt.list"
-            rm -rf /var/lib/apt/lists/_mirrors_tuna_*
+            rm -rf /var/lib/apt/lists/_mirrors_tuna_*   # flush bootstrap cache
             if apt-get update -y -o Dir::Etc::sourcelist="$WORKDIR/apt.list" \
                  -o Dir::Etc::sourceparts="/dev/null" >"$WORKDIR/apt.log" 2>&1; then
               echo "APT=OK"
@@ -141,16 +137,18 @@ jobs:
             echo "APT=N/A"
           fi
 
-          # --- yum probe (existing HTTPS repos through squid ssl_bump) ---
-          # yum repolist --refresh may serve stale metadata; yum makecache
-          # forces a full re-download through squid's SSL-bump path.
+          # --- yum probe (force refresh, single repo, timeout controlled) ---
           if command -v yum >/dev/null 2>&1; then
             yum clean metadata >/dev/null 2>&1
-            if yum makecache >"$WORKDIR/yum.log" 2>&1; then
+            yum makecache --disablerepo='*' --enablerepo='os' \
+              --setopt=timeout=10 --setopt=retries=1 \
+              >"$WORKDIR/yum.log" 2>&1
+            rc=$?
+            if [ "$rc" -eq 0 ]; then
               echo "YUM=OK"
             else
               echo "YUM=FAIL"
-              echo "YUM_DEBUG: $(tail -3 "$WORKDIR/yum.log" | tr '\n' ' ')"
+              echo "YUM_DEBUG: rc=$rc $(tail -3 "$WORKDIR/yum.log" | tr '\n' ' ')"
             fi
           else
             echo "YUM=N/A"
