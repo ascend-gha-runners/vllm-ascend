@@ -68,6 +68,8 @@ jobs:
         run: |
           set -e
           echo "Buildkitd target: ${{ matrix.name }} ($BUILDKITD_ADDR)"
+          export NO_PROXY="localhost,127.0.0.1,buildkitd-service.buildkitd,buildkitd-amd64-service.buildkitd,buildkitd-arm64-service.buildkitd,.svc.cluster.local,.cluster.local"
+          export no_proxy="${NO_PROXY}"
           buildctl \
             --addr "${BUILDKITD_ADDR}" \
             --tlscacert "${DOCKER_CONFIG}/ca.pem" \
