@@ -87,7 +87,7 @@ jobs:
         run: |
           set -e
           SQUID_ADDR=squid-cache.squid.svc.cluster.local:3128
-          export NO_PROXY="localhost,127.0.0.1,buildkitd-service.buildkitd,.svc.cluster.local,.cluster.local"
+          export NO_PROXY="localhost,127.0.0.1,buildkitd-service.buildkitd,buildkitd-amd64-service.buildkitd,buildkitd-arm64-service.buildkitd,.svc.cluster.local,.cluster.local"
           export no_proxy="${NO_PROXY}"
 
           buildctl \
@@ -112,7 +112,7 @@ jobs:
         run: |
           set -e
           SQUID_ADDR=squid-cache.squid.svc.cluster.local:3128
-          export NO_PROXY="localhost,127.0.0.1,buildkitd-service.buildkitd,.svc.cluster.local,.cluster.local"
+          export NO_PROXY="localhost,127.0.0.1,buildkitd-service.buildkitd,buildkitd-amd64-service.buildkitd,buildkitd-arm64-service.buildkitd,.svc.cluster.local,.cluster.local"
           export no_proxy="${NO_PROXY}"
 
           buildctl \
