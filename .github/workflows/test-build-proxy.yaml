@@ -25,7 +25,7 @@ jobs:
           RUN echo "=== no build-arg ===" && \
               echo "HTTP_PROXY=[${HTTP_PROXY}]" && \
               echo "HTTPS_PROXY=[${HTTPS_PROXY}]" && \
-              echo "ENV_ABSENT: $( [ -z \"${HTTP_PROXY}\" ] && echo PASS || echo FAIL )"
+              [ -z "${HTTP_PROXY}" ] && echo "ENV_ABSENT: PASS" || echo "ENV_ABSENT: FAIL"
           DOCKERFILE
 
           # ARG declared, build-arg passed — expect env vars present
@@ -37,7 +37,7 @@ jobs:
           RUN echo "=== with build-arg ===" && \
               echo "HTTP_PROXY=[${HTTP_PROXY}]" && \
               echo "HTTPS_PROXY=[${HTTPS_PROXY}]" && \
-              echo "ENV_PRESENT: $( [ -n \"${HTTP_PROXY}\" ] && echo PASS || echo FAIL )"
+              [ -n "${HTTP_PROXY}" ] && echo "ENV_PRESENT: PASS" || echo "ENV_PRESENT: FAIL"
           DOCKERFILE
 
           # ARG + secret: full end-to-end network test via squid
