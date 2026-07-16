@@ -51,13 +51,7 @@ jobs:
                      HTTPS_PROXY="${HTTPS_PROXY}" \
                      NO_PROXY="${NO_PROXY}" && \
               echo "HTTP_PROXY=${HTTP_PROXY}" && \
-              python3 -c "
-          import os, urllib.request, ssl
-          ctx = ssl.create_default_context(cafile='/tmp/squid-ca.pem')
-          r = urllib.request.urlopen('https://pypi.org/simple/requests/', context=ctx, timeout=30)
-          print('Status:', r.status)
-          print('E2E=OK')
-          " && \
+              python3 -c 'import os, urllib.request, ssl; ctx = ssl.create_default_context(cafile="/tmp/squid-ca.pem"); r = urllib.request.urlopen("https://pypi.org/simple/requests/", context=ctx, timeout=30); print("Status:", r.status); print("E2E=OK")' && \
               echo "proxy-test-passed" > /tmp/proxy-probe
           DOCKERFILE
 
