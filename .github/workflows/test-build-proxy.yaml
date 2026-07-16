@@ -2,6 +2,8 @@ name: test-build-proxy
 
 on:
   workflow_dispatch:
+  push:
+    branches: [test/build-proxy]
 
 env:
   BUILDKITD_ADDR: tcp://buildkitd-service.buildkitd:1234
