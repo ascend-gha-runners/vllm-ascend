@@ -1,0 +1,129 @@
+name: test-build-proxy
+
+on:
+  workflow_dispatch:
+
+env:
+  BUILDKITD_ADDR: tcp://buildkitd-service.buildkitd:1234
+
+jobs:
+  proxy-test:
+    runs-on: linux-aarch64-cpu-2-buildkit-gy006
+    container:
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/vllm-ascend/act-environments-ubuntu:act-22.04
+    steps:
+      # ── Setup: prepare 3 Dockerfiles ──
+      - name: Setup context
+        run: |
+          mkdir -p /tmp/ctx-noarg /tmp/ctx-witharg /tmp/ctx-proxy
+
+          # No ARG declared — expect env vars to be empty
+          cat > /tmp/ctx-noarg/Dockerfile <<'DOCKERFILE'
+          FROM quay.io/ascend/cann:9.0.0-910b-openeuler24.03-py3.12
+          RUN echo "=== no build-arg ===" && \
+              echo "HTTP_PROXY=[${HTTP_PROXY}]" && \
+              echo "HTTPS_PROXY=[${HTTPS_PROXY}]" && \
+              echo "ENV_ABSENT: $( [ -z \"${HTTP_PROXY}\" ] && echo PASS || echo FAIL )"
+          DOCKERFILE
+
+          # ARG declared, build-arg passed — expect env vars present
+          cat > /tmp/ctx-witharg/Dockerfile <<'DOCKERFILE'
+          FROM quay.io/ascend/cann:9.0.0-910b-openeuler24.03-py3.12
+          ARG HTTP_PROXY
+          ARG HTTPS_PROXY
+          ARG NO_PROXY
+          RUN echo "=== with build-arg ===" && \
+              echo "HTTP_PROXY=[${HTTP_PROXY}]" && \
+              echo "HTTPS_PROXY=[${HTTPS_PROXY}]" && \
+              echo "ENV_PRESENT: $( [ -n \"${HTTP_PROXY}\" ] && echo PASS || echo FAIL )"
+          DOCKERFILE
+
+          # ARG + secret: full end-to-end network test via squid
+          cat > /tmp/ctx-proxy/Dockerfile <<'DOCKERFILE'
+          FROM quay.io/ascend/cann:9.0.0-910b-openeuler24.03-py3.12
+          ARG HTTP_PROXY
+          ARG HTTPS_PROXY
+          ARG NO_PROXY
+          RUN --mount=type=secret,id=squid-ca,dst=/tmp/squid-ca.pem \
+              export HTTP_PROXY="${HTTP_PROXY}" \
+                     HTTPS_PROXY="${HTTPS_PROXY}" \
+                     NO_PROXY="${NO_PROXY}" && \
+              echo "HTTP_PROXY=${HTTP_PROXY}" && \
+              python3 -c "
+          import os, urllib.request, ssl
+          ctx = ssl.create_default_context(cafile='/tmp/squid-ca.pem')
+          r = urllib.request.urlopen('https://pypi.org/simple/requests/', context=ctx, timeout=30)
+          print('Status:', r.status)
+          print('E2E=OK')
+          " && \
+              echo "proxy-test-passed" > /tmp/proxy-probe
+          DOCKERFILE
+
+      # ── Step A: build without --opt build-arg ──
+      # Expected: HTTP_PROXY is empty — proves buildkitd does NOT auto-inject
+      - name: A — Build WITHOUT build-arg (expect HTTP_PROXY empty)
+        run: |
+          set -e
+          buildctl \
+            --addr "${BUILDKITD_ADDR}" \
+            --tlscacert "${DOCKER_CONFIG}/ca.pem" \
+            --tlscert  "${DOCKER_CONFIG}/cert.pem" \
+            --tlskey   "${DOCKER_CONFIG}/key.pem" \
+            build \
+            --frontend dockerfile.v0 \
+            --local context=/tmp/ctx-noarg \
+            --local dockerfile=/tmp/ctx-noarg \
+            --no-cache \
+            --output type=image,name=quay.io/atlas-ci/vllm-atlas-temp:proxy-noarg,push=false 2>&1 | tee /tmp/build-noarg.log
+          grep -q "ENV_ABSENT: PASS" /tmp/build-noarg.log && echo "✅ No env leak from buildkitd"
+
+      # ── Step B: build WITH --opt build-arg ──
+      # Expected: HTTP_PROXY is present — env passed via build-arg reaches RUN
+      - name: B — Build WITH build-arg (expect HTTP_PROXY present)
+        run: |
+          set -e
+          SQUID_ADDR=squid-cache.squid.svc.cluster.local:3128
+          export NO_PROXY="localhost,127.0.0.1,buildkitd-service.buildkitd,.svc.cluster.local,.cluster.local"
+          export no_proxy="${NO_PROXY}"
+
+          buildctl \
+            --addr "${BUILDKITD_ADDR}" \
+            --tlscacert "${DOCKER_CONFIG}/ca.pem" \
+            --tlscert  "${DOCKER_CONFIG}/cert.pem" \
+            --tlskey   "${DOCKER_CONFIG}/key.pem" \
+            build \
+            --frontend dockerfile.v0 \
+            --local context=/tmp/ctx-witharg \
+            --local dockerfile=/tmp/ctx-witharg \
+            --no-cache \
+            --opt build-arg:HTTP_PROXY="http://${SQUID_ADDR}" \
+            --opt build-arg:HTTPS_PROXY="http://${SQUID_ADDR}" \
+            --opt build-arg:NO_PROXY="${NO_PROXY}" \
+            --output type=image,name=quay.io/atlas-ci/vllm-atlas-temp:proxy-witharg,push=false 2>&1 | tee /tmp/build-witharg.log
+          grep -q "ENV_PRESENT: PASS" /tmp/build-witharg.log && echo "✅ build-arg env correctly injected"
+
+      # ── Step C: full end-to-end proxy test ──
+      # Expected: HTTPS request through squid succeeds with CA cert
+      - name: C — Build WITH build-arg + secret (e2e via squid)
+        run: |
+          set -e
+          SQUID_ADDR=squid-cache.squid.svc.cluster.local:3128
+          export NO_PROXY="localhost,127.0.0.1,buildkitd-service.buildkitd,.svc.cluster.local,.cluster.local"
+          export no_proxy="${NO_PROXY}"
+
+          buildctl \
+            --addr "${BUILDKITD_ADDR}" \
+            --tlscacert "${DOCKER_CONFIG}/ca.pem" \
+            --tlscert  "${DOCKER_CONFIG}/cert.pem" \
+            --tlskey   "${DOCKER_CONFIG}/key.pem" \
+            build \
+            --frontend dockerfile.v0 \
+            --local context=/tmp/ctx-proxy \
+            --local dockerfile=/tmp/ctx-proxy \
+            --no-cache \
+            --opt build-arg:HTTP_PROXY="http://${SQUID_ADDR}" \
+            --opt build-arg:HTTPS_PROXY="http://${SQUID_ADDR}" \
+            --opt build-arg:NO_PROXY="${NO_PROXY}" \
+            --secret id=squid-ca,src=/etc/squid-ca/squid-ca.pem \
+            --output type=image,name=quay.io/atlas-ci/vllm-atlas-temp:proxy-e2e,push=false 2>&1 | tee /tmp/build-proxy.log
+          grep -q "E2E=OK" /tmp/build-proxy.log && echo "✅ RUN command reached internet via squid"
