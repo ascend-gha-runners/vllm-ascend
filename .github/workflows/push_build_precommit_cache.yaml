@@ -45,12 +45,10 @@ jobs:
     container:
       image: quay.io/ascend-ci/vllm-ascend:lint
     env:
-      RUNS_ON_S3_BUCKET_CACHE: ascend-ci-cache-hk
-      RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.ap-southeast-1.myhuaweicloud.com
-      AWS_S3_FORCE_PATH_STYLE: 'true'
-      RUNS_ON_S3_FORCE_PATH_STYLE: 'true'
-      AWS_REGION: ap-southeast-1
-      RUNS_ON_RUNNER_NAME: ''
+      RUNS_ON_S3_BUCKET_CACHE: vllm-ascend
+      RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-north-4.myhuaweicloud.com
+      RUNS_ON_S3_FORCE_PATH_STYLE: "true"
+      RUNS_ON_AWS_REGION: cn-north-4
     steps:
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v7
@@ -64,7 +62,7 @@ jobs:
           region: ap-southeast-1
           audience: hw-vllm-ascend-audience
           idp-id: github-vllm-ascend
-          duration-seconds: 900
+          duration-seconds: 3600
 
       - name: Check if cache exists
         id: check-cache
