@@ -30,6 +30,10 @@ on:
       - 'pyproject.toml'
   workflow_dispatch:
 
+permissions:
+  contents: read
+  id-token: write
+
 defaults:
   run:
     shell: bash -el {0}
@@ -99,6 +103,11 @@ jobs:
 
     container:
       image: ${{ matrix.image }}
+    env:
+      RUNS_ON_S3_BUCKET_CACHE: vllm-ascend
+      RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-north-4.myhuaweicloud.com
+      RUNS_ON_S3_FORCE_PATH_STYLE: "true"
+      RUNS_ON_AWS_REGION: cn-north-4
     steps:
       - name: Checkout repo
         uses: actions/checkout@v7
@@ -163,9 +172,18 @@ jobs:
             *) echo "arch=$ARCH" >> $GITHUB_OUTPUT ;;
           esac
 
+      - name: Configure Huawei Cloud Credentials (OIDC)
+        id: creds
+        uses: ascend-gha-runners/configure-hwcloud-credentials@3be5794f565c38f9719ef1f6bec28351c929be3c
+        with:
+          region: ap-southeast-1
+          audience: hw-vllm-ascend-audience
+          idp-id: github-vllm-ascend
+          duration-seconds: 3600
+
       - name: Cache vllm-ascend csrc
         id: cache-csrc
-        uses: runs-on/cache@v5
+        uses: runs-on/cache/restore@v5
         with:
           path: |
             vllm_ascend/_cann_ops_custom
@@ -173,6 +191,7 @@ jobs:
             vllm_ascend/lib
             vllm_ascend/include
           key: vllm-ascend-build-v1-${{ steps.get_arch.outputs.arch }}-${{ steps.get_image_tag.outputs.IMAGE_TAG }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
+          lookup-only: true
 
       - name: Install vllm-ascend
         if: steps.cache-csrc.outputs.cache-hit != 'true'
@@ -196,3 +215,14 @@ jobs:
           uv pip install -r requirements-dev.txt
           uv pip install --force-reinstall --no-deps triton-ascend==3.2.1
           uv pip install -e .
+
+      - name: Save vllm-ascend csrc cache
+        if: steps.cache-csrc.outputs.cache-hit != 'true' && steps.creds.outputs.success == 'true'
+        uses: runs-on/cache/save@v5
+        with:
+          path: |
+            vllm_ascend/_cann_ops_custom
+            vllm_ascend/*.so
+            vllm_ascend/lib
+            vllm_ascend/include
+          key: vllm-ascend-build-v1-${{ steps.get_arch.outputs.arch }}-${{ steps.get_image_tag.outputs.IMAGE_TAG }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}

@@ -128,7 +128,12 @@ jobs:
           
           - name: Restore vllm-ascend csrc cache
             id: cache-csrc
-            uses: runs-on/cache@v5
+            uses: runs-on/cache/restore@v5
+            env:
+              RUNS_ON_S3_BUCKET_CACHE: vllm-ascend
+              RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-north-4.myhuaweicloud.com
+              RUNS_ON_S3_FORCE_PATH_STYLE: "true"
+              RUNS_ON_AWS_REGION: cn-north-4
             with:
               path: |
                 vllm_ascend/_cann_ops_custom
@@ -136,8 +141,6 @@ jobs:
                 vllm_ascend/lib
                 vllm_ascend/include
               key: vllm-ascend-build-v1-${{ steps.get_arch.outputs.arch }}-${{ matrix.image_tag }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
-              restore-keys: |
-                vllm-ascend-build-v1-${{ steps.get_arch.outputs.arch }}-${{ matrix.image_tag }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
            
           - name: Install vllm-project/vllm-ascend with device
             run: |
@@ -246,7 +249,12 @@ jobs:
           
           - name: Restore vllm-ascend csrc cache
             id: cache-csrc
-            uses: runs-on/cache@v5
+            uses: runs-on/cache/restore@v5
+            env:
+              RUNS_ON_S3_BUCKET_CACHE: vllm-ascend
+              RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-north-4.myhuaweicloud.com
+              RUNS_ON_S3_FORCE_PATH_STYLE: "true"
+              RUNS_ON_AWS_REGION: cn-north-4
             with:
               path: |
                 vllm_ascend/_cann_ops_custom
@@ -254,8 +262,6 @@ jobs:
                 vllm_ascend/lib
                 vllm_ascend/include
               key: vllm-ascend-build-v1-${{ steps.get_arch.outputs.arch }}-${{ matrix.image_tag }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
-              restore-keys: |
-                vllm-ascend-build-v1-${{ steps.get_arch.outputs.arch }}-${{ matrix.image_tag }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
            
           - name: Install vllm-project/vllm-ascend with device
             run: |
@@ -357,7 +363,12 @@ jobs:
           
           - name: Restore vllm-ascend csrc cache
             id: cache-csrc
-            uses: runs-on/cache@v5
+            uses: runs-on/cache/restore@v5
+            env:
+              RUNS_ON_S3_BUCKET_CACHE: vllm-ascend
+              RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-north-4.myhuaweicloud.com
+              RUNS_ON_S3_FORCE_PATH_STYLE: "true"
+              RUNS_ON_AWS_REGION: cn-north-4
             with:
               path: |
                 vllm_ascend/_cann_ops_custom
@@ -365,8 +376,6 @@ jobs:
                 vllm_ascend/lib
                 vllm_ascend/include
               key: vllm-ascend-build-v1-${{ steps.get_arch.outputs.arch }}-${{ matrix.image_tag }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
-              restore-keys: |
-                vllm-ascend-build-v1-${{ steps.get_arch.outputs.arch }}-${{ matrix.image_tag }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
            
           - name: Install vllm-project/vllm-ascend with device
             run: |

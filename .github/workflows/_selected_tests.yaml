@@ -58,6 +58,7 @@ defaults:
 permissions:
   contents: read
   pull-requests: none
+  id-token: write
 
 jobs:
   selected-tests:
@@ -141,21 +142,15 @@ jobs:
             *) echo "arch=$ARCH" >> $GITHUB_OUTPUT ;;
           esac
 
-      - uses: dorny/paths-filter@v4
-        id: csrc-filter
-        if: ${{ matrix.group.npu_type != 'cpu' }}
-        with:
-          filters: |
-            csrc:
-              - 'csrc/**'
-              - 'setup.py'
-              - 'CMakeLists.txt'
-              - 'cmake/**'
-
       - name: Restore vllm-ascend csrc cache
         id: cache-csrc
         if: ${{ matrix.group.npu_type != 'cpu' }}
         uses: runs-on/cache/restore@v5
+        env:
+          RUNS_ON_S3_BUCKET_CACHE: vllm-ascend
+          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-north-4.myhuaweicloud.com
+          RUNS_ON_S3_FORCE_PATH_STYLE: "true"
+          RUNS_ON_AWS_REGION: cn-north-4
         with:
           path: |
             vllm_ascend/_cann_ops_custom
@@ -196,17 +191,6 @@ jobs:
             echo "CSRC cache miss: no .so files found, compile kernels"
             uv pip install -e . --no-build-isolation
           fi
-
-      - name: Save vllm-ascend csrc cache
-        if: ${{ matrix.group.npu_type != 'cpu' && steps.csrc-filter.outputs.csrc == 'true' && steps.cache-csrc.outputs.cache-hit != 'true' }}
-        uses: runs-on/cache/save@v5
-        with:
-          path: |
-            vllm_ascend/_cann_ops_custom
-            vllm_ascend/*.so
-            vllm_ascend/lib
-            vllm_ascend/include
-          key: vllm-ascend-build-v1-${{ steps.get_arch.outputs.arch }}-${{ matrix.group.image_tag }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
 
       - name: Verify required AscendC custom ops are registered (310p)
         if: ${{ matrix.group.npu_type == '310p' }}

@@ -230,6 +230,11 @@ jobs:
       - name: Restore vllm-ascend csrc cache
         id: cache-csrc
         uses: runs-on/cache/restore@v5
+        env:
+          RUNS_ON_S3_BUCKET_CACHE: vllm-ascend
+          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-north-4.myhuaweicloud.com
+          RUNS_ON_S3_FORCE_PATH_STYLE: "true"
+          RUNS_ON_AWS_REGION: cn-north-4
         with:
           path: |
             vllm_ascend/_cann_ops_custom
@@ -285,17 +290,6 @@ jobs:
             echo "CSRC cache miss: no .so files found, compile kernels"
             uv pip install -e . --no-build-isolation
           fi
-
-      - name: Save vllm-ascend csrc cache
-        if: steps.cache-csrc.outputs.cache-hit != 'true'
-        uses: runs-on/cache/save@v5
-        with:
-          path: |
-            vllm_ascend/_cann_ops_custom
-            vllm_ascend/*.so
-            vllm_ascend/lib
-            vllm_ascend/include
-          key: vllm-ascend-build-v1-${{ steps.get_arch.outputs.arch }}-${{ env.MAIN2MAIN_IMAGE_TAG }}-${{ steps.get_csrc_hash.outputs.CSRC_HASH }}
 
       - name: Run main2main flow
         id: run-main2main
