@@ -103,10 +103,11 @@ jobs:
     container:
       image: ${{ matrix.image }}
     env:
-      RUNS_ON_S3_BUCKET_CACHE: vllm-ascend
-      RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.cn-north-4.myhuaweicloud.com
-      RUNS_ON_S3_FORCE_PATH_STYLE: "true"
-      RUNS_ON_AWS_REGION: cn-north-4
+      RUNS_ON_S3_BUCKET_CACHE: ascend-ci-cache-hk
+      RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.ap-southeast-1.myhuaweicloud.com
+      AWS_S3_FORCE_PATH_STYLE: "true"
+      AWS_REGION: ap-southeast-1
+      RUNS_ON_RUNNER_NAME: ""
       AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK_HK }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK_HK }}
     steps:
