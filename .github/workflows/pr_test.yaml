@@ -63,7 +63,7 @@ jobs:
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Read verified vLLM refs
         id: vllm
@@ -96,6 +96,7 @@ jobs:
       - name: Checkout vllm-project/vllm repo
         uses: actions/checkout@v7
         with:
+          fetch-depth: 1
           repository: vllm-project/vllm
           path: ./vllm-empty
           ref: ${{ steps.vllm.outputs.main_commit }}

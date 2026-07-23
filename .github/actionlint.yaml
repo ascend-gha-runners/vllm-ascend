@@ -25,6 +25,6 @@ self-hosted-runner:
     - linux-aarch64-a2b3-2
     - linux-aarch64-a2b3-4
     - linux-aarch64-a2b3-8
-    - linux-aarch64-a3-test-2-label
-    - linux-aarch64-a3-test-4-label
-    - linux-aarch64-a3-test-8-label
+    - linux-aarch64-a3-test-2-gy006
+    - linux-aarch64-a3-test-4-gy006
+    - linux-aarch64-a3-test-8-gy006
