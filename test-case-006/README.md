@@ -2,8 +2,8 @@
 
 ## 背景
 
-- Issue: https://github.com/opensourceways/ascend-ci-deployment/issues/945（新增 buildkit runner 测试 squid 代理）
-- Runner 部署 PR: https://github.com/opensourceways/ascend-ci-deployment/pull/946
+- Issue: <https://github.com/opensourceways/ascend-ci-deployment/issues/945> （新增 buildkit runner 测试 squid 代理）
+- Runner 部署 PR: <https://github.com/opensourceways/ascend-ci-deployment/pull/946>
 - 集群: openmerlin-guiyang-006 (gy006)
 - Runner: `linux-aarch64-cpu-2-buildkit-gy006`
 

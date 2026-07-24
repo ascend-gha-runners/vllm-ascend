@@ -225,6 +225,12 @@ jobs:
     - name: Cache vllm-ascend csrc
       id: cache-csrc
       uses: runs-on/cache/restore@v5
+      env:
+        RUNS_ON_S3_BUCKET_CACHE: ascend-ci-cache-hk
+        RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.ap-southeast-1.myhuaweicloud.com
+        AWS_S3_FORCE_PATH_STYLE: "true"
+        AWS_REGION: ap-southeast-1
+        RUNS_ON_RUNNER_NAME: ""
       with:
         path: |
             vllm_ascend/_cann_ops_custom
