@@ -50,8 +50,7 @@ jobs:
         run: |
           set +e
           echo "Testing GitHub via proxy..."
-          curl -fsSL --max-time 10 https://github.com > /dev/null 2>&1
-          if [ $? -eq 0 ]; then
+          if curl -fsSL --max-time 10 https://github.com > /dev/null 2>&1; then
             echo "GitHub reachable via proxy."
           else
             echo "WARNING: GitHub not reachable via proxy." >&2

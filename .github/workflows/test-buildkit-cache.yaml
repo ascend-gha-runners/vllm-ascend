@@ -21,7 +21,7 @@ jobs:
           DOCKERFILE
 
           echo "=== DOCKER_CONFIG ==="
-          cat "${DOCKER_CONFIG}/config.json" 2>/dev/null | python3 -m json.tool 2>/dev/null || cat "${DOCKER_CONFIG}/config.json" 2>/dev/null || echo "no config.json"
+          python3 -m json.tool < "${DOCKER_CONFIG}/config.json" 2>/dev/null || cat "${DOCKER_CONFIG}/config.json" 2>/dev/null || echo "no config.json"
 
       - name: Round 1 - build only (no push, cold)
         run: |
@@ -80,6 +80,7 @@ jobs:
           ROUND2_S=$((T1-T0))
           echo "round2_s=${ROUND2_S}"
 
+          # shellcheck disable=SC2153
           if [ "${ROUND1_S}" -gt 0 ]; then
             DELTA_PCT=$(( (ROUND1_S - ROUND2_S) * 100 / ROUND1_S ))
             echo "delta=${DELTA_PCT}% faster on round 2"
