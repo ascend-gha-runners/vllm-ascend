@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - '.github/workflows/misc/git-cdn-verify.yaml'
+      - '.github/workflows/git-cdn-verify.yaml'
 
 jobs:
   verify-git-cdn:
@@ -14,16 +14,12 @@ jobs:
     steps:
       - name: Verify git-cdn redirect in .gitconfig
         run: |
-          echo "=== Checking /root/.gitconfig for git-cdn insteadOf ==="
-          cat /root/.gitconfig
+          echo "=== Checking $HOME/.gitconfig for git-cdn insteadOf ==="
+          cat "$HOME/.gitconfig"
           echo ""
           echo "=== Verifying insteadOf rule exists ==="
-          grep -q 'insteadOf.*https://github.com/' /root/.gitconfig || {
-            echo "ERROR: insteadOf rule not found in /root/.gitconfig"
-            exit 1
-          }
-          grep -q 'git-cdn-service.git-cdn.svc.cluster.local' /root/.gitconfig || {
-            echo "ERROR: git-cdn service URL not found in insteadOf rule"
+          git config --global --get url.http://git-cdn-service.git-cdn.svc.cluster.local:8000/.insteadOf || {
+            echo "ERROR: insteadOf rule not found in git config"
             exit 1
           }
           echo "PASS: git-cdn insteadOf rule is present"
