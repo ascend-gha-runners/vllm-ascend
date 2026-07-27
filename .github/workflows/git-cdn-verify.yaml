@@ -10,6 +10,8 @@ jobs:
   verify-git-cdn:
     name: "git-cdn anonymous clone verification (aarch64)"
     runs-on: linux-aarch64-cpu-2-gitcdn-test
+    container:
+          image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.0-a3-ubuntu22.04-py3.12
 
     steps:
       - name: Verify insteadOf rule via git config
