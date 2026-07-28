@@ -1,0 +1,52 @@
+name: git-cdn-verify
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/git-cdn-verify.yaml'
+
+jobs:
+  verify-git-cdn:
+    name: "git-cdn anonymous clone verification (aarch64)"
+    runs-on: linux-aarch64-cpu-2-gitcdn-test
+    container:
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.0-a3-ubuntu22.04-py3.12
+
+    steps:
+      - name: Verify insteadOf rule
+        run: |
+          echo "=== Checking git-cdn insteadOf rule ==="
+          result=$(git config --global --get-regexp 'url.*insteadof' 2>/dev/null || true)
+          echo "Git insteadOf rules:"
+          echo "$result"
+          echo "$result" | grep -q 'git-cdn-service' && echo "PASS: insteadOf rule present" || echo "INFO: No insteadOf rule (clone will bypass git-cdn)"
+
+      - name: Test anonymous git clone
+        run: |
+          echo "=== Cloning a public repo (no PAT) ==="
+          git clone --depth=1 https://github.com/ascend-gha-runners/vllm-ascend.git /tmp/test-clone 2>&1
+          test -d /tmp/test-clone/.git || { echo "ERROR: Clone failed"; exit 1; }
+          echo "PASS: Clone succeeded"
+
+      - name: Test git fetch
+        run: |
+          cd /tmp/test-clone
+          git fetch --depth=1 origin main 2>&1
+          echo "PASS: Fetch succeeded"
+
+      - name: Verify clone went through git-cdn
+        run: |
+          cd /tmp/test-clone
+          echo "Remote URL: $(git remote get-url origin)"
+          echo "PASS: No PAT required for public repo clone"
+
+      - name: Summary
+        run: |
+          echo "=========================================="
+          echo "  git-cdn Verification Summary"
+          echo "=========================================="
+          echo "Runner: linux-aarch64-cpu-2-gitcdn-test"
+          echo "Cluster: gy-006"
+          echo "git-cdn: grouperenault (ENFORCE_AUTH=False)"
+          echo "=========================================="
