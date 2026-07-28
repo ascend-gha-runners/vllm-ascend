@@ -68,9 +68,10 @@ jobs:
 
           # credential helper: store credentials for both github.com and git-cdn-service URLs
           # GITHUB_TOKEN (auto-provided by Actions) has write access to the same repo
+          # Note: git-cdn service uses HTTP, so credential must match http:// (not https://)
           git config --global credential.helper store
           echo "https://x-access-token:${GITHUB_TOKEN}@github.com" > ~/.git-credentials
-          echo "https://x-access-token:${GITHUB_TOKEN}@git-cdn-service.git-cdn.svc.cluster.local:8000" >> ~/.git-credentials
+          echo "http://x-access-token:${GITHUB_TOKEN}@git-cdn-service.git-cdn.svc.cluster.local:8000" >> ~/.git-credentials
 
           # push goes through git-cdn via insteadOf rule
           echo "=== Pushing branch ${BRANCH} via git-cdn ==="
