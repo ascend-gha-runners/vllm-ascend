@@ -67,15 +67,15 @@ jobs:
           git commit -m "test: git-cdn push verification"
 
           # credential helper: store credentials for both github.com and git-cdn-service URLs
-          # GITHUB_TOKEN (auto-provided by Actions) has write access to the same repo
+          # GIT_CDN_PAT is a real GitHub PAT (ghp_*) that supports git HTTP auth
           # Note: git-cdn service uses HTTP, so credential must match http:// (not https://)
           git config --global credential.helper store
-          echo "https://x-access-token:${GITHUB_TOKEN}@github.com" > ~/.git-credentials
-          echo "http://x-access-token:${GITHUB_TOKEN}@git-cdn-service.git-cdn.svc.cluster.local:8000" >> ~/.git-credentials
+          echo "https://x-access-token:${GIT_CDN_PAT}@github.com" > ~/.git-credentials
+          echo "http://x-access-token:${GIT_CDN_PAT}@git-cdn-service.git-cdn.svc.cluster.local:8000" >> ~/.git-credentials
 
           # push goes through git-cdn via insteadOf rule
           echo "=== Pushing branch ${BRANCH} via git-cdn ==="
-          git push origin "${BRANCH}" 2>&1 | tee /tmp/push-output.txt
+          git push origin "${BRANCH}" > /tmp/push-output.txt 2>&1
           PUSH_EXIT=$?
 
           if [ "${PUSH_EXIT}" -ne 0 ]; then
@@ -83,6 +83,7 @@ jobs:
             cat /tmp/push-output.txt
             exit 1
           fi
+          cat /tmp/push-output.txt
 
           echo "PASS: git push via git-cdn succeeded"
 
