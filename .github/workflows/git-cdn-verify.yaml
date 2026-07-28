@@ -34,8 +34,8 @@ jobs:
 
       - name: Test anonymous git clone
         run: |
-          echo "=== Cloning a public repo via git-cdn (no PAT) ==="
-          git clone --depth=1 https://github.com/ascend-gha-runners/vllm-ascend.git /tmp/test-clone 2>&1 | tee /tmp/clone-output.txt
+          echo "=== Cloning a small public repo via git-cdn (no PAT) ==="
+          git clone --depth=1 https://github.com/Zherphy/ARC-test.git /tmp/test-clone 2>&1 | tee /tmp/clone-output.txt
           test -d /tmp/test-clone/.git || { echo "ERROR: Clone failed"; exit 1; }
           echo "PASS: Clone succeeded"
 
@@ -53,7 +53,9 @@ jobs:
           } || echo "PASS: No PAT in clone output (anonymous clone confirmed)"
 
       - name: Test git push via git-cdn
+        shell: bash {0}
         run: |
+          set +e
           echo "=== Testing git push through git-cdn ==="
           cd /tmp/test-clone
 
@@ -113,4 +115,3 @@ jobs:
           echo ""
           echo "git-cdn is working correctly for clone and push."
           echo "=========================================="
-
