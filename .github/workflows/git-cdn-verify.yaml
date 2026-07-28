@@ -54,6 +54,8 @@ jobs:
 
       - name: Test git push via git-cdn
         shell: bash {0}
+        env:
+          GIT_CDN_PAT: ${{ secrets.GIT_CDN_PAT }}
         run: |
           set +e
           echo "=== Testing git push through git-cdn ==="
