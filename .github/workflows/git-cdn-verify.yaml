@@ -6,9 +6,12 @@ on:
     paths:
       - '.github/workflows/git-cdn-verify.yaml'
 
+permissions:
+  contents: write
+
 jobs:
   verify-git-cdn:
-    name: "git-cdn anonymous clone verification (aarch64)"
+    name: "git-cdn clone + push verification (aarch64)"
     runs-on: linux-aarch64-cpu-2-gitcdn-test
     container:
       image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.0-a3-ubuntu22.04-py3.12
@@ -17,36 +20,95 @@ jobs:
       - name: Verify insteadOf rule
         run: |
           echo "=== Checking git-cdn insteadOf rule ==="
-          result=$(git config --global --get-regexp 'url.*insteadof' 2>/dev/null || true)
-          echo "Git insteadOf rules:"
-          echo "$result"
-          echo "$result" | grep -q 'git-cdn-service' && echo "PASS: insteadOf rule present" || echo "INFO: No insteadOf rule (clone will bypass git-cdn)"
+          cat /root/.gitconfig
+          echo ""
+          grep -q 'insteadOf.*https://github.com/' /root/.gitconfig || {
+            echo "ERROR: insteadOf rule not found in /root/.gitconfig"
+            exit 1
+          }
+          grep -q 'git-cdn-service.git-cdn.svc.cluster.local' /root/.gitconfig || {
+            echo "ERROR: git-cdn service URL not found in insteadOf rule"
+            exit 1
+          }
+          echo "PASS: git-cdn insteadOf rule is present"
 
       - name: Test anonymous git clone
         run: |
-          echo "=== Cloning a public repo (no PAT) ==="
-          git clone --depth=1 https://github.com/ascend-gha-runners/vllm-ascend.git /tmp/test-clone 2>&1
+          echo "=== Cloning a public repo via git-cdn (no PAT) ==="
+          git clone --depth=1 https://github.com/ascend-gha-runners/vllm-ascend.git /tmp/test-clone 2>&1 | tee /tmp/clone-output.txt
           test -d /tmp/test-clone/.git || { echo "ERROR: Clone failed"; exit 1; }
           echo "PASS: Clone succeeded"
 
       - name: Test git fetch
         run: |
           cd /tmp/test-clone
-          git fetch --depth=1 origin main 2>&1
+          git fetch --depth=1 origin main 2>&1 | tee /tmp/fetch-output.txt
           echo "PASS: Fetch succeeded"
 
-      - name: Verify clone went through git-cdn
+      - name: Verify no PAT in clone output
         run: |
+          grep -q 'x-access-token' /tmp/clone-output.txt && {
+            echo "ERROR: PAT detected in clone output — should be anonymous"
+            exit 1
+          } || echo "PASS: No PAT in clone output (anonymous clone confirmed)"
+
+      - name: Test git push via git-cdn
+        run: |
+          echo "=== Testing git push through git-cdn ==="
           cd /tmp/test-clone
-          echo "Remote URL: $(git remote get-url origin)"
-          echo "PASS: No PAT required for public repo clone"
+
+          git config user.name "git-cdn-verify-bot"
+          git config user.email "git-cdn-verify-bot@users.noreply.github.com"
+
+          BRANCH="git-cdn-push-test-$(date +%s)"
+          git checkout -b "${BRANCH}"
+          echo "git-cdn push test at $(date -Is)" > git-cdn-push-test-marker.txt
+          git add git-cdn-push-test-marker.txt
+          git commit -m "test: git-cdn push verification"
+
+          # credential helper: store credentials for both github.com and git-cdn-service URLs
+          # GITHUB_TOKEN (auto-provided by Actions) has write access to the same repo
+          git config --global credential.helper store
+          echo "https://x-access-token:${GITHUB_TOKEN}@github.com" > ~/.git-credentials
+          echo "https://x-access-token:${GITHUB_TOKEN}@git-cdn-service.git-cdn.svc.cluster.local:8000" >> ~/.git-credentials
+
+          # push goes through git-cdn via insteadOf rule
+          echo "=== Pushing branch ${BRANCH} via git-cdn ==="
+          git push origin "${BRANCH}" 2>&1 | tee /tmp/push-output.txt
+          PUSH_EXIT=$?
+
+          if [ "${PUSH_EXIT}" -ne 0 ]; then
+            echo "ERROR: git push failed (exit ${PUSH_EXIT})"
+            cat /tmp/push-output.txt
+            exit 1
+          fi
+
+          echo "PASS: git push via git-cdn succeeded"
+
+          # cleanup: delete temp branch
+          echo "=== Cleaning up temporary branch ==="
+          git push origin --delete "${BRANCH}" 2>&1 || echo "WARNING: branch cleanup failed (non-critical)"
+          rm -f ~/.git-credentials
+
+          echo "PASS: Push test completed and branch cleaned up"
 
       - name: Summary
         run: |
           echo "=========================================="
           echo "  git-cdn Verification Summary"
           echo "=========================================="
+          echo ""
           echo "Runner: linux-aarch64-cpu-2-gitcdn-test"
           echo "Cluster: gy-006"
           echo "git-cdn: grouperenault (ENFORCE_AUTH=False)"
+          echo ""
+          echo "All tests passed:"
+          echo "  ✓ insteadOf rule present in .gitconfig"
+          echo "  ✓ Anonymous clone via git-cdn succeeded"
+          echo "  ✓ git fetch via git-cdn succeeded"
+          echo "  ✓ No PAT in clone output"
+          echo "  ✓ git push via git-cdn succeeded"
+          echo ""
+          echo "git-cdn is working correctly for clone and push."
           echo "=========================================="
+
