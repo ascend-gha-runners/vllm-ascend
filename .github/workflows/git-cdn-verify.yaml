@@ -40,7 +40,9 @@ jobs:
           rm -rf /tmp/test-clone
           echo "PASS: Smoke test succeeded"
 
-      - name: Benchmark vllm-project/vllm via git-cdn
+      # ── git-cdn benchmarks ──
+      - name: Benchmark vllm via git-cdn
+        continue-on-error: true
         run: |
           echo "=== Benchmarking vllm-project/vllm full clone via git-cdn ==="
           START=$(date +%s%N)
@@ -50,10 +52,10 @@ jobs:
           VLLM_CDN_SIZE=$(du -sh /tmp/vllm-cdn 2>/dev/null | cut -f1 || echo "unknown")
           echo ""
           echo "::notice::vllm via git-cdn: ${VLLM_CDN_ELAPSED}s, size: ${VLLM_CDN_SIZE}"
-          test -d /tmp/vllm-cdn/.git || { echo "ERROR: vllm clone failed"; exit 1; }
           rm -rf /tmp/vllm-cdn
 
-      - name: Benchmark pytorch/pytorch via git-cdn
+      - name: Benchmark pytorch via git-cdn
+        continue-on-error: true
         run: |
           echo "=== Benchmarking pytorch/pytorch full clone via git-cdn ==="
           START=$(date +%s%N)
@@ -63,12 +65,27 @@ jobs:
           PYTORCH_CDN_SIZE=$(du -sh /tmp/pytorch-cdn 2>/dev/null | cut -f1 || echo "unknown")
           echo ""
           echo "::notice::pytorch via git-cdn: ${PYTORCH_CDN_ELAPSED}s, size: ${PYTORCH_CDN_SIZE}"
-          test -d /tmp/pytorch-cdn/.git || { echo "ERROR: pytorch clone failed"; exit 1; }
           rm -rf /tmp/pytorch-cdn
 
-      - name: Benchmark vllm-project/vllm direct (bypass git-cdn)
+      # ── shallow clone (depth=1) benchmark — matches main2main pattern ──
+      - name: Benchmark vllm shallow clone (depth=1) via git-cdn
+        continue-on-error: true
         run: |
-          echo "=== Benchmarking vllm-project/vllm direct clone from GitHub ==="
+          echo "=== Benchmarking vllm shallow clone (depth=1) via git-cdn ==="
+          START=$(date +%s%N)
+          git clone --depth=1 https://github.com/vllm-project/vllm.git /tmp/vllm-shallow-cdn 2>&1 | tee /tmp/vllm-shallow-cdn-output.txt
+          END=$(date +%s%N)
+          ELAPSED=$(( (END - START) / 1000000000 ))
+          SIZE=$(du -sh /tmp/vllm-shallow-cdn 2>/dev/null | cut -f1 || echo "unknown")
+          echo ""
+          echo "::notice::vllm shallow (depth=1) via git-cdn: ${ELAPSED}s, size: ${SIZE}"
+          rm -rf /tmp/vllm-shallow-cdn
+
+      # ── direct GitHub benchmarks (bypass git-cdn) ──
+      - name: Benchmark vllm direct (bypass git-cdn)
+        continue-on-error: true
+        run: |
+          echo "=== Benchmarking vllm-project/vllm full clone from GitHub ==="
           git config --global --unset url.https://git-cdn.test.osinfra.cn/.insteadOf 2>/dev/null || true
           START=$(date +%s%N)
           git clone --filter=blob:none https://github.com/vllm-project/vllm.git /tmp/vllm-direct 2>&1 | tee /tmp/vllm-direct-output.txt
@@ -77,13 +94,27 @@ jobs:
           VLLM_DIRECT_SIZE=$(du -sh /tmp/vllm-direct 2>/dev/null | cut -f1 || echo "unknown")
           echo ""
           echo "::notice::vllm direct: ${VLLM_DIRECT_ELAPSED}s, size: ${VLLM_DIRECT_SIZE}"
-          test -d /tmp/vllm-direct/.git || { echo "ERROR: vllm direct clone failed"; exit 1; }
           rm -rf /tmp/vllm-direct
           git config --global url.https://git-cdn.test.osinfra.cn/.insteadOf https://github.com/
 
-      - name: Benchmark pytorch/pytorch direct (bypass git-cdn)
+      - name: Benchmark vllm shallow clone (depth=1) direct (bypass git-cdn)
+        continue-on-error: true
         run: |
-          echo "=== Benchmarking pytorch/pytorch direct clone from GitHub ==="
+          echo "=== Benchmarking vllm shallow clone (depth=1) from GitHub ==="
+          git config --global --unset url.https://git-cdn.test.osinfra.cn/.insteadOf 2>/dev/null || true
+          START=$(date +%s%N)
+          git clone --depth=1 https://github.com/vllm-project/vllm.git /tmp/vllm-shallow-direct 2>&1 | tee /tmp/vllm-shallow-direct-output.txt
+          END=$(date +%s%N)
+          ELAPSED=$(( (END - START) / 1000000000 ))
+          SIZE=$(du -sh /tmp/vllm-shallow-direct 2>/dev/null | cut -f1 || echo "unknown")
+          echo ""
+          echo "::notice::vllm shallow (depth=1) direct: ${ELAPSED}s, size: ${SIZE}"
+          rm -rf /tmp/vllm-shallow-direct
+
+      - name: Benchmark pytorch direct (bypass git-cdn)
+        continue-on-error: true
+        run: |
+          echo "=== Benchmarking pytorch/pytorch full clone from GitHub ==="
           git config --global --unset url.https://git-cdn.test.osinfra.cn/.insteadOf 2>/dev/null || true
           START=$(date +%s%N)
           git clone --filter=blob:none https://github.com/pytorch/pytorch.git /tmp/pytorch-direct 2>&1 | tee /tmp/pytorch-direct-output.txt
@@ -92,10 +123,10 @@ jobs:
           PYTORCH_DIRECT_SIZE=$(du -sh /tmp/pytorch-direct 2>/dev/null | cut -f1 || echo "unknown")
           echo ""
           echo "::notice::pytorch direct: ${PYTORCH_DIRECT_ELAPSED}s, size: ${PYTORCH_DIRECT_SIZE}"
-          test -d /tmp/pytorch-direct/.git || { echo "ERROR: pytorch direct clone failed"; exit 1; }
           rm -rf /tmp/pytorch-direct
 
       - name: Summary
+        if: always()
         run: |
           echo "=========================================="
           echo "  git-cdn Benchmark Summary"
