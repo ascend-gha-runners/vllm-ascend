@@ -90,12 +90,6 @@ jobs:
           print_group "${title}" "${path}"
         }
     steps:
-      - name: Configure git-cdn proxy
-        run: |
-          git config --global url."http://git-cdn-service.git-cdn.svc.cluster.local:8000/".insteadOf "https://github.com/"
-          echo "git-cdn insteadOf configured:"
-          git config --global --list | grep url || echo "WARNING: git proxy url config not found"
-
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v7
         with:
