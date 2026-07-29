@@ -7,11 +7,11 @@ on:
       - '.github/workflows/git-cdn-verify.yaml'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  verify-git-cdn:
-    name: "git-cdn clone + push verification (aarch64)"
+  benchmark-git-cdn:
+    name: "git-cdn large repo checkout benchmark (aarch64)"
     runs-on: linux-aarch64-cpu-2-gitcdn-test
     container:
       image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.0-a3-ubuntu22.04-py3.12
@@ -32,147 +32,78 @@ jobs:
           }
           echo "PASS: git-cdn insteadOf rule is present"
 
-      - name: Test anonymous git clone
+      - name: Quick smoke test (small repo)
         run: |
-          echo "=== Cloning a small public repo via git-cdn (no PAT) ==="
-          git clone --depth=1 https://github.com/Zherphy/ARC-test.git /tmp/test-clone 2>&1 | tee /tmp/clone-output.txt
+          echo "=== Cloning a small public repo via git-cdn ==="
+          git clone --depth=1 https://github.com/Zherphy/ARC-test.git /tmp/test-clone 2>&1
           test -d /tmp/test-clone/.git || { echo "ERROR: Clone failed"; exit 1; }
-          echo "PASS: Clone succeeded"
+          rm -rf /tmp/test-clone
+          echo "PASS: Smoke test succeeded"
 
-      - name: Test git fetch
-        run: |
-          cd /tmp/test-clone
-          git fetch --depth=1 origin main 2>&1 | tee /tmp/fetch-output.txt
-          echo "PASS: Fetch succeeded"
-
-      - name: Verify no PAT in clone output
-        run: |
-          grep -q 'x-access-token' /tmp/clone-output.txt && {
-            echo "ERROR: PAT detected in clone output — should be anonymous"
-            exit 1
-          } || echo "PASS: No PAT in clone output (anonymous clone confirmed)"
-
-      - name: Test git push via git-cdn
-        shell: bash {0}
-        env:
-          GIT_CDN_PAT: ${{ secrets.GIT_CDN_PAT }}
-        run: |
-          set +e
-          echo "=== Testing git push through git-cdn ==="
-          cd /tmp/test-clone
-
-          git config user.name "git-cdn-verify-bot"
-          git config user.email "git-cdn-verify-bot@users.noreply.github.com"
-
-          BRANCH="git-cdn-push-test-$(date +%s)"
-          git checkout -b "${BRANCH}"
-          echo "git-cdn push test at $(date -Is)" > git-cdn-push-test-marker.txt
-          git add git-cdn-push-test-marker.txt
-          git commit -m "test: git-cdn push verification"
-
-          # credential helper: store credentials for both github.com and git-cdn-service URLs
-          # GIT_CDN_PAT is a real GitHub PAT (ghp_*) that supports git HTTP auth
-          # Note: git-cdn service uses HTTP, so credential must match http:// (not https://)
-          git config --global credential.helper store
-          echo "https://x-access-token:${GIT_CDN_PAT}@github.com" > ~/.git-credentials
-          echo "http://x-access-token:${GIT_CDN_PAT}@git-cdn-service.git-cdn.svc.cluster.local:8000" >> ~/.git-credentials
-
-          # push goes through git-cdn via insteadOf rule
-          echo "=== Pushing branch ${BRANCH} via git-cdn ==="
-          git push origin "${BRANCH}" > /tmp/push-output.txt 2>&1
-          PUSH_EXIT=$?
-
-          if [ "${PUSH_EXIT}" -ne 0 ]; then
-            echo "ERROR: git push failed (exit ${PUSH_EXIT})"
-            cat /tmp/push-output.txt
-            exit 1
-          fi
-          cat /tmp/push-output.txt
-
-          echo "PASS: git push via git-cdn succeeded"
-
-          # cleanup: delete temp branch
-          echo "=== Cleaning up temporary branch ==="
-          git push origin --delete "${BRANCH}" 2>&1 || echo "WARNING: branch cleanup failed (non-critical)"
-          rm -f ~/.git-credentials
-
-          echo "PASS: Push test completed and branch cleaned up"
-
-      - name: Benchmark large repo checkout (vllm-project/vllm)
+      - name: Benchmark vllm-project/vllm via git-cdn
         run: |
           echo "=== Benchmarking vllm-project/vllm full clone via git-cdn ==="
-          START=$(date +%s)
-          git clone --filter=blob:none https://github.com/vllm-project/vllm.git /tmp/vllm-clone 2>&1 | tee /tmp/vllm-clone-output.txt
-          END=$(date +%s)
-          VLLM_ELAPSED=$((END - START))
-          VLLM_SIZE=$(du -sh /tmp/vllm-clone 2>/dev/null | cut -f1 || echo "unknown")
+          START=$(date +%s%N)
+          git clone --filter=blob:none https://github.com/vllm-project/vllm.git /tmp/vllm-cdn 2>&1 | tee /tmp/vllm-cdn-output.txt
+          END=$(date +%s%N)
+          VLLM_CDN_ELAPSED=$(( (END - START) / 1000000000 ))
+          VLLM_CDN_SIZE=$(du -sh /tmp/vllm-cdn 2>/dev/null | cut -f1 || echo "unknown")
           echo ""
-          echo "vllm clone: ${VLLM_ELAPSED}s, size: ${VLLM_SIZE}"
-          test -d /tmp/vllm-clone/.git || { echo "ERROR: vllm clone failed"; exit 1; }
-          rm -rf /tmp/vllm-clone
+          echo "::notice::vllm via git-cdn: ${VLLM_CDN_ELAPSED}s, size: ${VLLM_CDN_SIZE}"
+          test -d /tmp/vllm-cdn/.git || { echo "ERROR: vllm clone failed"; exit 1; }
+          rm -rf /tmp/vllm-cdn
 
-      - name: Benchmark large repo checkout (pytorch/pytorch)
+      - name: Benchmark pytorch/pytorch via git-cdn
         run: |
           echo "=== Benchmarking pytorch/pytorch full clone via git-cdn ==="
-          START=$(date +%s)
-          git clone --filter=blob:none https://github.com/pytorch/pytorch.git /tmp/pytorch-clone 2>&1 | tee /tmp/pytorch-clone-output.txt
-          END=$(date +%s)
-          PYTORCH_ELAPSED=$((END - START))
-          PYTORCH_SIZE=$(du -sh /tmp/pytorch-clone 2>/dev/null | cut -f1 || echo "unknown")
+          START=$(date +%s%N)
+          git clone --filter=blob:none https://github.com/pytorch/pytorch.git /tmp/pytorch-cdn 2>&1 | tee /tmp/pytorch-cdn-output.txt
+          END=$(date +%s%N)
+          PYTORCH_CDN_ELAPSED=$(( (END - START) / 1000000000 ))
+          PYTORCH_CDN_SIZE=$(du -sh /tmp/pytorch-cdn 2>/dev/null | cut -f1 || echo "unknown")
           echo ""
-          echo "pytorch clone: ${PYTORCH_ELAPSED}s, size: ${PYTORCH_SIZE}"
-          test -d /tmp/pytorch-clone/.git || { echo "ERROR: pytorch clone failed"; exit 1; }
-          rm -rf /tmp/pytorch-clone
+          echo "::notice::pytorch via git-cdn: ${PYTORCH_CDN_ELAPSED}s, size: ${PYTORCH_CDN_SIZE}"
+          test -d /tmp/pytorch-cdn/.git || { echo "ERROR: pytorch clone failed"; exit 1; }
+          rm -rf /tmp/pytorch-cdn
 
-      - name: Benchmark large repo checkout (direct GitHub, no git-cdn)
+      - name: Benchmark vllm-project/vllm direct (bypass git-cdn)
         run: |
-          echo "=== Benchmarking vllm-project/vllm direct clone (bypassing git-cdn) ==="
-          # Temporarily disable git-cdn insteadOf to clone directly from GitHub
+          echo "=== Benchmarking vllm-project/vllm direct clone from GitHub ==="
           git config --global --unset url.https://git-cdn.test.osinfra.cn/.insteadOf 2>/dev/null || true
-          START=$(date +%s)
+          START=$(date +%s%N)
           git clone --filter=blob:none https://github.com/vllm-project/vllm.git /tmp/vllm-direct 2>&1 | tee /tmp/vllm-direct-output.txt
-          END=$(date +%s)
-          VLLM_DIRECT_ELAPSED=$((END - START))
+          END=$(date +%s%N)
+          VLLM_DIRECT_ELAPSED=$(( (END - START) / 1000000000 ))
           VLLM_DIRECT_SIZE=$(du -sh /tmp/vllm-direct 2>/dev/null | cut -f1 || echo "unknown")
           echo ""
-          echo "vllm direct clone: ${VLLM_DIRECT_ELAPSED}s, size: ${VLLM_DIRECT_SIZE}"
+          echo "::notice::vllm direct: ${VLLM_DIRECT_ELAPSED}s, size: ${VLLM_DIRECT_SIZE}"
           test -d /tmp/vllm-direct/.git || { echo "ERROR: vllm direct clone failed"; exit 1; }
           rm -rf /tmp/vllm-direct
-          # Restore git-cdn insteadOf
           git config --global url.https://git-cdn.test.osinfra.cn/.insteadOf https://github.com/
 
-      - name: Benchmark large repo checkout (pytorch direct, no git-cdn)
+      - name: Benchmark pytorch/pytorch direct (bypass git-cdn)
         run: |
-          echo "=== Benchmarking pytorch/pytorch direct clone (bypassing git-cdn) ==="
+          echo "=== Benchmarking pytorch/pytorch direct clone from GitHub ==="
           git config --global --unset url.https://git-cdn.test.osinfra.cn/.insteadOf 2>/dev/null || true
-          START=$(date +%s)
+          START=$(date +%s%N)
           git clone --filter=blob:none https://github.com/pytorch/pytorch.git /tmp/pytorch-direct 2>&1 | tee /tmp/pytorch-direct-output.txt
-          END=$(date +%s)
-          PYTORCH_DIRECT_ELAPSED=$((END - START))
+          END=$(date +%s%N)
+          PYTORCH_DIRECT_ELAPSED=$(( (END - START) / 1000000000 ))
           PYTORCH_DIRECT_SIZE=$(du -sh /tmp/pytorch-direct 2>/dev/null | cut -f1 || echo "unknown")
           echo ""
-          echo "pytorch direct clone: ${PYTORCH_DIRECT_ELAPSED}s, size: ${PYTORCH_DIRECT_SIZE}"
+          echo "::notice::pytorch direct: ${PYTORCH_DIRECT_ELAPSED}s, size: ${PYTORCH_DIRECT_SIZE}"
           test -d /tmp/pytorch-direct/.git || { echo "ERROR: pytorch direct clone failed"; exit 1; }
           rm -rf /tmp/pytorch-direct
 
       - name: Summary
         run: |
           echo "=========================================="
-          echo "  git-cdn Verification Summary"
+          echo "  git-cdn Benchmark Summary"
           echo "=========================================="
           echo ""
           echo "Runner: linux-aarch64-cpu-2-gitcdn-test"
           echo "Cluster: gy-006"
-          echo "git-cdn: grouperenault (ENFORCE_AUTH=False)"
           echo ""
-          echo "All tests passed:"
-          echo "  ✓ insteadOf rule present in .gitconfig"
-          echo "  ✓ Anonymous clone via git-cdn succeeded"
-          echo "  ✓ git fetch via git-cdn succeeded"
-          echo "  ✓ No PAT in clone output"
-          echo "  ✓ git push via git-cdn succeeded"
-          echo "  ✓ Large repo benchmark (vllm + pytorch) via git-cdn"
-          echo "  ✓ Large repo benchmark (vllm + pytorch) direct from GitHub"
-          echo ""
-          echo "git-cdn is working correctly for clone and push."
+          echo "Compare git-cdn vs direct GitHub clone timing"
+          echo "in the step logs above."
           echo "=========================================="
