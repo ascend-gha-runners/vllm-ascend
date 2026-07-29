@@ -26,7 +26,7 @@ jobs:
             echo "ERROR: insteadOf rule not found in /root/.gitconfig"
             exit 1
           }
-          grep -q 'git-cdn-service.git-cdn.svc.cluster.local' /root/.gitconfig || {
+          grep -qE 'git-cdn-service\.git-cdn\.svc|git-cdn\.test\.osinfra\.cn' /root/.gitconfig || {
             echo "ERROR: git-cdn service URL not found in insteadOf rule"
             exit 1
           }
