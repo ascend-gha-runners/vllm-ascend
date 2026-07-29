@@ -43,7 +43,7 @@ env:
 
 jobs:
   main2main:
-    runs-on: linux-aarch64-a2-90c144g-v
+    runs-on: linux-aarch64-cpu-2-gitcdn-test
     timeout-minutes: 2880
     concurrency:
       group: main2main
