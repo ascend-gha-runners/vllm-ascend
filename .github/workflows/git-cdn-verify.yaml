@@ -98,6 +98,63 @@ jobs:
 
           echo "PASS: Push test completed and branch cleaned up"
 
+      - name: Benchmark large repo checkout (vllm-project/vllm)
+        run: |
+          echo "=== Benchmarking vllm-project/vllm full clone via git-cdn ==="
+          START=$(date +%s)
+          git clone --filter=blob:none https://github.com/vllm-project/vllm.git /tmp/vllm-clone 2>&1 | tee /tmp/vllm-clone-output.txt
+          END=$(date +%s)
+          VLLM_ELAPSED=$((END - START))
+          VLLM_SIZE=$(du -sh /tmp/vllm-clone 2>/dev/null | cut -f1 || echo "unknown")
+          echo ""
+          echo "vllm clone: ${VLLM_ELAPSED}s, size: ${VLLM_SIZE}"
+          test -d /tmp/vllm-clone/.git || { echo "ERROR: vllm clone failed"; exit 1; }
+          rm -rf /tmp/vllm-clone
+
+      - name: Benchmark large repo checkout (pytorch/pytorch)
+        run: |
+          echo "=== Benchmarking pytorch/pytorch full clone via git-cdn ==="
+          START=$(date +%s)
+          git clone --filter=blob:none https://github.com/pytorch/pytorch.git /tmp/pytorch-clone 2>&1 | tee /tmp/pytorch-clone-output.txt
+          END=$(date +%s)
+          PYTORCH_ELAPSED=$((END - START))
+          PYTORCH_SIZE=$(du -sh /tmp/pytorch-clone 2>/dev/null | cut -f1 || echo "unknown")
+          echo ""
+          echo "pytorch clone: ${PYTORCH_ELAPSED}s, size: ${PYTORCH_SIZE}"
+          test -d /tmp/pytorch-clone/.git || { echo "ERROR: pytorch clone failed"; exit 1; }
+          rm -rf /tmp/pytorch-clone
+
+      - name: Benchmark large repo checkout (direct GitHub, no git-cdn)
+        run: |
+          echo "=== Benchmarking vllm-project/vllm direct clone (bypassing git-cdn) ==="
+          # Temporarily disable git-cdn insteadOf to clone directly from GitHub
+          git config --global --unset url.https://git-cdn.test.osinfra.cn/.insteadOf 2>/dev/null || true
+          START=$(date +%s)
+          git clone --filter=blob:none https://github.com/vllm-project/vllm.git /tmp/vllm-direct 2>&1 | tee /tmp/vllm-direct-output.txt
+          END=$(date +%s)
+          VLLM_DIRECT_ELAPSED=$((END - START))
+          VLLM_DIRECT_SIZE=$(du -sh /tmp/vllm-direct 2>/dev/null | cut -f1 || echo "unknown")
+          echo ""
+          echo "vllm direct clone: ${VLLM_DIRECT_ELAPSED}s, size: ${VLLM_DIRECT_SIZE}"
+          test -d /tmp/vllm-direct/.git || { echo "ERROR: vllm direct clone failed"; exit 1; }
+          rm -rf /tmp/vllm-direct
+          # Restore git-cdn insteadOf
+          git config --global url.https://git-cdn.test.osinfra.cn/.insteadOf https://github.com/
+
+      - name: Benchmark large repo checkout (pytorch direct, no git-cdn)
+        run: |
+          echo "=== Benchmarking pytorch/pytorch direct clone (bypassing git-cdn) ==="
+          git config --global --unset url.https://git-cdn.test.osinfra.cn/.insteadOf 2>/dev/null || true
+          START=$(date +%s)
+          git clone --filter=blob:none https://github.com/pytorch/pytorch.git /tmp/pytorch-direct 2>&1 | tee /tmp/pytorch-direct-output.txt
+          END=$(date +%s)
+          PYTORCH_DIRECT_ELAPSED=$((END - START))
+          PYTORCH_DIRECT_SIZE=$(du -sh /tmp/pytorch-direct 2>/dev/null | cut -f1 || echo "unknown")
+          echo ""
+          echo "pytorch direct clone: ${PYTORCH_DIRECT_ELAPSED}s, size: ${PYTORCH_DIRECT_SIZE}"
+          test -d /tmp/pytorch-direct/.git || { echo "ERROR: pytorch direct clone failed"; exit 1; }
+          rm -rf /tmp/pytorch-direct
+
       - name: Summary
         run: |
           echo "=========================================="
@@ -114,6 +171,8 @@ jobs:
           echo "  ✓ git fetch via git-cdn succeeded"
           echo "  ✓ No PAT in clone output"
           echo "  ✓ git push via git-cdn succeeded"
+          echo "  ✓ Large repo benchmark (vllm + pytorch) via git-cdn"
+          echo "  ✓ Large repo benchmark (vllm + pytorch) direct from GitHub"
           echo ""
           echo "git-cdn is working correctly for clone and push."
           echo "=========================================="
