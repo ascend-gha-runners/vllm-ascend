@@ -90,11 +90,29 @@ jobs:
           print_group "${title}" "${path}"
         }
     steps:
+      - name: Configure git-cdn proxy
+        run: |
+          echo "=== Configuring git-cdn insteadOf for all GitHub URL patterns ==="
+          # actions/checkout uses https://x-access-token:<token>@github.com/... which
+          # does NOT match the postStart insteadOf rule (https://github.com/).
+          # The postStart already set insteadOf for https://github.com/ -> git-cdn.
+          # Verify it's present and active.
+          git config --global --list | grep insteadOf || echo "WARNING: no insteadOf rules found"
+          echo "=== git-cdn insteadOf configured ==="
+
       - name: Checkout vllm-project/vllm-ascend repo
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          submodules: recursive
+        run: |
+          # Use manual git clone instead of actions/checkout so that
+          # git-cdn insteadOf rules take effect. actions/checkout constructs
+          # https://x-access-token:<token>@github.com/... URLs which bypass insteadOf.
+          START=$(date +%s)
+          git clone --filter=blob:none https://github.com/ascend-gha-runners/vllm-ascend.git .
+          END=$(date +%s)
+          ELAPSED=$((END - START))
+          echo "::notice::vllm-ascend checkout via git-cdn: ${ELAPSED}s"
+          git fetch --unshallow 2>/dev/null || true
+          git checkout ${{ github.sha }}
+          git submodule update --init --recursive
 
       - name: Exclude vllm dir from ascend git
         run: echo "vllm-upstream/" >> .git/info/exclude
@@ -116,12 +134,16 @@ jobs:
           echo "MAIN2MAIN_TEST_CASES=${CASES}" >> "$GITHUB_ENV"
 
       - name: Checkout vllm-project/vllm repo
-        uses: actions/checkout@v6
-        with:
-          repository: vllm-project/vllm
-          ref: ${{ env.TARGET_COMMIT != '' && env.TARGET_COMMIT || 'main' }}
-          path: vllm-upstream
-          fetch-depth: 0
+        run: |
+          START=$(date +%s)
+          git clone --filter=blob:none https://github.com/vllm-project/vllm.git vllm-upstream
+          END=$(date +%s)
+          ELAPSED=$((END - START))
+          echo "::notice::vllm checkout via git-cdn: ${ELAPSED}s"
+          cd vllm-upstream
+          if [ -n "${TARGET_COMMIT}" ]; then
+            git checkout "${TARGET_COMMIT}"
+          fi
 
       - name: Validate target commit
         run: |
@@ -157,6 +179,8 @@ jobs:
           git config user.name "main2main-bot"
           git config user.email "main2main-bot@users.noreply.github.com"
           gh --version
+          # git-cdn is read-only (clone/fetch only), push must go direct to GitHub
+          git config --global url.https://github.com/.pushInsteadOf "https://git-cdn.test.osinfra.cn/"
 
       - name: Check npu and CANN info
         if: always()
