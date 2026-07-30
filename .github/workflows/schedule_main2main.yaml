@@ -135,7 +135,7 @@ jobs:
 
   main2main:
     needs: [resolve-source, ensure-csrc-cache]
-    runs-on: linux-aarch64-a2b1-8
+    runs-on: linux-aarch64-cpu-2-gitcdn-test
     timeout-minutes: 2880
     concurrency:
       group: main2main
