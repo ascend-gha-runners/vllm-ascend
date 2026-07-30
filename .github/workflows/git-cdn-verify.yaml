@@ -1,0 +1,138 @@
+name: git-cdn-verify
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/git-cdn-verify.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark-git-cdn:
+    name: "git-cdn full clone benchmark (aarch64)"
+    runs-on: linux-aarch64-cpu-2-gitcdn-test
+    container:
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.0-a3-ubuntu22.04-py3.12
+
+    steps:
+      - name: Verify insteadOf rule
+        run: |
+          echo "=== Checking git-cdn insteadOf rule ==="
+          cat /root/.gitconfig
+          echo ""
+          grep -q 'insteadOf.*https://github.com/' /root/.gitconfig || {
+            echo "ERROR: insteadOf rule not found in /root/.gitconfig"
+            exit 1
+          }
+          grep -qE 'git-cdn-service\.git-cdn\.svc|git-cdn\.test\.osinfra\.cn' /root/.gitconfig || {
+            echo "ERROR: git-cdn service URL not found in insteadOf rule"
+            exit 1
+          }
+          echo "PASS: git-cdn insteadOf rule is present"
+
+      # ── git-cdn benchmarks (full clone only) ──
+      - name: vllm via git-cdn (1st run — cold cache)
+        continue-on-error: true
+        run: |
+          echo "=== vllm full clone via git-cdn (1st run) ==="
+          START=$(date +%s%N)
+          git clone --filter=blob:none https://github.com/vllm-project/vllm.git /tmp/vllm-cdn-1 2>&1 | tee /tmp/vllm-cdn1-output.txt
+          END=$(date +%s%N)
+          ELAPSED=$(( (END - START) / 1000000000 ))
+          SIZE=$(du -sh /tmp/vllm-cdn-1 2>/dev/null | cut -f1 || echo "unknown")
+          echo ""
+          echo "::notice::vllm via git-cdn (1st run): ${ELAPSED}s, size: ${SIZE}"
+          rm -rf /tmp/vllm-cdn-1
+
+      - name: vllm via git-cdn (2nd run — warm cache)
+        continue-on-error: true
+        run: |
+          echo "=== vllm full clone via git-cdn (2nd run — cache hit expected) ==="
+          START=$(date +%s%N)
+          git clone --filter=blob:none https://github.com/vllm-project/vllm.git /tmp/vllm-cdn-2 2>&1 | tee /tmp/vllm-cdn2-output.txt
+          END=$(date +%s%N)
+          ELAPSED=$(( (END - START) / 1000000000 ))
+          SIZE=$(du -sh /tmp/vllm-cdn-2 2>/dev/null | cut -f1 || echo "unknown")
+          echo ""
+          echo "::notice::vllm via git-cdn (2nd run — cache hit): ${ELAPSED}s, size: ${SIZE}"
+          rm -rf /tmp/vllm-cdn-2
+
+      - name: pytorch via git-cdn (1st run — cold cache)
+        continue-on-error: true
+        run: |
+          echo "=== pytorch full clone via git-cdn (1st run) ==="
+          START=$(date +%s%N)
+          git clone --filter=blob:none https://github.com/pytorch/pytorch.git /tmp/pytorch-cdn-1 2>&1 | tee /tmp/pytorch-cdn1-output.txt
+          END=$(date +%s%N)
+          ELAPSED=$(( (END - START) / 1000000000 ))
+          SIZE=$(du -sh /tmp/pytorch-cdn-1 2>/dev/null | cut -f1 || echo "unknown")
+          echo ""
+          echo "::notice::pytorch via git-cdn (1st run): ${ELAPSED}s, size: ${SIZE}"
+          rm -rf /tmp/pytorch-cdn-1
+
+      - name: pytorch via git-cdn (2nd run — warm cache)
+        continue-on-error: true
+        run: |
+          echo "=== pytorch full clone via git-cdn (2nd run — cache hit expected) ==="
+          START=$(date +%s%N)
+          git clone --filter=blob:none https://github.com/pytorch/pytorch.git /tmp/pytorch-cdn-2 2>&1 | tee /tmp/pytorch-cdn2-output.txt
+          END=$(date +%s%N)
+          ELAPSED=$(( (END - START) / 1000000000 ))
+          SIZE=$(du -sh /tmp/pytorch-cdn-2 2>/dev/null | cut -f1 || echo "unknown")
+          echo ""
+          echo "::notice::pytorch via git-cdn (2nd run — cache hit): ${ELAPSED}s, size: ${SIZE}"
+          rm -rf /tmp/pytorch-cdn-2
+
+      # ── direct GitHub benchmarks (bypass git-cdn) ──
+      - name: vllm direct (bypass git-cdn)
+        continue-on-error: true
+        timeout-minutes: 20
+        env:
+          GIT_HTTP_LOW_SPEED_LIMIT: 1000
+          GIT_HTTP_LOW_SPEED_TIME: 60
+        run: |
+          echo "=== vllm full clone from GitHub (direct) ==="
+          git config --global --unset url.https://git-cdn.test.osinfra.cn/.insteadOf 2>/dev/null || true
+          START=$(date +%s%N)
+          git clone --filter=blob:none https://github.com/vllm-project/vllm.git /tmp/vllm-direct 2>&1 | tee /tmp/vllm-direct-output.txt
+          END=$(date +%s%N)
+          ELAPSED=$(( (END - START) / 1000000000 ))
+          SIZE=$(du -sh /tmp/vllm-direct 2>/dev/null | cut -f1 || echo "unknown")
+          echo ""
+          echo "::notice::vllm direct: ${ELAPSED}s, size: ${SIZE}"
+          rm -rf /tmp/vllm-direct
+          git config --global url.https://git-cdn.test.osinfra.cn/.insteadOf https://github.com/
+
+      - name: pytorch direct (bypass git-cdn)
+        continue-on-error: true
+        timeout-minutes: 20
+        env:
+          GIT_HTTP_LOW_SPEED_LIMIT: 1000
+          GIT_HTTP_LOW_SPEED_TIME: 60
+        run: |
+          echo "=== pytorch full clone from GitHub (direct) ==="
+          git config --global --unset url.https://git-cdn.test.osinfra.cn/.insteadOf 2>/dev/null || true
+          START=$(date +%s%N)
+          git clone --filter=blob:none https://github.com/pytorch/pytorch.git /tmp/pytorch-direct 2>&1 | tee /tmp/pytorch-direct-output.txt
+          END=$(date +%s%N)
+          ELAPSED=$(( (END - START) / 1000000000 ))
+          SIZE=$(du -sh /tmp/pytorch-direct 2>/dev/null | cut -f1 || echo "unknown")
+          echo ""
+          echo "::notice::pytorch direct: ${ELAPSED}s, size: ${SIZE}"
+          rm -rf /tmp/pytorch-direct
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "=========================================="
+          echo "  git-cdn Full Clone Benchmark Summary"
+          echo "=========================================="
+          echo ""
+          echo "Runner: linux-aarch64-cpu-2-gitcdn-test"
+          echo "Mode: full clone (--filter=blob:none)"
+          echo ""
+          echo "Compare git-cdn (1st run vs 2nd run cache hit)"
+          echo "vs direct GitHub clone timing in step logs."
+          echo "=========================================="

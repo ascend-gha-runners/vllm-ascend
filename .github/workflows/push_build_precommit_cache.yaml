@@ -16,7 +16,7 @@
 #
 
 # This workflow populates the pre-commit cache in OBS on push to main.
-# Fork PRs can then restore this cache read-only without needing OIDC credentials.
+# Fork PRs can then restore this cache read-only using the runner's built-in AK/SK.
 name: 'Cache pre-commit'
 on:
   push:
@@ -42,65 +42,43 @@ jobs:
     runs-on: linux-amd64-cpu-test-8-hk
     container:
       image: quay.io/ascend-ci/vllm-ascend:lint
+    env:
+      RUNS_ON_S3_BUCKET_CACHE: ascend-ci-cache-hk
+      RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.ap-southeast-1.myhuaweicloud.com
+      RUNS_ON_S3_FORCE_PATH_STYLE: "false"
+      AWS_S3_FORCE_PATH_STYLE: "false"
+      AWS_REGION: ap-southeast-1
+      RUNS_ON_RUNNER_NAME: ""
+      AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK_HK }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK_HK }}
     steps:
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Debug env vars
+      - name: Get pre-commit config hash
+        id: get_hash
         run: |
-          echo "=== Pod env (from envFrom) ==="
-          echo "AWS_ACCESS_KEY_ID is set: ${AWS_ACCESS_KEY_ID:+yes}"
-          echo "AWS_SECRET_ACCESS_KEY is set: ${AWS_SECRET_ACCESS_KEY:+yes}"
-          echo "RUNS_ON_S3_BUCKET_CACHE=${RUNS_ON_S3_BUCKET_CACHE:-<not set>}"
-          echo "RUNS_ON_S3_BUCKET_ENDPOINT=${RUNS_ON_S3_BUCKET_ENDPOINT:-<not set>}"
-          echo "AWS_S3_FORCE_PATH_STYLE=${AWS_S3_FORCE_PATH_STYLE:-<not set>}"
-          echo "AWS_REGION=${AWS_REGION:-<not set>}"
-          echo "RUNS_ON_RUNNER_NAME=${RUNS_ON_RUNNER_NAME:-<not set>}"
-          echo "=== All AWS_/RUNS_ON_ vars ==="
-          env | grep -E "^AWS_|^RUNS_ON_" | sort
-
-      - name: Configure AWS S3 path-style addressing
-        run: |
-          mkdir -p /root/.aws
-          cat > /root/.aws/config << 'EOF'
-          [default]
-          s3 =
-            addressing_style = path
-          EOF
-          cat /root/.aws/config
+          PRE_COMMIT_HASH=$(sha256sum .pre-commit-config.yaml | awk '{print $1}')
+          echo "PRE_COMMIT_HASH=$PRE_COMMIT_HASH" >> $GITHUB_OUTPUT
 
       - name: Check if cache exists
         id: check-cache
         uses: runs-on/cache/restore@v5
-        env:
-          RUNS_ON_S3_BUCKET_CACHE: ascend-ci-cache-hk
-          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.ap-southeast-1.myhuaweicloud.com
-          AWS_S3_FORCE_PATH_STYLE: 'true'
-          RUNS_ON_S3_FORCE_PATH_STYLE: 'true'
-          AWS_REGION: ap-southeast-1
-          RUNS_ON_RUNNER_NAME: ''
-          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
         with:
-          path: ~/.cache/pre-commit
-          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+          path: /tmp/pre-commit-cache
+          key: pre-commit-${{ steps.get_hash.outputs.PRE_COMMIT_HASH }}
           lookup-only: true
-
-      - name: Install pre-commit
-        if: steps.check-cache.outputs.cache-hit != 'true'
-        run: |
-          git config --global --add safe.directory /__w/vllm-ascend/vllm-ascend
-          pip install pre-commit
 
       - name: Clean stale pre-commit cache
         if: steps.check-cache.outputs.cache-hit != 'true'
-        run: rm -rf ~/.cache/pre-commit
+        run: rm -rf /tmp/pre-commit-cache
 
       - name: Run pre-commit (populate cache)
         if: steps.check-cache.outputs.cache-hit != 'true'
         env:
+          PRE_COMMIT_HOME: /tmp/pre-commit-cache
           PRE_COMMIT_COLOR: always
           FORCE_COLOR: "1"
           TERM: xterm-256color
@@ -112,15 +90,6 @@ jobs:
       - name: Save pre-commit cache
         if: always() && steps.check-cache.outputs.cache-hit != 'true'
         uses: runs-on/cache/save@v5
-        env:
-          RUNS_ON_S3_BUCKET_CACHE: ascend-ci-cache-hk
-          RUNS_ON_S3_BUCKET_ENDPOINT: https://obs.ap-southeast-1.myhuaweicloud.com
-          AWS_S3_FORCE_PATH_STYLE: 'true'
-          RUNS_ON_S3_FORCE_PATH_STYLE: 'true'
-          AWS_REGION: ap-southeast-1
-          RUNS_ON_RUNNER_NAME: ''
-          AWS_ACCESS_KEY_ID: ${{ secrets.HW_OBS_AK }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.HW_OBS_SK }}
         with:
-          path: ~/.cache/pre-commit
-          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+          path: /tmp/pre-commit-cache
+          key: pre-commit-${{ steps.get_hash.outputs.PRE_COMMIT_HASH }}
