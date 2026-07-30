@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   benchmark-git-cdn:
-    name: "git-cdn large repo checkout benchmark (aarch64)"
+    name: "git-cdn full clone benchmark (aarch64)"
     runs-on: linux-aarch64-cpu-2-gitcdn-test
     container:
       image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.0-a3-ubuntu22.04-py3.12
@@ -32,109 +32,99 @@ jobs:
           }
           echo "PASS: git-cdn insteadOf rule is present"
 
-      - name: Quick smoke test (small repo)
-        run: |
-          echo "=== Cloning a small public repo via git-cdn ==="
-          git clone --depth=1 https://github.com/Zherphy/ARC-test.git /tmp/test-clone 2>&1
-          test -d /tmp/test-clone/.git || { echo "ERROR: Clone failed"; exit 1; }
-          rm -rf /tmp/test-clone
-          echo "PASS: Smoke test succeeded"
-
-      # ── git-cdn benchmarks ──
-      - name: Benchmark vllm via git-cdn
+      # ── git-cdn benchmarks (full clone only) ──
+      - name: vllm via git-cdn (1st run — cold cache)
         continue-on-error: true
         run: |
-          echo "=== Benchmarking vllm-project/vllm full clone via git-cdn ==="
+          echo "=== vllm full clone via git-cdn (1st run) ==="
           START=$(date +%s%N)
-          git clone --filter=blob:none https://github.com/vllm-project/vllm.git /tmp/vllm-cdn 2>&1 | tee /tmp/vllm-cdn-output.txt
-          END=$(date +%s%N)
-          VLLM_CDN_ELAPSED=$(( (END - START) / 1000000000 ))
-          VLLM_CDN_SIZE=$(du -sh /tmp/vllm-cdn 2>/dev/null | cut -f1 || echo "unknown")
-          echo ""
-          echo "::notice::vllm via git-cdn: ${VLLM_CDN_ELAPSED}s, size: ${VLLM_CDN_SIZE}"
-          rm -rf /tmp/vllm-cdn
-
-      - name: Benchmark pytorch via git-cdn
-        continue-on-error: true
-        run: |
-          echo "=== Benchmarking pytorch/pytorch full clone via git-cdn ==="
-          START=$(date +%s%N)
-          git clone --filter=blob:none https://github.com/pytorch/pytorch.git /tmp/pytorch-cdn 2>&1 | tee /tmp/pytorch-cdn-output.txt
-          END=$(date +%s%N)
-          PYTORCH_CDN_ELAPSED=$(( (END - START) / 1000000000 ))
-          PYTORCH_CDN_SIZE=$(du -sh /tmp/pytorch-cdn 2>/dev/null | cut -f1 || echo "unknown")
-          echo ""
-          echo "::notice::pytorch via git-cdn: ${PYTORCH_CDN_ELAPSED}s, size: ${PYTORCH_CDN_SIZE}"
-          rm -rf /tmp/pytorch-cdn
-
-      # ── shallow clone (depth=1) benchmark — matches main2main pattern ──
-      - name: Benchmark vllm shallow clone (depth=1) via git-cdn
-        continue-on-error: true
-        run: |
-          echo "=== Benchmarking vllm shallow clone (depth=1) via git-cdn ==="
-          START=$(date +%s%N)
-          git clone --depth=1 https://github.com/vllm-project/vllm.git /tmp/vllm-shallow-cdn 2>&1 | tee /tmp/vllm-shallow-cdn-output.txt
+          git clone --filter=blob:none https://github.com/vllm-project/vllm.git /tmp/vllm-cdn-1 2>&1 | tee /tmp/vllm-cdn1-output.txt
           END=$(date +%s%N)
           ELAPSED=$(( (END - START) / 1000000000 ))
-          SIZE=$(du -sh /tmp/vllm-shallow-cdn 2>/dev/null | cut -f1 || echo "unknown")
+          SIZE=$(du -sh /tmp/vllm-cdn-1 2>/dev/null | cut -f1 || echo "unknown")
           echo ""
-          echo "::notice::vllm shallow (depth=1) via git-cdn: ${ELAPSED}s, size: ${SIZE}"
-          rm -rf /tmp/vllm-shallow-cdn
+          echo "::notice::vllm via git-cdn (1st run): ${ELAPSED}s, size: ${SIZE}"
+          rm -rf /tmp/vllm-cdn-1
 
-      # ── direct GitHub benchmarks (bypass git-cdn) ──
-      - name: Benchmark vllm direct (bypass git-cdn)
+      - name: vllm via git-cdn (2nd run — warm cache)
         continue-on-error: true
         run: |
-          echo "=== Benchmarking vllm-project/vllm full clone from GitHub ==="
+          echo "=== vllm full clone via git-cdn (2nd run — cache hit expected) ==="
+          START=$(date +%s%N)
+          git clone --filter=blob:none https://github.com/vllm-project/vllm.git /tmp/vllm-cdn-2 2>&1 | tee /tmp/vllm-cdn2-output.txt
+          END=$(date +%s%N)
+          ELAPSED=$(( (END - START) / 1000000000 ))
+          SIZE=$(du -sh /tmp/vllm-cdn-2 2>/dev/null | cut -f1 || echo "unknown")
+          echo ""
+          echo "::notice::vllm via git-cdn (2nd run — cache hit): ${ELAPSED}s, size: ${SIZE}"
+          rm -rf /tmp/vllm-cdn-2
+
+      - name: pytorch via git-cdn (1st run — cold cache)
+        continue-on-error: true
+        run: |
+          echo "=== pytorch full clone via git-cdn (1st run) ==="
+          START=$(date +%s%N)
+          git clone --filter=blob:none https://github.com/pytorch/pytorch.git /tmp/pytorch-cdn-1 2>&1 | tee /tmp/pytorch-cdn1-output.txt
+          END=$(date +%s%N)
+          ELAPSED=$(( (END - START) / 1000000000 ))
+          SIZE=$(du -sh /tmp/pytorch-cdn-1 2>/dev/null | cut -f1 || echo "unknown")
+          echo ""
+          echo "::notice::pytorch via git-cdn (1st run): ${ELAPSED}s, size: ${SIZE}"
+          rm -rf /tmp/pytorch-cdn-1
+
+      - name: pytorch via git-cdn (2nd run — warm cache)
+        continue-on-error: true
+        run: |
+          echo "=== pytorch full clone via git-cdn (2nd run — cache hit expected) ==="
+          START=$(date +%s%N)
+          git clone --filter=blob:none https://github.com/pytorch/pytorch.git /tmp/pytorch-cdn-2 2>&1 | tee /tmp/pytorch-cdn2-output.txt
+          END=$(date +%s%N)
+          ELAPSED=$(( (END - START) / 1000000000 ))
+          SIZE=$(du -sh /tmp/pytorch-cdn-2 2>/dev/null | cut -f1 || echo "unknown")
+          echo ""
+          echo "::notice::pytorch via git-cdn (2nd run — cache hit): ${ELAPSED}s, size: ${SIZE}"
+          rm -rf /tmp/pytorch-cdn-2
+
+      # ── direct GitHub benchmarks (bypass git-cdn) ──
+      - name: vllm direct (bypass git-cdn)
+        continue-on-error: true
+        run: |
+          echo "=== vllm full clone from GitHub (direct) ==="
           git config --global --unset url.https://git-cdn.test.osinfra.cn/.insteadOf 2>/dev/null || true
           START=$(date +%s%N)
           git clone --filter=blob:none https://github.com/vllm-project/vllm.git /tmp/vllm-direct 2>&1 | tee /tmp/vllm-direct-output.txt
           END=$(date +%s%N)
-          VLLM_DIRECT_ELAPSED=$(( (END - START) / 1000000000 ))
-          VLLM_DIRECT_SIZE=$(du -sh /tmp/vllm-direct 2>/dev/null | cut -f1 || echo "unknown")
+          ELAPSED=$(( (END - START) / 1000000000 ))
+          SIZE=$(du -sh /tmp/vllm-direct 2>/dev/null | cut -f1 || echo "unknown")
           echo ""
-          echo "::notice::vllm direct: ${VLLM_DIRECT_ELAPSED}s, size: ${VLLM_DIRECT_SIZE}"
+          echo "::notice::vllm direct: ${ELAPSED}s, size: ${SIZE}"
           rm -rf /tmp/vllm-direct
           git config --global url.https://git-cdn.test.osinfra.cn/.insteadOf https://github.com/
 
-      - name: Benchmark vllm shallow clone (depth=1) direct (bypass git-cdn)
+      - name: pytorch direct (bypass git-cdn)
         continue-on-error: true
         run: |
-          echo "=== Benchmarking vllm shallow clone (depth=1) from GitHub ==="
-          git config --global --unset url.https://git-cdn.test.osinfra.cn/.insteadOf 2>/dev/null || true
-          START=$(date +%s%N)
-          git clone --depth=1 https://github.com/vllm-project/vllm.git /tmp/vllm-shallow-direct 2>&1 | tee /tmp/vllm-shallow-direct-output.txt
-          END=$(date +%s%N)
-          ELAPSED=$(( (END - START) / 1000000000 ))
-          SIZE=$(du -sh /tmp/vllm-shallow-direct 2>/dev/null | cut -f1 || echo "unknown")
-          echo ""
-          echo "::notice::vllm shallow (depth=1) direct: ${ELAPSED}s, size: ${SIZE}"
-          rm -rf /tmp/vllm-shallow-direct
-
-      - name: Benchmark pytorch direct (bypass git-cdn)
-        continue-on-error: true
-        run: |
-          echo "=== Benchmarking pytorch/pytorch full clone from GitHub ==="
+          echo "=== pytorch full clone from GitHub (direct) ==="
           git config --global --unset url.https://git-cdn.test.osinfra.cn/.insteadOf 2>/dev/null || true
           START=$(date +%s%N)
           git clone --filter=blob:none https://github.com/pytorch/pytorch.git /tmp/pytorch-direct 2>&1 | tee /tmp/pytorch-direct-output.txt
           END=$(date +%s%N)
-          PYTORCH_DIRECT_ELAPSED=$(( (END - START) / 1000000000 ))
-          PYTORCH_DIRECT_SIZE=$(du -sh /tmp/pytorch-direct 2>/dev/null | cut -f1 || echo "unknown")
+          ELAPSED=$(( (END - START) / 1000000000 ))
+          SIZE=$(du -sh /tmp/pytorch-direct 2>/dev/null | cut -f1 || echo "unknown")
           echo ""
-          echo "::notice::pytorch direct: ${PYTORCH_DIRECT_ELAPSED}s, size: ${PYTORCH_DIRECT_SIZE}"
+          echo "::notice::pytorch direct: ${ELAPSED}s, size: ${SIZE}"
           rm -rf /tmp/pytorch-direct
 
       - name: Summary
         if: always()
         run: |
           echo "=========================================="
-          echo "  git-cdn Benchmark Summary"
+          echo "  git-cdn Full Clone Benchmark Summary"
           echo "=========================================="
           echo ""
           echo "Runner: linux-aarch64-cpu-2-gitcdn-test"
-          echo "Cluster: gy-006"
+          echo "Mode: full clone (--filter=blob:none)"
           echo ""
-          echo "Compare git-cdn vs direct GitHub clone timing"
-          echo "in the step logs above."
+          echo "Compare git-cdn (1st run vs 2nd run cache hit)"
+          echo "vs direct GitHub clone timing in step logs."
           echo "=========================================="
