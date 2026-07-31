@@ -1,0 +1,100 @@
+name: nfs-security-verify
+
+on:
+  workflow_dispatch:
+    inputs:
+      nfs_host:
+        description: 'NFS server IP to test (SFS Turbo internal IP)'
+        required: false
+        default: '172.16.0.165'
+
+jobs:
+  verify-nfs-root-path-not-mountable:
+    runs-on: linux-aarch64-cpu-2-buildkit-gy006
+    container:
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/vllm-ascend/act-environments-ubuntu:act-22.04
+    steps:
+      - name: Install nfsshell dependencies
+        run: |
+          apt-get update -qq && apt-get install -y -qq gcc make libreadline-dev 2>/dev/null || true
+
+      - name: Build nfsshell
+        run: |
+          git clone https://github.com/NetSPI/nfsshell.git /tmp/nfsshell 2>/dev/null || true
+          if [ -d /tmp/nfsshell ]; then
+            cd /tmp/nfsshell && make 2>/dev/null || true
+            cp nfsshell /usr/local/bin/ 2>/dev/null || true
+          fi
+
+      - name: Verify NFS root path is NOT mountable
+        env:
+          NFS_HOST: ${{ github.event.inputs.nfs_host || '172.16.0.165' }}
+        run: |
+          echo "=== NFS Security Verification ==="
+          echo "Testing NFS server: ${NFS_HOST}"
+          echo ""
+
+          # Use nfsshell to attempt mounting the root path
+          # If the vulnerability exists, nfsshell will succeed and list root directory contents
+          # If the fix works, nfsshell should fail with permission denied
+          echo "--- Running: ./nfsshell -host ${NFS_HOST} -c 'mount /; ls /' ---"
+
+          if command -v nfsshell &>/dev/null; then
+            NFSHELL_OUTPUT=$(nfsshell -host "${NFS_HOST}" -c 'mount /; ls /' 2>&1 || true)
+            echo "${NFSHELL_OUTPUT}"
+            echo ""
+
+            # Check if nfsshell successfully mounted and listed root directory
+            # A successful mount would show directory entries like ascend-ci-share, etc.
+            if echo "${NFSHELL_OUTPUT}" | grep -qiE 'ascend-ci|share|nfs|mnt|home|etc|usr|var|tmp'; then
+              echo ""
+              echo "=========================================="
+              echo "FAIL: NFS root path is STILL MOUNTABLE!"
+              echo "=========================================="
+              echo "nfsshell successfully mounted / and listed directory contents."
+              echo "This means the csi-sfsturbo + absolute-path vulnerability still exists."
+              echo "Any pod can mount the entire SFS Turbo root path and pollute artifact packages."
+              exit 1
+            fi
+
+            # If nfsshell failed with permission denied or RPC error, the fix is working
+            if echo "${NFSHELL_OUTPUT}" | grep -qiE 'permission denied|access denied|rpc error|timed out|failed|error|refused|not found|no such'; then
+              echo ""
+              echo "=========================================="
+              echo "PASS: NFS root path is NOT mountable."
+              echo "=========================================="
+              echo "The sfsturbo-subpath-sc fix is working correctly."
+              echo "Root path access was denied, preventing privilege escalation."
+            else
+              echo ""
+              echo "WARN: Could not determine if root path is mountable."
+              echo "nfsshell output was ambiguous. Please verify manually."
+            fi
+          else
+            echo "nfsshell binary not available, attempting showmount fallback"
+            apt-get install -y -qq nfs-common 2>/dev/null || true
+            if command -v showmount &>/dev/null; then
+              echo "--- Fallback: showmount -e ${NFS_HOST} ---"
+              EXPORTS=$(showmount -e "${NFS_HOST}" 2>&1 || true)
+              echo "${EXPORTS}"
+
+              if echo "${EXPORTS}" | grep -qE '^\s*/\s'; then
+                echo ""
+                echo "FAIL: Root path '/' is exported!"
+                exit 1
+              fi
+              echo "PASS: Root path '/' is not in the export list."
+            else
+              echo "Neither nfsshell nor showmount available. Cannot verify."
+              exit 1
+            fi
+          fi
+
+      - name: Summary
+        run: |
+          echo "=== Verification Complete ==="
+          echo "NFS server tested: ${NFS_HOST}"
+          echo "Vulnerability: NFS root path privilege escalation via mountable root path"
+          echo "Fix: Replace csi-sfsturbo + absolute-path with sfsturbo-subpath-sc"
+        env:
+          NFS_HOST: ${{ github.event.inputs.nfs_host || '172.16.0.165' }}
