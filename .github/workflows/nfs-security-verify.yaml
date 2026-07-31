@@ -17,6 +17,8 @@ jobs:
       - name: Install NFS client tools
         run: |
           apt-get update -qq && apt-get install -y -qq nfs-common 2>/dev/null || true
+          export PATH="/usr/sbin:/sbin:$PATH"
+          echo "PATH=$PATH" >> $GITHUB_ENV
 
       - name: Check NFS exports with showmount
         env:
@@ -26,10 +28,7 @@ jobs:
           echo "Testing NFS server: ${NFS_HOST}"
           echo ""
 
-          if ! command -v showmount &>/dev/null; then
-            echo "ERROR: showmount not available"
-            exit 1
-          fi
+          which showmount || { echo "ERROR: showmount not available"; exit 1; }
 
           echo "--- showmount -e ${NFS_HOST} ---"
           EXPORTS=$(showmount -e "${NFS_HOST}" 2>&1 || true)
