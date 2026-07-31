@@ -10,7 +10,7 @@ on:
 
 jobs:
   verify-nfs-root-path-not-mountable:
-    runs-on: linux-aarch64-cpu-2-buildkit-gy006
+    runs-on: linux-aarch64-cpu-2-gitcdn-test
     container:
       image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/vllm-ascend/act-environments-ubuntu:act-22.04
     steps:
