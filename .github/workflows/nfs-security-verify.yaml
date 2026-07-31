@@ -14,19 +14,11 @@ jobs:
     container:
       image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/vllm-ascend/act-environments-ubuntu:act-22.04
     steps:
-      - name: Install nfsshell dependencies
+      - name: Install NFS client tools
         run: |
-          apt-get update -qq && apt-get install -y -qq gcc make libreadline-dev 2>/dev/null || true
+          apt-get update -qq && apt-get install -y -qq nfs-common 2>/dev/null || true
 
-      - name: Build nfsshell
-        run: |
-          git clone https://github.com/NetSPI/nfsshell.git /tmp/nfsshell 2>/dev/null || true
-          if [ -d /tmp/nfsshell ]; then
-            cd /tmp/nfsshell && make 2>/dev/null || true
-            cp nfsshell /usr/local/bin/ 2>/dev/null || true
-          fi
-
-      - name: Verify NFS root path is NOT mountable
+      - name: Check NFS exports with showmount
         env:
           NFS_HOST: ${{ github.event.inputs.nfs_host || '172.16.0.165' }}
         run: |
@@ -34,60 +26,66 @@ jobs:
           echo "Testing NFS server: ${NFS_HOST}"
           echo ""
 
-          # Use nfsshell to attempt mounting the root path
-          # If the vulnerability exists, nfsshell will succeed and list root directory contents
-          # If the fix works, nfsshell should fail with permission denied
-          echo "--- Running: ./nfsshell -host ${NFS_HOST} -c 'mount /; ls /' ---"
+          if ! command -v showmount &>/dev/null; then
+            echo "ERROR: showmount not available"
+            exit 1
+          fi
 
-          if command -v nfsshell &>/dev/null; then
-            NFSHELL_OUTPUT=$(nfsshell -host "${NFS_HOST}" -c 'mount /; ls /' 2>&1 || true)
-            echo "${NFSHELL_OUTPUT}"
+          echo "--- showmount -e ${NFS_HOST} ---"
+          EXPORTS=$(showmount -e "${NFS_HOST}" 2>&1 || true)
+          echo "${EXPORTS}"
+          echo ""
+
+          # Check if root path '/' is exported
+          if echo "${EXPORTS}" | grep -qE '^\s*/\s'; then
+            echo "=========================================="
+            echo "FAIL: NFS root path '/' is EXPORTED!"
+            echo "=========================================="
+            echo "The SFS Turbo root path is in the export list."
+            echo "Any pod can mount the entire SFS Turbo root path and pollute artifact packages."
+            exit 1
+          fi
+
+          # Check if wildcard or overly broad exports exist
+          if echo "${EXPORTS}" | grep -qE '^\s*/\S*\s+\*'; then
+            echo "WARN: Broad NFS export detected with wildcard access."
+          fi
+
+          echo "=========================================="
+          echo "PASS: NFS root path '/' is NOT exported."
+          echo "=========================================="
+
+      - name: Attempt direct NFS mount of root path
+        env:
+          NFS_HOST: ${{ github.event.inputs.nfs_host || '172.16.0.165' }}
+        run: |
+          echo "=== Attempting direct NFS mount of root path ==="
+          mkdir -p /tmp/nfs-root-test
+
+          # Try to mount the root path
+          MOUNT_OUTPUT=$(mount -t nfs "${NFS_HOST}:/" /tmp/nfs-root-test 2>&1) || true
+          MOUNT_EXIT=$?
+          echo "mount exit code: ${MOUNT_EXIT}"
+          echo "mount output: ${MOUNT_OUTPUT}"
+
+          if [ ${MOUNT_EXIT} -eq 0 ]; then
             echo ""
-
-            # Check if nfsshell successfully mounted and listed root directory
-            # A successful mount would show directory entries like ascend-ci-share, etc.
-            if echo "${NFSHELL_OUTPUT}" | grep -qiE 'ascend-ci|share|nfs|mnt|home|etc|usr|var|tmp'; then
-              echo ""
-              echo "=========================================="
-              echo "FAIL: NFS root path is STILL MOUNTABLE!"
-              echo "=========================================="
-              echo "nfsshell successfully mounted / and listed directory contents."
-              echo "This means the csi-sfsturbo + absolute-path vulnerability still exists."
-              echo "Any pod can mount the entire SFS Turbo root path and pollute artifact packages."
-              exit 1
-            fi
-
-            # If nfsshell failed with permission denied or RPC error, the fix is working
-            if echo "${NFSHELL_OUTPUT}" | grep -qiE 'permission denied|access denied|rpc error|timed out|failed|error|refused|not found|no such'; then
-              echo ""
-              echo "=========================================="
-              echo "PASS: NFS root path is NOT mountable."
-              echo "=========================================="
-              echo "The sfsturbo-subpath-sc fix is working correctly."
-              echo "Root path access was denied, preventing privilege escalation."
-            else
-              echo ""
-              echo "WARN: Could not determine if root path is mountable."
-              echo "nfsshell output was ambiguous. Please verify manually."
-            fi
+            echo "Listing root mount contents:"
+            ls -la /tmp/nfs-root-test/ 2>&1 || true
+            echo ""
+            echo "=========================================="
+            echo "FAIL: NFS root path is MOUNTABLE!"
+            echo "=========================================="
+            echo "Successfully mounted ${NFS_HOST}:/ and listed directory contents."
+            echo "This means the NFS root path privilege escalation vulnerability still exists."
+            umount /tmp/nfs-root-test 2>/dev/null || true
+            exit 1
           else
-            echo "nfsshell binary not available, attempting showmount fallback"
-            apt-get install -y -qq nfs-common 2>/dev/null || true
-            if command -v showmount &>/dev/null; then
-              echo "--- Fallback: showmount -e ${NFS_HOST} ---"
-              EXPORTS=$(showmount -e "${NFS_HOST}" 2>&1 || true)
-              echo "${EXPORTS}"
-
-              if echo "${EXPORTS}" | grep -qE '^\s*/\s'; then
-                echo ""
-                echo "FAIL: Root path '/' is exported!"
-                exit 1
-              fi
-              echo "PASS: Root path '/' is not in the export list."
-            else
-              echo "Neither nfsshell nor showmount available. Cannot verify."
-              exit 1
-            fi
+            echo ""
+            echo "=========================================="
+            echo "PASS: NFS root path is NOT mountable."
+            echo "=========================================="
+            echo "Mount attempt failed, root path access is denied."
           fi
 
       - name: Summary
