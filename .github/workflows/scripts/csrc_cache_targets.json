@@ -2,7 +2,7 @@
   "a2-arm64-ubuntu": {
     "device": "a2",
     "cache_arch": "ARM64",
-    "runner": "linux-aarch64-a2-30c48g-v",
+    "runner": "linux-aarch64-a3-test-0-label",
     "os": "ubuntu",
     "image": "swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.1-910b-ubuntu22.04-py3.12",
     "soc_version": "ascend910b1"
@@ -10,7 +10,7 @@
   "a3-arm64-ubuntu": {
     "device": "a3",
     "cache_arch": "ARM64",
-    "runner": "linux-aarch64-a2-30c48g-v",
+    "runner": "linux-aarch64-a3-test-0-label",
     "os": "ubuntu",
     "image": "swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.1-a3-ubuntu22.04-py3.12",
     "soc_version": "ascend910_9391"
@@ -18,7 +18,7 @@
   "310p-arm64-ubuntu": {
     "device": "310p",
     "cache_arch": "ARM64",
-    "runner": "linux-aarch64-a2-30c48g-v",
+    "runner": "linux-aarch64-a3-test-0-label",
     "os": "ubuntu",
     "image": "swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.1.0-beta.1-310p-ubuntu22.04-py3.12",
     "soc_version": "ascend310p1"
@@ -26,7 +26,7 @@
   "a2-arm64-openeuler": {
     "device": "a2",
     "cache_arch": "ARM64",
-    "runner": "linux-aarch64-a2-30c48g-v",
+    "runner": "linux-aarch64-a3-test-0-label",
     "os": "openeuler",
     "image": "swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.1-910b-openeuler24.03-py3.12",
     "soc_version": "ascend910b1"
@@ -34,7 +34,7 @@
   "a3-arm64-openeuler": {
     "device": "a3",
     "cache_arch": "ARM64",
-    "runner": "linux-aarch64-a2-30c48g-v",
+    "runner": "linux-aarch64-a3-test-0-label",
     "os": "openeuler",
     "image": "swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.1-a3-openeuler24.03-py3.12",
     "soc_version": "ascend910_9391"
@@ -42,7 +42,7 @@
   "310p-arm64-openeuler": {
     "device": "310p",
     "cache_arch": "ARM64",
-    "runner": "linux-aarch64-a2-30c48g-v",
+    "runner": "linux-aarch64-a3-test-0-label",
     "os": "openeuler",
     "image": "swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.1.0-beta.1-310p-openeuler24.03-py3.12",
     "soc_version": "ascend310p1"
