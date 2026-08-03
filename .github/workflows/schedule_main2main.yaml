@@ -53,6 +53,13 @@ jobs:
       TARGET_COMMIT: ${{ github.event_name == 'workflow_dispatch' && inputs.target_commit || '' }}
       HEAD_FORK: vllm-ascend-ci/vllm-ascend
     steps:
+      - name: Configure git-cdn proxy
+        run: |
+          git config --global url."http://git-cdn-service.git-cdn.svc.cluster.local:8000/".insteadOf "https://github.com/"
+          git config --global http.lowSpeedLimit 0
+          git config --global http.lowSpeedTime 999999
+          git config --global http.postBuffer 524288000
+
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v7
         with:
