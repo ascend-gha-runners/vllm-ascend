@@ -88,7 +88,6 @@ jobs:
       - name: Checkout cache workflow helpers
         uses: actions/checkout@v7
         with:
-          repository: ${{ inputs.base_repository || github.repository }}
           path: .csrc-cache-workflow
           sparse-checkout: |
             .github/workflows/scripts/csrc_cache_targets.json
