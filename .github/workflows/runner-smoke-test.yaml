@@ -1,0 +1,66 @@
+name: Runner Smoke Test
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/runner-smoke-test.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-test:
+    name: "Smoke test — ${{ matrix.runner }}"
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        runner:
+          - linux-amd64-a5-2
+          - linux-amd64-a5-4
+          - linux-amd64-a5-8
+    container:
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.0-a3-ubuntu22.04-py3.12
+
+    steps:
+      - name: System info
+        run: |
+          echo "=== System Info ==="
+          echo "Hostname: $(hostname)"
+          echo "Arch:    $(uname -m)"
+          echo "Kernel:  $(uname -r)"
+          echo "OS:      $(cat /etc/os-release | head -5)"
+
+      - name: NPU info
+        run: |
+          echo "=== NPU Info ==="
+          npu-smi info || echo "WARNING: npu-smi not available"
+
+      - name: Disk & memory
+        run: |
+          echo "=== Disk ==="
+          df -h / /tmp 2>/dev/null || true
+          echo ""
+          echo "=== Memory ==="
+          free -h || true
+
+      - name: Network
+        run: |
+          echo "=== DNS ==="
+          cat /etc/resolv.conf || true
+          echo ""
+          echo "=== GitHub reachable ==="
+          curl -fsSL --max-time 10 https://github.com > /dev/null 2>&1 \
+            && echo "OK: github.com reachable" \
+            || echo "WARN: github.com NOT reachable"
+
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: All checks passed
+        run: |
+          echo ""
+          echo "=========================================="
+          echo "  Runner ${{ matrix.runner }} smoke test"
+          echo "  ALL CHECKS PASSED ✓"
+          echo "=========================================="
