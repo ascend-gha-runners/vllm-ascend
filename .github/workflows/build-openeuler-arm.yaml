@@ -1,0 +1,117 @@
+name: build-openeuler-arm
+
+on:
+  workflow_dispatch:
+    inputs:
+      push:
+        description: "Push image to quay.io (set 'true' to enable)"
+        required: false
+        type: boolean
+        default: false
+
+env:
+  QUAY_TEMP_REPO: quay.io/atlas-ci/vllm-atlas-temp
+  IMAGE_TAG: test-openeuler-arm64-gy006
+
+jobs:
+  build:
+    name: build openEuler arm64
+    runs-on: linux-aarch64-cpu-2-buildkit-gy006
+    container:
+      image: quay.io/ascend/cann:9.0.0-910b-openeuler24.03-py3.12
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify buildkitd connectivity
+        run: |
+          set -e
+          echo "BUILDKITD_ADDR=${BUILDKITD_ADDR}"
+          echo "DOCKER_CONFIG=${DOCKER_CONFIG}"
+          ls -la "${DOCKER_CONFIG}/"
+
+          buildctl \
+            --addr="${BUILDKITD_ADDR}" \
+            --tlscacert="${DOCKER_CONFIG}/ca.pem" \
+            --tlscert="${DOCKER_CONFIG}/cert.pem" \
+            --tlskey="${DOCKER_CONFIG}/key.pem" \
+            debug workers
+
+      - name: Install crane
+        if: ${{ inputs.push }}
+        run: |
+          set -e
+          ARCH=$(uname -m | sed 's/aarch64/arm64/')
+          CRANE_VERSION="v0.20.2"
+          curl -fsSL "https://gh-proxy.test.osinfra.cn/https://github.com/google/go-containerregistry/releases/download/${CRANE_VERSION}/go-containerregistry_Linux_${ARCH}.tar.gz" -o /tmp/crane.tar.gz
+          tar -xzf /tmp/crane.tar.gz -C /tmp crane
+          chmod +x /tmp/crane
+          /tmp/crane version
+
+      - name: Build image
+        id: build
+        run: |
+          set -e
+
+          ARGS=(
+            --addr="${BUILDKITD_ADDR}"
+            --tlscacert="${DOCKER_CONFIG}/ca.pem"
+            --tlscert="${DOCKER_CONFIG}/cert.pem"
+            --tlskey="${DOCKER_CONFIG}/key.pem"
+            build
+            --frontend dockerfile.v0
+            --local context=.
+            --local dockerfile=test-case-006
+            --opt filename=Dockerfile.openEuler
+            --opt platform=linux/arm64
+            --progress=plain
+          )
+
+          echo "=== Build arguments ==="
+          printf '  %s\n' "${ARGS[@]}"
+
+          if [ "${{ inputs.push }}" = "true" ]; then
+            FULL_TAG="${QUAY_TEMP_REPO}:${IMAGE_TAG}"
+            ARGS+=(--output "type=image,name=${FULL_TAG},push=true")
+            echo "Output: push to ${FULL_TAG}"
+          else
+            ARGS+=(--output "type=image,name=${QUAY_TEMP_REPO}:${IMAGE_TAG},push=false")
+            echo "Output: build only (stored in buildkitd cache)"
+          fi
+
+          buildctl "${ARGS[@]}"
+
+          if [ "${{ inputs.push }}" = "true" ]; then
+            echo "buildctl push completed, verifying with crane..."
+            /tmp/crane auth login quay.io \
+              -u "${{ vars.QUAY_TEMP_USERNAME }}" \
+              -p "${{ secrets.QUAY_TEMP_PASSWORD }}"
+            DIGEST=$(/tmp/crane digest "${FULL_TAG}")
+            echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
+            echo "Image pushed: ${FULL_TAG} (${DIGEST})"
+          else
+            DIGEST=$(buildctl \
+              --addr="${BUILDKITD_ADDR}" \
+              --tlscacert="${DOCKER_CONFIG}/ca.pem" \
+              --tlscert="${DOCKER_CONFIG}/cert.pem" \
+              --tlskey="${DOCKER_CONFIG}/key.pem" \
+              build \
+              --frontend dockerfile.v0 \
+              --local context=. \
+              --local dockerfile=test-case-006 \
+              --opt filename=Dockerfile.openEuler \
+              --opt platform=linux/arm64 \
+              --output "type=image,name=${QUAY_TEMP_REPO}:${IMAGE_TAG},push=false" \
+              2>&1 | grep "^sha256:" | head -1)
+            if [ -n "${DIGEST}" ]; then
+              echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
+              echo "Built digest: ${DIGEST}"
+            fi
+          fi
+
+      - name: Inspect built image
+        run: |
+          echo "Build completed successfully."
+          if [ -n "${{ steps.build.outputs.digest }}" ]; then
+            echo "Image digest: ${{ steps.build.outputs.digest }}"
+            echo "Test pull: docker pull ${QUAY_TEMP_REPO}@${{ steps.build.outputs.digest }}"
+          fi

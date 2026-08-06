@@ -1,0 +1,6 @@
+FROM quay.io/ascend/cann:9.0.0-910b-openeuler24.03-py3.12
+
+RUN echo "openEuler arm64 image built via buildkit runner gy006" && \
+    uname -m && \
+    cat /etc/os-release | head -5 && \
+    python3 --version
