@@ -2,8 +2,8 @@
 
 ## 背景
 
-- Issue: https://github.com/opensourceways/ascend-ci-deployment/issues/945（新增 buildkit runner 测试 squid 代理）
-- Runner 部署 PR: https://github.com/opensourceways/ascend-ci-deployment/pull/946
+- Issue: <https://github.com/opensourceways/ascend-ci-deployment/issues/945> （新增 buildkit runner 测试 squid 代理）
+- Runner 部署 PR: <https://github.com/opensourceways/ascend-ci-deployment/pull/946>
 - 集群: openmerlin-guiyang-006 (gy006)
 - Runner: `linux-aarch64-cpu-2-buildkit-gy006`
 
@@ -23,6 +23,7 @@
 （需要 squid 自己的 access log / cache log 才能定位，本测试无法从客户端单独确认）。
 
 本目录提供可重复执行的测试用例，用于：
+
 1. 验证/复现上述现象
 2. 同时覆盖 GitHub 和 Gitee 两个下载源，确认问题范围（是否只影响 GitHub，还是所有 HTTPS 出站都受影响）
 3. 便于后续排查 squid 问题时快速复测，或提供给 squid 维护方作为复现步骤
