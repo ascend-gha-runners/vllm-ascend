@@ -18,20 +18,21 @@
 name: test-vnpu-scheduling
 
 on:
-  workflow_dispatch:
+  pull_request:
 
 jobs:
   vnpu-scheduling-test:
-    runs-on: linux-aarch64-a2-1-vnpu-gy006
+    runs-on: linux-aarch64-a2-30c48g-v
     container:
       image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.0-910b-ubuntu22.04-py3.12
 
     steps:
-      - name: Check NPU info (vnpu)
+      - name: Check NPU info
         run: |
           echo "=== Runner Info ==="
-          echo "Hostname: $(hostname)"
-          echo "Architecture: $(uname -m)"
+          echo "Requested label : linux-aarch64-a2-30c48g-v"
+          echo "Hostname        : $(hostname)"
+          echo "Architecture    : $(uname -m)"
           echo ""
 
           echo "=== NPU SMI Info ==="
@@ -45,5 +46,5 @@ jobs:
       - name: Verify scheduling label
         run: |
           echo "=== Scheduling Verification ==="
-          echo "This job was successfully scheduled to runner: linux-aarch64-a2-8-vnpu-gy006"
-          echo "vnpu label scheduling test PASSED"
+          echo "This job was successfully scheduled to runner: linux-aarch64-a2-30c48g-v"
+          echo "vnpu label scheduling test PASSED: linux-aarch64-a2-30c48g-v"
