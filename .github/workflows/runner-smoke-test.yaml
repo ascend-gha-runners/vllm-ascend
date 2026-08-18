@@ -55,11 +55,6 @@ jobs:
           echo "=== DNS ==="
           cat /etc/resolv.conf || true
           echo ""
-          echo "=== git clone current repo ==="
-          git clone --depth 1 "${{ github.server_url }}/${{ github.repository }}.git" /tmp/repo-clone-test \
-            && echo "OK: git clone succeeded" \
-            || echo "WARN: git clone failed"
-          echo ""
           echo "=== cache service reachable ==="
           curl -fsSL --max-time 10 http://cache-service.nginx-pypi-cache > /dev/null 2>&1 \
             && echo "OK: cache-service reachable" \
