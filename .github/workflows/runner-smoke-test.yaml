@@ -19,6 +19,7 @@ jobs:
           - linux-amd64-a5-2
           - linux-amd64-a5-4
           - linux-amd64-a5-8
+          - linux-amd64-a5-8
     container:
       image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.0-a3-ubuntu22.04-py3.12
 
@@ -44,15 +45,25 @@ jobs:
           echo "=== Memory ==="
           free -h || true
 
+      - name: Cache dir contents
+        run: |
+          echo "=== /root/.cache ==="
+          ls -la /root/.cache 2>/dev/null || echo "WARNING: /root/.cache not available"
+
       - name: Network
         run: |
           echo "=== DNS ==="
           cat /etc/resolv.conf || true
           echo ""
-          echo "=== GitHub reachable ==="
-          curl -fsSL --max-time 10 https://github.com > /dev/null 2>&1 \
-            && echo "OK: github.com reachable" \
-            || echo "WARN: github.com NOT reachable"
+          echo "=== git clone current repo ==="
+          git clone --depth 1 "${{ github.server_url }}/${{ github.repository }}.git" /tmp/repo-clone-test \
+            && echo "OK: git clone succeeded" \
+            || echo "WARN: git clone failed"
+          echo ""
+          echo "=== cache service reachable ==="
+          curl -fsSL --max-time 10 http://cache-service.nginx-pypi-cache > /dev/null 2>&1 \
+            && echo "OK: cache-service reachable" \
+            || echo "WARN: cache-service NOT reachable"
 
       - name: Checkout code
         uses: actions/checkout@v7
