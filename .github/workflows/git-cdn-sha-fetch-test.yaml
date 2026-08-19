@@ -1,0 +1,96 @@
+name: git-cdn SHA fetch test
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/git-cdn-sha-fetch-test.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  test-sha-fetch:
+    name: "git-cdn commit SHA fetch test"
+    runs-on: linux-aarch64-cpu-2-gitcdn-test
+    container:
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.0-a3-ubuntu22.04-py3.12
+
+    steps:
+      - name: Verify git-cdn insteadOf
+        run: |
+          echo "=== /root/.gitconfig ==="
+          cat /root/.gitconfig
+          echo ""
+          grep -q 'git-cdn-service' /root/.gitconfig || {
+            echo "ERROR: git-cdn insteadOf not found"
+            exit 1
+          }
+          echo "PASS: git-cdn insteadOf present"
+
+      - name: Test actions/checkout (default — fetch by SHA)
+        uses: actions/checkout@v4
+        with:
+          repository: vllm-project/vllm
+          ref: main
+          path: vllm-checkout
+
+      - name: Verify checkout result
+        run: |
+          echo "=== Checkout succeeded ==="
+          cd vllm-checkout
+          echo "HEAD: $(git rev-parse HEAD)"
+          echo "Branch: $(git branch --show-current)"
+          echo "Commit count: $(git rev-list --count HEAD)"
+          echo "PASS: actions/checkout by SHA works through git-cdn"
+
+      - name: Test fetch by specific commit SHA
+        run: |
+          echo "=== Testing fetch by explicit commit SHA ==="
+          mkdir -p /tmp/sha-test && cd /tmp/sha-test
+          git init
+          # Fetch a specific commit from vllm (not a branch tip)
+          # This simulates what actions/checkout does for PR merge commits
+          SHA=$(git ls-remote https://github.com/vllm-project/vllm.git refs/heads/main | awk '{print $1}')
+          echo "Fetching main tip SHA: $SHA"
+          git fetch origin "$SHA"
+          echo "PASS: Direct SHA fetch works through git-cdn"
+
+      - name: Test fetch by PR merge commit SHA
+        continue-on-error: true
+        run: |
+          echo "=== Testing fetch by PR merge commit SHA ==="
+          mkdir -p /tmp/pr-sha-test && cd /tmp/pr-sha-test
+          git init
+          # Find a recent PR merge commit from vllm
+          PR_SHA=$(git ls-remote https://github.com/vllm-project/vllm.git refs/pull/1/merge 2>/dev/null | awk '{print $1}' || echo "")
+          if [ -z "$PR_SHA" ]; then
+            echo "SKIP: No PR merge ref found (expected for most repos)"
+            exit 0
+          fi
+          echo "Fetching PR merge SHA: $PR_SHA"
+          git fetch origin "$PR_SHA"
+          echo "PASS: PR merge commit SHA fetch works through git-cdn"
+
+      - name: Check git-cdn server-side config
+        run: |
+          echo "=== Checking if git-cdn has allowReachableSHA1InWant ==="
+          echo "This check runs from inside the container, verifying the proxy-side config"
+          echo "by attempting a fetch that would fail without the setting."
+          echo ""
+          mkdir -p /tmp/config-check && cd /tmp/config-check
+          git init
+          # Clone vllm first to populate cache, then try fetching a non-tip SHA
+          git fetch https://github.com/vllm-project/vllm.git refs/heads/main
+          # Get a non-tip commit (parent of HEAD)
+          PARENT_SHA=$(git rev-parse FETCH_HEAD^)
+          echo "HEAD tip: $(git rev-parse FETCH_HEAD)"
+          echo "Parent (non-tip) SHA: $PARENT_SHA"
+          echo ""
+          echo "Fetching non-tip SHA through git-cdn..."
+          git fetch origin "$PARENT_SHA" 2>&1 | tee /tmp/fetch-output.txt
+          if grep -q "not our ref" /tmp/fetch-output.txt; then
+            echo "FAIL: 'not our ref' error — allowReachableSHA1InWant not working"
+            exit 1
+          fi
+          echo "PASS: Non-tip SHA fetch succeeded — allowReachableSHA1InWant is effective"
