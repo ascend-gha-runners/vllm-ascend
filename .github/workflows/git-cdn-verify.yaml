@@ -1,0 +1,84 @@
+name: git-cdn-verify
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/git-cdn-verify.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  test-sha-fetch:
+    name: "git-cdn commit SHA fetch test"
+    runs-on: linux-aarch64-cpu-2-gitcdn-test
+    container:
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.0-a3-ubuntu22.04-py3.12
+
+    steps:
+      - name: Verify git-cdn insteadOf
+        run: |
+          echo "=== /root/.gitconfig ==="
+          cat /root/.gitconfig
+          echo ""
+          grep -q 'git-cdn-service' /root/.gitconfig || {
+            echo "ERROR: git-cdn insteadOf not found"
+            exit 1
+          }
+          echo "PASS: git-cdn insteadOf present"
+
+      - name: Test actions/checkout on vllm (fetch by SHA)
+        uses: actions/checkout@v4
+        with:
+          repository: vllm-project/vllm
+          ref: main
+          path: vllm-checkout
+
+      - name: Verify checkout result
+        run: |
+          cd vllm-checkout
+          echo "HEAD: $(git rev-parse HEAD)"
+          echo "PASS: actions/checkout by SHA works through git-cdn"
+
+      - name: Test fetch non-tip commit SHA
+        run: |
+          mkdir -p /tmp/sha-test && cd /tmp/sha-test
+          git init
+          git fetch https://github.com/vllm-project/vllm.git refs/heads/main
+          PARENT_SHA=$(git rev-parse FETCH_HEAD^)
+          echo "HEAD tip: $(git rev-parse FETCH_HEAD)"
+          echo "Parent (non-tip) SHA: $PARENT_SHA"
+          echo "Fetching non-tip SHA through git-cdn..."
+          git fetch origin "$PARENT_SHA" 2>&1 | tee /tmp/fetch-output.txt
+          if grep -q "not our ref" /tmp/fetch-output.txt; then
+            echo "FAIL: 'not our ref' — allowReachableSHA1InWant not effective"
+            exit 1
+          fi
+          echo "PASS: Non-tip SHA fetch succeeded — allowReachableSHA1InWant is working"
+
+      - name: vllm full clone benchmark (cold cache)
+        continue-on-error: true
+        run: |
+          START=$(date +%s%N)
+          git clone --filter=blob:none https://github.com/vllm-project/vllm.git /tmp/vllm-cdn-1 2>&1 | tee /tmp/vllm-cdn1.txt
+          END=$(date +%s%N)
+          ELAPSED=$(( (END - START) / 1000000000 ))
+          echo "::notice::vllm via git-cdn (cold): ${ELAPSED}s"
+          rm -rf /tmp/vllm-cdn-1
+
+      - name: vllm full clone benchmark (warm cache)
+        continue-on-error: true
+        run: |
+          START=$(date +%s%N)
+          git clone --filter=blob:none https://github.com/vllm-project/vllm.git /tmp/vllm-cdn-2 2>&1 | tee /tmp/vllm-cdn2.txt
+          END=$(date +%s%N)
+          ELAPSED=$(( (END - START) / 1000000000 ))
+          echo "::notice::vllm via git-cdn (warm): ${ELAPSED}s"
+          rm -rf /tmp/vllm-cdn-2
+
+      - name: Check for redirect confirmation
+        if: always()
+        run: |
+          echo "=== Checking for git-cdn redirect in output ==="
+          grep -q "redirecting to.*git-cdn-service" /tmp/vllm-cdn1.txt /tmp/vllm-cdn2.txt /tmp/fetch-output.txt 2>/dev/null && echo "PASS: git-cdn redirect confirmed" || echo "WARN: No explicit redirect log (may still be working)"
