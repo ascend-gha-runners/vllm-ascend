@@ -1,0 +1,102 @@
+name: git-cdn-verify
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/git-cdn-verify.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark-git-cdn:
+    name: "git-cdn full clone benchmark (aarch64)"
+    runs-on: linux-aarch64-cpu-2-gitcdn-test
+    container:
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.0-a3-ubuntu22.04-py3.12
+
+    steps:
+      - name: Verify insteadOf rule
+        run: |
+          echo "=== Checking git-cdn insteadOf rule ==="
+          cat /root/.gitconfig
+          echo ""
+          grep -q 'insteadOf.*https://github.com/' /root/.gitconfig || {
+            echo "ERROR: insteadOf rule not found in /root/.gitconfig"
+            exit 1
+          }
+          grep -qE 'git-cdn-service\.git-cdn\.svc|git-cdn\.test\.osinfra\.cn' /root/.gitconfig || {
+            echo "ERROR: git-cdn service URL not found in insteadOf rule"
+            exit 1
+          }
+          echo "PASS: git-cdn insteadOf rule is present"
+
+      # ── SHA fetch test (allowReachableSHA1InWant verification) ──
+      - name: Test actions/checkout by commit SHA
+        uses: actions/checkout@v4
+        with:
+          repository: vllm-project/vllm
+          ref: main
+          path: vllm-checkout
+
+      - name: Verify SHA checkout result
+        run: |
+          cd vllm-checkout
+          echo "HEAD: $(git rev-parse HEAD)"
+          echo "PASS: actions/checkout by SHA works through git-cdn (allowReachableSHA1InWant effective)"
+
+      - name: Test fetch non-tip commit SHA
+        run: |
+          mkdir -p /tmp/sha-test && cd /tmp/sha-test
+          git init
+          git fetch https://github.com/vllm-project/vllm.git refs/heads/main
+          PARENT_SHA=$(git rev-parse FETCH_HEAD^)
+          echo "HEAD tip: $(git rev-parse FETCHHEAD)"
+          echo "Parent (non-tip) SHA: $PARENT_SHA"
+          echo "Fetching non-tip SHA through git-cdn..."
+          git fetch origin "$PARENT_SHA" 2>&1 | tee /tmp/fetch-output.txt
+          if grep -q "not our ref" /tmp/fetch-output.txt; then
+            echo "FAIL: 'not our ref' — allowReachableSHA1InWant not effective"
+            exit 1
+          fi
+          echo "PASS: Non-tip SHA fetch succeeded — allowReachableSHA1InWant is working"
+
+      # ── git-cdn benchmarks (full clone only) ──
+      - name: vllm via git-cdn (1st run — cold cache)
+        continue-on-error: true
+        run: |
+          echo "=== vllm full clone via git-cdn (1st run) ==="
+          START=$(date +%s%N)
+          git clone --filter=blob:none https://github.com/vllm-project/vllm.git /tmp/vllm-cdn-1 2>&1 | tee /tmp/vllm-cdn1-output.txt
+          END=$(date +%s%N)
+          ELAPSED=$(( (END - START) / 1000000000 ))
+          SIZE=$(du -sh /tmp/vllm-cdn-1 2>/dev/null | cut -f1 || echo "unknown")
+          echo ""
+          echo "::notice::vllm via git-cdn (1st run): ${ELAPSED}s, size: ${SIZE}"
+          rm -rf /tmp/vllm-cdn-1
+
+      - name: vllm via git-cdn (2nd run — warm cache)
+        continue-on-error: true
+        run: |
+          echo "=== vllm full clone via git-cdn (2nd run — cache hit expected) ==="
+          START=$(date +%s%N)
+          git clone --filter=blob:none https://github.com/vllm-project/vllm.git /tmp/vllm-cdn-2 2>&1 | tee /tmp/vllm-cdn2-output.txt
+          END=$(date +%s%N)
+          ELAPSED=$(( (END - START) / 1000000000 ))
+          SIZE=$(du -sh /tmp/vllm-cdn-2 2>/dev/null | cut -f1 || echo "unknown")
+          echo ""
+          echo "::notice::vllm via git-cdn (2nd run — cache hit): ${ELAPSED}s, size: ${SIZE}"
+          rm -rf /tmp/vllm-cdn-2
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "=========================================="
+          echo "  git-cdn Verify Summary"
+          echo "=========================================="
+          echo ""
+          echo "1. SHA fetch test (actions/checkout): see step logs above"
+          echo "2. Non-tip SHA fetch test: see step logs above"
+          echo "3. git-cdn clone benchmark: compare 1st vs 2nd run"
+          echo "=========================================="
