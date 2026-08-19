@@ -32,6 +32,36 @@ jobs:
           }
           echo "PASS: git-cdn insteadOf rule is present"
 
+      # ── SHA fetch test (allowReachableSHA1InWant verification) ──
+      - name: Test actions/checkout by commit SHA
+        uses: actions/checkout@v4
+        with:
+          repository: vllm-project/vllm
+          ref: main
+          path: vllm-checkout
+
+      - name: Verify SHA checkout result
+        run: |
+          cd vllm-checkout
+          echo "HEAD: $(git rev-parse HEAD)"
+          echo "PASS: actions/checkout by SHA works through git-cdn (allowReachableSHA1InWant effective)"
+
+      - name: Test fetch non-tip commit SHA
+        run: |
+          mkdir -p /tmp/sha-test && cd /tmp/sha-test
+          git init
+          git fetch https://github.com/vllm-project/vllm.git refs/heads/main
+          PARENT_SHA=$(git rev-parse FETCH_HEAD^)
+          echo "HEAD tip: $(git rev-parse FETCH_HEAD)"
+          echo "Parent (non-tip) SHA: $PARENT_SHA"
+          echo "Fetching non-tip SHA through git-cdn..."
+          git fetch origin "$PARENT_SHA" 2>&1 | tee /tmp/fetch-output.txt
+          if grep -q "not our ref" /tmp/fetch-output.txt; then
+            echo "FAIL: 'not our ref' — allowReachableSHA1InWant not effective"
+            exit 1
+          fi
+          echo "PASS: Non-tip SHA fetch succeeded — allowReachableSHA1InWant is working"
+
       # ── git-cdn benchmarks (full clone only) ──
       - name: vllm via git-cdn (1st run — cold cache)
         continue-on-error: true
