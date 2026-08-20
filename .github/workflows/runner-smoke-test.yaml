@@ -21,7 +21,7 @@ jobs:
           - linux-amd64-a5-8
           - linux-amd64-a5-8
     container:
-      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.0-a3-ubuntu22.04-py3.12
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.1.0-950-ubuntu22.04-py3.12
 
     steps:
       - name: System info
