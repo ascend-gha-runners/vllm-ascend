@@ -64,7 +64,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Sleep 10m for debugging
-        run: sleep 600
+        run: sleep 1800
 
       - name: All checks passed
         run: |
