@@ -63,6 +63,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
+      - name: Sleep 10m for debugging
+        run: sleep 600
+
       - name: All checks passed
         run: |
           echo ""
