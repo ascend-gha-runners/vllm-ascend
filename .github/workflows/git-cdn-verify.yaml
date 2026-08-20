@@ -62,6 +62,35 @@ jobs:
           fi
           echo "PASS: Non-tip SHA fetch succeeded — allowReachableSHA1InWant is working"
 
+      # ── Unreachable SHA fetch test (fetch_sha fallback verification) ──
+      # This tests Patch 4: when a SHA is NOT in git-cdn's cache and NOT reachable
+      # from any ref (e.g. old PR merge commit), git-cdn should fetch it directly
+      # from upstream via `git fetch origin <sha>`.
+      - name: Test fetch unreachable PR merge commit SHA
+        run: |
+          mkdir -p /tmp/unreachable-test && cd /tmp/unreachable-test
+          git init
+          # SHA from closed PR #53017 — a merge commit no longer reachable from any branch
+          UNREACHABLE_SHA="d4f4d3f40fc5350a71777fcb0e5eb8a57bda631f"
+          echo "Testing fetch of unreachable PR merge commit: $UNREACHABLE_SHA"
+          echo "This SHA is NOT in git-cdn cache and NOT reachable from any ref."
+          echo "git-cdn should use fetch_sha fallback to fetch it from upstream."
+          echo ""
+          echo "Fetching..."
+          git fetch https://github.com/vllm-project/vllm.git "$UNREACHABLE_SHA" 2>&1 | tee /tmp/unreachable-output.txt
+          EXIT_CODE=$?
+          echo ""
+          echo "Exit code: $EXIT_CODE"
+          if grep -q "not our ref" /tmp/unreachable-output.txt; then
+            echo "FAIL: 'not our ref' — fetch_sha fallback not working"
+            exit 1
+          fi
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "FAIL: git fetch exited with non-zero code"
+            exit 1
+          fi
+          echo "PASS: Unreachable SHA fetch succeeded — fetch_sha fallback is working"
+
       - name: Summary
         if: always()
         run: |
@@ -71,7 +100,8 @@ jobs:
           echo ""
           echo "Runner: linux-aarch64-cpu-2-gitcdn-test"
           echo ""
-          echo "1. insteadOf rule: see step 3"
-          echo "2. actions/checkout by SHA: see step 4-5"
-          echo "3. non-tip SHA fetch: see step 6"
+          echo "1. insteadOf rule: see step 1"
+          echo "2. actions/checkout by SHA: see step 2-3"
+          echo "3. non-tip SHA fetch (allowReachableSHA1InWant): see step 4"
+          echo "4. unreachable SHA fetch (fetch_sha fallback): see step 5"
           echo "=========================================="
