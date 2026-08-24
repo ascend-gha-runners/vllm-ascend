@@ -12,7 +12,7 @@ permissions:
 jobs:
   smoke-test:
     name: "Smoke test — linux-amd64-a5-8"
-    runs-on: linux-amd64-a5-8
+    runs-on: linux-amd64-a5-4
     container:
       image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.1.0-950-ubuntu22.04-py3.12
 
@@ -66,7 +66,8 @@ jobs:
           python3 -m pip install pybind11 numpy
           python3 -m pip install torch==2.10.0 \
             --index-url http://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu \
-            --extra-index-url https://pypi.org/simple/
+            --extra-index-url https://pypi.org/simple/ \
+            --trusted-host cache-service.nginx-pypi-cache.svc.cluster.local
           python3 -m pip install \
             "https://gitcode.com/Ascend/pytorch/releases/download/v26.1.0-pytorch2.10.0/torch_npu-2.10.0.post4-cp312-cp312-manylinux_2_28_$(arch).whl"
 
@@ -101,6 +102,6 @@ jobs:
         run: |
           echo ""
           echo "=========================================="
-          echo "  Runner linux-amd64-a5-8 smoke test"
+          echo "  Runner linux-amd64-a5-4 smoke test"
           echo "  ALL CHECKS PASSED ✓"
           echo "=========================================="
