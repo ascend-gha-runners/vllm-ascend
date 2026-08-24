@@ -11,15 +11,8 @@ permissions:
 
 jobs:
   smoke-test:
-    name: "Smoke test — ${{ matrix.runner }}"
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      matrix:
-        runner:
-          - linux-amd64-a5-2
-          - linux-amd64-a5-4
-          - linux-amd64-a5-8
-          - linux-amd64-a5-8
+    name: "Smoke test — linux-amd64-a5-8"
+    runs-on: linux-amd64-a5-8
     container:
       image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.1.0-950-ubuntu22.04-py3.12
 
@@ -63,13 +56,41 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
-      - name: Sleep 10m for debugging
-        run: sleep 1800
+      - name: Clone sgl-kernel-npu
+        run: |
+          git clone https://github.com/sgl-project/sgl-kernel-npu.git
+
+      - name: Build deepep (Ascend950)
+        run: |
+          cd sgl-kernel-npu
+          bash build.sh -a deepep Ascend950
+
+      - name: Install deep-ep wheel
+        run: |
+          cd sgl-kernel-npu
+          pip install output/deep*
+
+      - name: Fix missing deep_ep_cpp module
+        run: |
+          if python3 -c "import deep_ep_cpp" >/dev/null 2>&1; then
+            echo "OK: deep_ep_cpp importable"
+          else
+            echo "WARN: no module named deep_ep_cpp, creating symlink..."
+            cd "$(pip show deep-ep | grep -E '^Location:' | awk '{print $2}')" && ln -s deep_ep/deep_ep_cpp*.so && cd -
+          fi
+
+      - name: Run deepep intranode test
+        run: |
+          python3 sgl-kernel-npu/tests/python/deepep/test_intranode.py \
+            --num-processes=2 \
+            --num-tokens=256 \
+            --num-experts=32 \
+            --quant-type=mx_fp4_e2m1
 
       - name: All checks passed
         run: |
           echo ""
           echo "=========================================="
-          echo "  Runner ${{ matrix.runner }} smoke test"
+          echo "  Runner linux-amd64-a5-8 smoke test"
           echo "  ALL CHECKS PASSED ✓"
           echo "=========================================="
