@@ -60,6 +60,16 @@ jobs:
         run: |
           git clone https://github.com/sgl-project/sgl-kernel-npu.git
 
+      - name: Install torch + torch_npu dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install pybind11 numpy
+          python3 -m pip install torch==2.10.0 \
+            --index-url http://cache-service.nginx-pypi-cache.svc.cluster.local/whl/cpu \
+            --extra-index-url https://pypi.org/simple/
+          python3 -m pip install \
+            "https://gitcode.com/Ascend/pytorch/releases/download/v26.1.0-pytorch2.10.0/torch_npu-2.10.0.post4-cp312-cp312-manylinux_2_28_$(arch).whl"
+
       - name: Build deepep (Ascend950)
         run: |
           cd sgl-kernel-npu
