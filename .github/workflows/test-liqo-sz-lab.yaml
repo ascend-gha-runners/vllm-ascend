@@ -1,0 +1,15 @@
+name: Liqo sz-lab Runner Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-sz-lab:
+    runs-on: [self-hosted, linux-aarch64-910b-1]
+    steps:
+      - name: Hello from sz-lab
+        run: |
+          echo "Hello from Liqo offloaded runner on sz-lab!"
+          uname -a
+          npu-smi info 2>/dev/null || echo "npu-smi not available (expected on runner pod)"
+          kubectl get nodes 2>/dev/null || echo "kubectl not available"
