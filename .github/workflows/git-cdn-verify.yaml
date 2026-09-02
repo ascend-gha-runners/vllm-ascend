@@ -32,107 +32,94 @@ jobs:
           }
           echo "PASS: git-cdn insteadOf rule is present"
 
-      # ── git-cdn benchmarks (full clone only) ──
-      - name: vllm via git-cdn (1st run — cold cache)
-        continue-on-error: true
-        run: |
-          echo "=== vllm full clone via git-cdn (1st run) ==="
-          START=$(date +%s%N)
-          git clone --filter=blob:none https://github.com/vllm-project/vllm.git /tmp/vllm-cdn-1 2>&1 | tee /tmp/vllm-cdn1-output.txt
-          END=$(date +%s%N)
-          ELAPSED=$(( (END - START) / 1000000000 ))
-          SIZE=$(du -sh /tmp/vllm-cdn-1 2>/dev/null | cut -f1 || echo "unknown")
-          echo ""
-          echo "::notice::vllm via git-cdn (1st run): ${ELAPSED}s, size: ${SIZE}"
-          rm -rf /tmp/vllm-cdn-1
+      - name: Test actions/checkout by commit SHA
+        uses: actions/checkout@v4
+        with:
+          repository: vllm-project/vllm
+          ref: main
+          path: vllm-checkout
 
-      - name: vllm via git-cdn (2nd run — warm cache)
-        continue-on-error: true
+      - name: Verify SHA checkout result
         run: |
-          echo "=== vllm full clone via git-cdn (2nd run — cache hit expected) ==="
-          START=$(date +%s%N)
-          git clone --filter=blob:none https://github.com/vllm-project/vllm.git /tmp/vllm-cdn-2 2>&1 | tee /tmp/vllm-cdn2-output.txt
-          END=$(date +%s%N)
-          ELAPSED=$(( (END - START) / 1000000000 ))
-          SIZE=$(du -sh /tmp/vllm-cdn-2 2>/dev/null | cut -f1 || echo "unknown")
-          echo ""
-          echo "::notice::vllm via git-cdn (2nd run — cache hit): ${ELAPSED}s, size: ${SIZE}"
-          rm -rf /tmp/vllm-cdn-2
+          cd vllm-checkout
+          echo "HEAD: $(git rev-parse HEAD)"
+          echo "PASS: actions/checkout by SHA works through git-cdn (allowReachableSHA1InWant effective)"
 
-      - name: pytorch via git-cdn (1st run — cold cache)
-        continue-on-error: true
+      - name: Test fetch non-tip commit SHA
         run: |
-          echo "=== pytorch full clone via git-cdn (1st run) ==="
-          START=$(date +%s%N)
-          git clone --filter=blob:none https://github.com/pytorch/pytorch.git /tmp/pytorch-cdn-1 2>&1 | tee /tmp/pytorch-cdn1-output.txt
-          END=$(date +%s%N)
-          ELAPSED=$(( (END - START) / 1000000000 ))
-          SIZE=$(du -sh /tmp/pytorch-cdn-1 2>/dev/null | cut -f1 || echo "unknown")
-          echo ""
-          echo "::notice::pytorch via git-cdn (1st run): ${ELAPSED}s, size: ${SIZE}"
-          rm -rf /tmp/pytorch-cdn-1
+          mkdir -p /tmp/sha-test && cd /tmp/sha-test
+          git init
+          git fetch https://github.com/vllm-project/vllm.git refs/heads/main
+          PARENT_SHA=$(git rev-parse FETCH_HEAD^)
+          echo "HEAD tip: $(git rev-parse FETCH_HEAD)"
+          echo "Parent (non-tip) SHA: $PARENT_SHA"
+          echo "Fetching non-tip SHA through git-cdn..."
+          git fetch origin "$PARENT_SHA" 2>&1 | tee /tmp/fetch-output.txt
+          if grep -q "not our ref" /tmp/fetch-output.txt; then
+            echo "FAIL: 'not our ref' — allowReachableSHA1InWant not effective"
+            exit 1
+          fi
+          echo "PASS: Non-tip SHA fetch succeeded — allowReachableSHA1InWant is working"
 
-      - name: pytorch via git-cdn (2nd run — warm cache)
-        continue-on-error: true
+      - name: Test fetch unreachable PR merge commit SHA
         run: |
-          echo "=== pytorch full clone via git-cdn (2nd run — cache hit expected) ==="
-          START=$(date +%s%N)
-          git clone --filter=blob:none https://github.com/pytorch/pytorch.git /tmp/pytorch-cdn-2 2>&1 | tee /tmp/pytorch-cdn2-output.txt
-          END=$(date +%s%N)
-          ELAPSED=$(( (END - START) / 1000000000 ))
-          SIZE=$(du -sh /tmp/pytorch-cdn-2 2>/dev/null | cut -f1 || echo "unknown")
+          mkdir -p /tmp/unreachable-test && cd /tmp/unreachable-test
+          git init
+          UNREACHABLE_SHA="d4f4d3f40fc5350a71777fcb0e5eb8a57bda631f"
+          echo "Testing fetch of unreachable PR merge commit: $UNREACHABLE_SHA"
+          echo "This SHA is NOT in git-cdn cache and NOT reachable from any ref."
+          echo "git-cdn should use fetch_sha fallback to fetch it from upstream."
           echo ""
-          echo "::notice::pytorch via git-cdn (2nd run — cache hit): ${ELAPSED}s, size: ${SIZE}"
-          rm -rf /tmp/pytorch-cdn-2
+          echo "Fetching..."
+          git fetch https://github.com/vllm-project/vllm.git "$UNREACHABLE_SHA" 2>&1 | tee /tmp/unreachable-output.txt
+          EXIT_CODE=$?
+          echo ""
+          echo "Exit code: $EXIT_CODE"
+          if grep -q "not our ref" /tmp/unreachable-output.txt; then
+            echo "FAIL: 'not our ref' — fetch_sha fallback not working"
+            exit 1
+          fi
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "FAIL: git fetch exited with non-zero code"
+            exit 1
+          fi
+          echo "PASS: Unreachable SHA fetch succeeded — fetch_sha fallback is working"
 
-      # ── direct GitHub benchmarks (bypass git-cdn) ──
-      - name: vllm direct (bypass git-cdn)
-        continue-on-error: true
-        timeout-minutes: 20
-        env:
-          GIT_HTTP_LOW_SPEED_LIMIT: 1000
-          GIT_HTTP_LOW_SPEED_TIME: 60
+      - name: Test gitcode.com repo fetch via git-cdn-gitcode
         run: |
-          echo "=== vllm full clone from GitHub (direct) ==="
-          git config --global --unset url.https://git-cdn.test.osinfra.cn/.insteadOf 2>/dev/null || true
-          START=$(date +%s%N)
-          git clone --filter=blob:none https://github.com/vllm-project/vllm.git /tmp/vllm-direct 2>&1 | tee /tmp/vllm-direct-output.txt
-          END=$(date +%s%N)
-          ELAPSED=$(( (END - START) / 1000000000 ))
-          SIZE=$(du -sh /tmp/vllm-direct 2>/dev/null | cut -f1 || echo "unknown")
+          mkdir -p /tmp/gitcode-test && cd /tmp/gitcode-test
+          git init
+          echo "=== Fetching mindspore from gitcode.com via git-cdn-gitcode ==="
+          echo "insteadOf should redirect gitcode.com → git-cdn-gitcode service"
           echo ""
-          echo "::notice::vllm direct: ${ELAPSED}s, size: ${SIZE}"
-          rm -rf /tmp/vllm-direct
-          git config --global url.https://git-cdn.test.osinfra.cn/.insteadOf https://github.com/
-
-      - name: pytorch direct (bypass git-cdn)
-        continue-on-error: true
-        timeout-minutes: 20
-        env:
-          GIT_HTTP_LOW_SPEED_LIMIT: 1000
-          GIT_HTTP_LOW_SPEED_TIME: 60
-        run: |
-          echo "=== pytorch full clone from GitHub (direct) ==="
-          git config --global --unset url.https://git-cdn.test.osinfra.cn/.insteadOf 2>/dev/null || true
-          START=$(date +%s%N)
-          git clone --filter=blob:none https://github.com/pytorch/pytorch.git /tmp/pytorch-direct 2>&1 | tee /tmp/pytorch-direct-output.txt
-          END=$(date +%s%N)
-          ELAPSED=$(( (END - START) / 1000000000 ))
-          SIZE=$(du -sh /tmp/pytorch-direct 2>/dev/null | cut -f1 || echo "unknown")
+          echo "Fetching refs/heads/master..."
+          git fetch https://gitcode.com/mindspore/mindspore.git refs/heads/master 2>&1 | tee /tmp/gitcode-output.txt
+          EXIT_CODE=$?
           echo ""
-          echo "::notice::pytorch direct: ${ELAPSED}s, size: ${SIZE}"
-          rm -rf /tmp/pytorch-direct
+          echo "Exit code: $EXIT_CODE"
+          if grep -q "not our ref" /tmp/gitcode-output.txt; then
+            echo "FAIL: 'not our ref' — git-cdn-gitcode not working"
+            exit 1
+          fi
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "FAIL: git fetch from gitcode.com failed"
+            exit 1
+          fi
+          echo "Fetched SHA: $(git rev-parse FETCH_HEAD)"
+          echo "PASS: gitcode.com repo fetch via git-cdn-gitcode succeeded"
 
       - name: Summary
         if: always()
         run: |
           echo "=========================================="
-          echo "  git-cdn Full Clone Benchmark Summary"
+          echo "  git-cdn SHA Fetch Verify Summary"
           echo "=========================================="
           echo ""
           echo "Runner: linux-aarch64-cpu-2-gitcdn-test"
-          echo "Mode: full clone (--filter=blob:none)"
           echo ""
-          echo "Compare git-cdn (1st run vs 2nd run cache hit)"
-          echo "vs direct GitHub clone timing in step logs."
+          echo "1. insteadOf rule: see step 1"
+          echo "2. actions/checkout by SHA: see step 2-3"
+          echo "3. non-tip SHA fetch (allowReachableSHA1InWant): see step 4"
+          echo "4. unreachable SHA fetch (fetch_sha fallback): see step 5"
+          echo "5. gitcode.com fetch (git-cdn-gitcode): see step 6"
           echo "=========================================="
