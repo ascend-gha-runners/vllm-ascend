@@ -1,0 +1,18 @@
+name: liqo-a2-2-hk-001-test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: linux-aarch64-a2-2-hk-001
+    steps:
+      - name: Show runner info
+        run: |
+          echo "=== Runner Info ==="
+          echo "Hostname: $(hostname)"
+          echo "Architecture: $(uname -m)"
+          echo ""
+          echo "=== NPU Info ==="
+          npu-smi info || true
+          sleep 120
