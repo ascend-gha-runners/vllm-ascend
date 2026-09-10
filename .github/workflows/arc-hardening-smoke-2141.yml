@@ -1,6 +1,8 @@
 name: arc-hardening-smoke-2141
 on:
   workflow_dispatch:
+  push:
+    branches: [arc-2141-smoke]
 jobs:
   smoke:
     runs-on: linux-arm64-cpu-test-24
