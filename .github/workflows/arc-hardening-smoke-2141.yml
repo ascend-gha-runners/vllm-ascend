@@ -6,13 +6,14 @@ on:
 jobs:
   smoke:
     runs-on: linux-arm64-cpu-test-24
+    container:
+      image: m.daocloud.io/docker.io/library/alpine:3.20
     steps:
       - name: probe
         run: |
           echo "== identity =="; id; uname -m
           echo "== SA token =="; ls /var/run/secrets/kubernetes.io/serviceaccount 2>&1
-          echo "== k8s api =="; (curl -sk --max-time 5 https://kubernetes.default.svc/version || echo API_UNREACHABLE) | tail -1
-          echo "== /root/.cache mount source =="; grep " /root/.cache " /proc/mounts || echo NOT_MOUNTED
-          echo "== cache content =="; ls /root/.cache | head -5; ls /root/.cache | wc -l
+          echo "== k8s api =="; wget -q -T 5 -O- https://kubernetes.default.svc/version 2>&1 || echo API_UNREACHABLE
+          echo "== cache mount =="; grep " /root/.cache " /proc/mounts || echo NOT_MOUNTED
+          echo "== cache content =="; ls /root/.cache 2>&1 | head -6; ls /root/.cache 2>/dev/null | wc -l
           echo "== write test =="; echo smoke > /root/.cache/.arc2141-smoke && cat /root/.cache/.arc2141-smoke && rm /root/.cache/.arc2141-smoke && echo WRITE_OK
-          echo "== traversal =="; ls /root/.cache/../ >/dev/null 2>&1 && ls /root/.cache | head -1
