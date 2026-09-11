@@ -7,7 +7,7 @@ jobs:
   smoke:
     runs-on: linux-aarch64-a3-test-2-cn12-001
     container:
-      image: m.daocloud.io/docker.io/library/alpine:3.20
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py5.11
     steps:
       - name: probe
         run: |
