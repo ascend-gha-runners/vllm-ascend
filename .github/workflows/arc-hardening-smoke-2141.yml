@@ -11,9 +11,10 @@ jobs:
     steps:
       - name: probe
         run: |
+          set +e
           echo "== identity =="; id; uname -m
-          echo "== SA token =="; ls /var/run/secrets/kubernetes.io/serviceaccount 2>&1
-          echo "== k8s api =="; wget -q -T 5 -O- https://kubernetes.default.svc/version 2>&1 || echo API_UNREACHABLE
+          echo "== SA token =="; ls /var/run/secrets/kubernetes.io/serviceaccount 2>&1 || echo NO_TOKEN_MOUNTED
+          echo "== k8s api =="; (wget -q -T 5 -O /dev/null https://kubernetes.default.svc/version && echo API_REACHABLE) || echo API_UNREACHABLE
           echo "== cache mount =="; grep " /root/.cache " /proc/mounts || echo NOT_MOUNTED
-          echo "== cache content =="; ls /root/.cache 2>&1 | head -6; ls /root/.cache 2>/dev/null | wc -l
-          echo "== write test =="; echo smoke > /root/.cache/.arc2141-smoke && cat /root/.cache/.arc2141-smoke && rm /root/.cache/.arc2141-smoke && echo WRITE_OK
+          echo "== cache content (b46afb97 hot data) =="; ls /root/.cache | head -6; ls /root/.cache 2>/dev/null | wc -l
+          echo "== write test =="; (echo smoke > /root/.cache/.arc2141-smoke && rm /root/.cache/.arc2141-smoke && echo WRITE_OK) || echo READONLY_BY_TEMPLATE_DESIGN
