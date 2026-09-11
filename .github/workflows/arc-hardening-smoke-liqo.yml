@@ -7,7 +7,7 @@ jobs:
   smoke:
     runs-on: linux-aarch64-a3-test-2-cn12-001
     container:
-      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:8.5.1-a3-ubuntu22.04-py5.11
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/vllm-ascend:nightly-cpu
     steps:
       - name: probe
         run: |
