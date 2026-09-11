@@ -1,0 +1,20 @@
+name: arc-hardening-smoke-liqo
+on:
+  workflow_dispatch:
+  push:
+    branches: [arc-2141-liqo-smoke]
+jobs:
+  smoke:
+    runs-on: linux-aarch64-a3-test-2-cn12-001
+    container:
+      image: swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/vllm-ascend:nightly-cpu
+    steps:
+      - name: probe
+        run: |
+          set +e
+          echo "== identity =="; id; uname -m
+          echo "== SA token =="; ls /var/run/secrets/kubernetes.io/serviceaccount 2>&1 || echo NO_TOKEN_MOUNTED
+          echo "== k8s api =="; (wget -q -T 5 -O /dev/null https://kubernetes.default.svc/version && echo API_REACHABLE) || echo API_UNREACHABLE
+          echo "== cache mount (expect b46afb97 via host bind) =="; grep " /root/.cache " /proc/mounts || echo NOT_MOUNTED
+          echo "== cache content =="; ls /root/.cache | head -6; ls /root/.cache 2>/dev/null | wc -l
+          echo "== RW write test on NPU template =="; (echo liqo > /root/.cache/.arc2141-liqo && cat /root/.cache/.arc2141-liqo && rm /root/.cache/.arc2141-liqo && echo WRITE_OK) || echo WRITE_FAILED
