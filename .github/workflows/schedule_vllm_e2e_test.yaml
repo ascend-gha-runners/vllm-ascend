@@ -54,7 +54,7 @@ jobs:
             uses: ./.github/actions/read-vllm-release-tag
 
     e2e-upstream_singlecard:
-        runs-on: linux-aarch64-a2b3-1
+        runs-on: linux-aarch64-a2b3-test-1
         needs: resolve-tag
         strategy:
           fail-fast: false
@@ -174,7 +174,7 @@ jobs:
                 --continue-on-error
 
     e2e-upstream_multicard:
-        runs-on: linux-aarch64-a2b3-${{ matrix.num_npus }}
+        runs-on: linux-aarch64-a2b3-test-${{ matrix.num_npus }}
         needs: resolve-tag
         strategy:
           fail-fast: false
@@ -285,7 +285,7 @@ jobs:
                 --continue-on-error
               
     e2e-upstream_online:
-        runs-on: linux-aarch64-a2b3-${{ matrix.num_npus }}
+        runs-on: linux-aarch64-a2b3-test-${{ matrix.num_npus }}
         needs: resolve-tag
         strategy:
           fail-fast: false
