@@ -1,7 +1,6 @@
 name: "Close stale resolved/wait-feedback issues"
 on:
-  schedule:
-    - cron: '0 2 * * *'
+  workflow_dispatch:
   issue_comment:
     types: [created]
 
