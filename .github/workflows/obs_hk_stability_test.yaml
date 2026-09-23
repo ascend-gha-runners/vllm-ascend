@@ -1,0 +1,184 @@
+name: obs-hk-stability-test
+
+on:
+  workflow_dispatch:
+    inputs:
+      payload_mb:
+        description: Payload object size in MB
+        type: number
+        default: 50
+      readers:
+        description: Number of concurrent reader jobs
+        type: number
+        default: 20
+      downloads_per_reader:
+        description: Repeated downloads per reader job
+        type: number
+        default: 5
+      runner_pool:
+        description: JSON array of {tag, region} objects or plain tags, readers spread round-robin
+        type: string
+        default: '[{"tag": "linux-aarch64-a3-2-cn12-001", "region": "cn12"}, {"tag": "linux-aarch64-a3-test-2", "region": "gy005"}, {"tag": "linux-aarch64-a3-test-4", "region": "gy005"}, {"tag": "linux-amd64-cpu-test-8-hk", "region": "hk"}]'
+      delete_payload:
+        description: Delete the test object from OBS when finished
+        type: boolean
+        default: true
+
+concurrency:
+  group: obs-hk-stability-test
+  cancel-in-progress: false
+
+env:
+  OBS_ENDPOINT: https://obs.ap-southeast-1.myhuaweicloud.com
+  OBS_BUCKET: ascend-ci-cache-hk
+  PIP_INDEX_URL_FALLBACK: http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
+
+jobs:
+  prepare:
+    name: upload payload & plan readers
+    runs-on: linux-amd64-cpu-test-8-hk
+    timeout-minutes: 15
+    env:
+      HW_OBS_AK: ${{ secrets.HW_OBS_AK_HK }}
+      HW_OBS_SK: ${{ secrets.HW_OBS_SK_HK }}
+    outputs:
+      object_key: ${{ steps.upload.outputs.object_key }}
+      sha256: ${{ steps.upload.outputs.sha256 }}
+      upload_mbps: ${{ steps.upload.outputs.upload_mbps }}
+      matrix: ${{ steps.upload.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bootstrap python tooling
+        run: |
+          set -e
+          if ! command -v python3 >/dev/null 2>&1; then
+            apt-get update -qq && apt-get install -y -qq python3 python3-pip \
+              || yum install -y -q python3 python3-pip
+          fi
+          python3 -V
+          python3 -m pip --version >/dev/null 2>&1 \
+            || python3 -m ensurepip --upgrade \
+            || { apt-get install -y -qq python3-pip || yum install -y -q python3-pip; }
+          python3 -m pip install --quiet esdk-obs-python \
+            || python3 -m pip install --quiet --index-url "$PIP_INDEX_URL_FALLBACK" \
+                 --trusted-host cache-service.nginx-pypi-cache.svc.cluster.local esdk-obs-python
+
+      - name: Upload payload and build matrix
+        id: upload
+        run: |
+          python3 .github/workflows/scripts/obs_stability/prepare.py \
+            --endpoint "$OBS_ENDPOINT" \
+            --bucket "$OBS_BUCKET" \
+            --key "obs-stability/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/payload-${{ inputs.payload_mb }}mb.bin" \
+            --size-mb "${{ inputs.payload_mb }}" \
+            --readers "${{ inputs.readers }}" \
+            --runner-pool '${{ inputs.runner_pool }}' \
+            --output-file "$GITHUB_OUTPUT"
+
+  read:
+    name: read-${{ matrix.reader_id }} (${{ matrix.region }})
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    env:
+      HW_OBS_AK: ${{ secrets.HW_OBS_AK_HK }}
+      HW_OBS_SK: ${{ secrets.HW_OBS_SK_HK }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bootstrap python tooling
+        run: |
+          set -e
+          if ! command -v python3 >/dev/null 2>&1; then
+            apt-get update -qq && apt-get install -y -qq python3 python3-pip \
+              || yum install -y -q python3 python3-pip
+          fi
+          python3 -V
+          python3 -m pip --version >/dev/null 2>&1 \
+            || python3 -m ensurepip --upgrade \
+            || { apt-get install -y -qq python3-pip || yum install -y -q python3-pip; }
+          python3 -m pip install --quiet esdk-obs-python \
+            || python3 -m pip install --quiet --index-url "$PIP_INDEX_URL_FALLBACK" \
+                 --trusted-host cache-service.nginx-pypi-cache.svc.cluster.local esdk-obs-python
+
+      - name: Raw curl timing probes
+        run: |
+          mkdir -p /tmp/obs-test
+          BASE="https://${OBS_BUCKET}.${OBS_ENDPOINT#https://}/"
+          for i in $(seq 1 5); do
+            curl -o /dev/null -s --max-time 30 \
+              -w '%{http_code} %{time_namelookup} %{time_connect} %{time_appconnect} %{time_starttransfer} %{time_total}\n' \
+              "$BASE" >> /tmp/obs-test/curl.txt || echo "000 0 0 0 0 -1" >> /tmp/obs-test/curl.txt
+          done
+          cat /tmp/obs-test/curl.txt
+
+      - name: Download payload ${{ inputs.downloads_per_reader }}x
+        run: |
+          python3 .github/workflows/scripts/obs_stability/read.py \
+            --endpoint "$OBS_ENDPOINT" \
+            --bucket "$OBS_BUCKET" \
+            --key "${{ needs.prepare.outputs.object_key }}" \
+            --sha256 "${{ needs.prepare.outputs.sha256 }}" \
+            --downloads "${{ inputs.downloads_per_reader }}" \
+            --region "${{ matrix.region }}" \
+            --runner-id "${{ matrix.reader_id }}" \
+            --runner-tag "${{ matrix.runner }}" \
+            --out /tmp/obs-test/result.json
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: result-${{ matrix.reader_id }}
+          path: /tmp/obs-test/
+
+  report:
+    name: aggregate report
+    needs: [prepare, read]
+    if: always() && needs.prepare.result == 'success'
+    runs-on: linux-amd64-cpu-test-8-hk
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: result-*
+          path: results
+
+      - name: Summary
+        run: |
+          python3 .github/workflows/scripts/obs_stability/report.py results \
+            "${{ needs.prepare.outputs.object_key }}" \
+            "${{ needs.prepare.outputs.upload_mbps }}" | tee /tmp/obs-report.md
+          cat /tmp/obs-report.md >> "$GITHUB_STEP_SUMMARY"
+
+  cleanup:
+    name: delete test object
+    needs: [prepare, read]
+    if: always() && inputs.delete_payload && needs.prepare.result == 'success'
+    runs-on: linux-amd64-cpu-test-8-hk
+    timeout-minutes: 10
+    env:
+      HW_OBS_AK: ${{ secrets.HW_OBS_AK_HK }}
+      HW_OBS_SK: ${{ secrets.HW_OBS_SK_HK }}
+    steps:
+      - name: Delete payload
+        run: |
+          python3 -m pip install --quiet esdk-obs-python
+          python3 - <<'EOF'
+          import os
+          from obs import ObsClient
+          client = ObsClient(
+              access_key_id=os.environ["HW_OBS_AK"],
+              secret_access_key=os.environ["HW_OBS_SK"],
+              server=os.environ["OBS_ENDPOINT"],
+          )
+          resp = client.deleteFile(os.environ["OBS_BUCKET"], "${{ needs.prepare.outputs.object_key }}")
+          print("delete status:", resp.status)
+          client.close()
+          EOF
