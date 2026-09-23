@@ -47,9 +47,15 @@ def main():
     normalized = []
     for entry in pool:
         if isinstance(entry, str):
-            normalized.append({"tag": entry, "region": entry})
+            normalized.append({"tag": entry, "region": entry, "image": ""})
         else:
-            normalized.append({"tag": entry["tag"], "region": entry.get("region", entry["tag"])})
+            normalized.append(
+                {
+                    "tag": entry["tag"],
+                    "region": entry.get("region", entry["tag"]),
+                    "image": entry.get("image", ""),
+                }
+            )
 
     payload = "/tmp/obs-stability-payload.bin"
     sha256 = make_payload(args.size_mb, payload)
@@ -71,6 +77,7 @@ def main():
             "reader_id": i,
             "runner": normalized[i % len(normalized)]["tag"],
             "region": normalized[i % len(normalized)]["region"],
+            "image": normalized[i % len(normalized)]["image"],
         }
         for i in range(args.readers)
     ]

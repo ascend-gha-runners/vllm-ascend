@@ -16,9 +16,9 @@ on:
         type: number
         default: 5
       runner_pool:
-        description: JSON array of {tag, region} objects or plain tags, readers spread round-robin
+        description: JSON array of {tag, region, image} objects, image = business-like job container, readers spread round-robin
         type: string
-        default: '[{"tag": "linux-aarch64-a3-test-2-cn12-001", "region": "cn12"}, {"tag": "linux-aarch64-a3-test-2", "region": "gy005"}, {"tag": "linux-aarch64-a3-test-4", "region": "gy005"}, {"tag": "linux-amd64-cpu-test-8-hk", "region": "hk"}]'
+        default: '[{"tag": "linux-amd64-cpu-test-8-hk", "region": "hk", "image": "quay.io/ascend-ci/vllm-ascend:lint"}, {"tag": "linux-amd64-cpu-test-16-hk", "region": "hk", "image": "quay.io/ascend-ci/vllm-ascend:lint"}, {"tag": "linux-aarch64-a3-test-2-cn12-001", "region": "cn12-via-liqo-gy005", "image": "swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.0-a3-ubuntu22.04-py3.12"}]'
       delete_payload:
         description: Delete the test object from OBS when finished
         type: boolean
@@ -74,6 +74,8 @@ jobs:
       fail-fast: false
       matrix:
         include: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    container:
+      image: ${{ matrix.image }}
     env:
       HW_OBS_AK: ${{ secrets.HW_OBS_AK_HK }}
       HW_OBS_SK: ${{ secrets.HW_OBS_SK_HK }}
