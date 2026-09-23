@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Aggregate per-reader result JSONs into a markdown summary."""
 
+import contextlib
 import glob
 import json
 import os
@@ -68,10 +69,8 @@ def main() -> int:
                 for line in f:
                     parts = line.split()
                     if len(parts) == 6:
-                        try:
+                        with contextlib.suppress(ValueError):
                             stats["curl"].append(float(parts[5]))
-                        except ValueError:
-                            pass
 
     print("## OBS HK bucket access stability report")
     print()
@@ -93,8 +92,7 @@ def main() -> int:
         print("### Failed attempts")
         print()
         for item in failures[:80]:
-            print(f"- reader `{item['reader']}` on `{item['runner']}` "
-                  f"attempt {item['attempt']}: {item['error']}")
+            print(f"- reader `{item['reader']}` on `{item['runner']}` attempt {item['attempt']}: {item['error']}")
         print()
     if sha_mismatch:
         print(f"**sha256 mismatch in reader(s): {sha_mismatch}** — data corruption, investigate.")
