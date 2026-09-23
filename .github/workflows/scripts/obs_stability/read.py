@@ -1,32 +1,28 @@
 #!/usr/bin/env python3
-"""Download the payload from OBS repeatedly and record per-attempt timing."""
+"""Download the payload from OBS repeatedly and record per-attempt timing.
+
+Uses only the Python stdlib (runner images have python3 but no pip).
+"""
 
 import argparse
-import hashlib
 import json
 import os
-import time
+import sys
 
-from obs import ObsClient
-
-
-def sha256_file(path: str) -> str:
-    digest = hashlib.sha256()
-    with open(path, "rb") as f:
-        for block in iter(lambda: f.read(4 * 1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from s3obj import S3, S3Error, file_sha256  # noqa: E402
 
 
-def main() -> None:
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--endpoint", required=True)
     parser.add_argument("--bucket", required=True)
+    parser.add_argument("--region", default="ap-southeast-1")
     parser.add_argument("--key", required=True)
     parser.add_argument("--sha256", required=True)
     parser.add_argument("--downloads", type=int, default=5)
-    parser.add_argument("--region", default="other")
-    parser.add_argument("--runner-id", default="")
+    parser.add_argument("--region-label", default="other")
+    parser.add_argument("--reader-id", default="")
     parser.add_argument("--runner-tag", default="")
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
@@ -35,40 +31,31 @@ def main() -> None:
     verified = False
     for n in range(args.downloads):
         record = {"attempt": n, "ok": False, "seconds": None, "mbps": None, "error": None}
-        client = ObsClient(
-            access_key_id=os.environ["HW_OBS_AK"],
-            secret_access_key=os.environ["HW_OBS_SK"],
-            server=args.endpoint,
-        )
+        client = S3(args.endpoint, args.bucket, args.region, os.environ["HW_OBS_AK"], os.environ["HW_OBS_SK"])
         target = f"/tmp/obs-dl-{n}.bin"
-        start = time.perf_counter()
         try:
-            resp = client.getObject(args.bucket, args.key, download=target)
-            elapsed = time.perf_counter() - start
-            if resp.status >= 300:
-                record["error"] = f"status={resp.status} {resp.errorMessage}"[:300]
-            else:
-                size = os.path.getsize(target)
-                record["ok"] = True
-                record["seconds"] = round(elapsed, 3)
-                record["mbps"] = round(size * 8 / elapsed / 1e6, 1)
-                record["bytes"] = size
-                if not verified:
-                    actual = sha256_file(target)
-                    record["sha256_match"] = actual == args.sha256
-                    verified = actual == args.sha256
+            elapsed, written = client.get_file(args.key, target)
+            record["ok"] = True
+            record["seconds"] = round(elapsed, 3)
+            record["mbps"] = round(written * 8 / elapsed / 1e6, 1)
+            record["bytes"] = written
+            if not verified:
+                actual = file_sha256(target)
+                record["sha256_match"] = actual == args.sha256
+                verified = actual == args.sha256
+        except S3Error as exc:
+            record["error"] = f"HTTP {exc.status}: {exc.detail}"[:300]
         except Exception as exc:  # noqa: BLE001
             record["error"] = f"{type(exc).__name__}: {exc}"[:300]
         finally:
-            client.close()
             if os.path.exists(target):
                 os.remove(target)
         attempts.append(record)
         print(json.dumps(record))
 
     result = {
-        "reader_id": args.runner_id,
-        "region": args.region,
+        "reader_id": args.reader_id,
+        "region": args.region_label,
         "runner_tag": args.runner_tag,
         "sha256_verified": verified,
         "attempts": attempts,

@@ -18,7 +18,7 @@ on:
       runner_pool:
         description: JSON array of {tag, region} objects or plain tags, readers spread round-robin
         type: string
-        default: '[{"tag": "linux-aarch64-a3-2-cn12-001", "region": "cn12"}, {"tag": "linux-aarch64-a3-test-2", "region": "gy005"}, {"tag": "linux-aarch64-a3-test-4", "region": "gy005"}, {"tag": "linux-amd64-cpu-test-8-hk", "region": "hk"}]'
+        default: '[{"tag": "linux-aarch64-a3-test-2-cn12-001", "region": "cn12"}, {"tag": "linux-aarch64-a3-test-2", "region": "gy005"}, {"tag": "linux-aarch64-a3-test-4", "region": "gy005"}, {"tag": "linux-amd64-cpu-test-8-hk", "region": "hk"}]'
       delete_payload:
         description: Delete the test object from OBS when finished
         type: boolean
@@ -31,7 +31,7 @@ concurrency:
 env:
   OBS_ENDPOINT: https://obs.ap-southeast-1.myhuaweicloud.com
   OBS_BUCKET: ascend-ci-cache-hk
-  PIP_INDEX_URL_FALLBACK: http://cache-service.nginx-pypi-cache.svc.cluster.local/pypi/simple
+  OBS_REGION: ap-southeast-1
 
 jobs:
   prepare:
@@ -49,20 +49,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Bootstrap python tooling
-        run: |
-          set -e
-          if ! command -v python3 >/dev/null 2>&1; then
-            apt-get update -qq && apt-get install -y -qq python3 python3-pip \
-              || yum install -y -q python3 python3-pip
-          fi
-          python3 -V
-          python3 -m pip --version >/dev/null 2>&1 \
-            || python3 -m ensurepip --upgrade \
-            || { apt-get install -y -qq python3-pip || yum install -y -q python3-pip; }
-          python3 -m pip install --quiet esdk-obs-python \
-            || python3 -m pip install --quiet --index-url "$PIP_INDEX_URL_FALLBACK" \
-                 --trusted-host cache-service.nginx-pypi-cache.svc.cluster.local esdk-obs-python
+      - name: Check python3
+        run: python3 -V
 
       - name: Upload payload and build matrix
         id: upload
@@ -70,6 +58,7 @@ jobs:
           python3 .github/workflows/scripts/obs_stability/prepare.py \
             --endpoint "$OBS_ENDPOINT" \
             --bucket "$OBS_BUCKET" \
+            --region "$OBS_REGION" \
             --key "obs-stability/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/payload-${{ inputs.payload_mb }}mb.bin" \
             --size-mb "${{ inputs.payload_mb }}" \
             --readers "${{ inputs.readers }}" \
@@ -91,24 +80,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Bootstrap python tooling
-        run: |
-          set -e
-          if ! command -v python3 >/dev/null 2>&1; then
-            apt-get update -qq && apt-get install -y -qq python3 python3-pip \
-              || yum install -y -q python3 python3-pip
-          fi
-          python3 -V
-          python3 -m pip --version >/dev/null 2>&1 \
-            || python3 -m ensurepip --upgrade \
-            || { apt-get install -y -qq python3-pip || yum install -y -q python3-pip; }
-          python3 -m pip install --quiet esdk-obs-python \
-            || python3 -m pip install --quiet --index-url "$PIP_INDEX_URL_FALLBACK" \
-                 --trusted-host cache-service.nginx-pypi-cache.svc.cluster.local esdk-obs-python
+      - name: Check python3
+        run: python3 -V
 
       - name: Raw curl timing probes
         run: |
           mkdir -p /tmp/obs-test
+          if ! command -v curl >/dev/null 2>&1; then
+            echo "curl not available, skipping probes" > /tmp/obs-test/curl.txt
+            exit 0
+          fi
           BASE="https://${OBS_BUCKET}.${OBS_ENDPOINT#https://}/"
           for i in $(seq 1 5); do
             curl -o /dev/null -s --max-time 30 \
@@ -122,11 +103,12 @@ jobs:
           python3 .github/workflows/scripts/obs_stability/read.py \
             --endpoint "$OBS_ENDPOINT" \
             --bucket "$OBS_BUCKET" \
+            --region "$OBS_REGION" \
             --key "${{ needs.prepare.outputs.object_key }}" \
             --sha256 "${{ needs.prepare.outputs.sha256 }}" \
             --downloads "${{ inputs.downloads_per_reader }}" \
-            --region "${{ matrix.region }}" \
-            --runner-id "${{ matrix.reader_id }}" \
+            --region-label "${{ matrix.region }}" \
+            --reader-id "${{ matrix.reader_id }}" \
             --runner-tag "${{ matrix.runner }}" \
             --out /tmp/obs-test/result.json
 
@@ -167,18 +149,9 @@ jobs:
       HW_OBS_AK: ${{ secrets.HW_OBS_AK_HK }}
       HW_OBS_SK: ${{ secrets.HW_OBS_SK_HK }}
     steps:
+      - uses: actions/checkout@v4
+
       - name: Delete payload
         run: |
-          python3 -m pip install --quiet esdk-obs-python
-          python3 - <<'EOF'
-          import os
-          from obs import ObsClient
-          client = ObsClient(
-              access_key_id=os.environ["HW_OBS_AK"],
-              secret_access_key=os.environ["HW_OBS_SK"],
-              server=os.environ["OBS_ENDPOINT"],
-          )
-          resp = client.deleteFile(os.environ["OBS_BUCKET"], "${{ needs.prepare.outputs.object_key }}")
-          print("delete status:", resp.status)
-          client.close()
-          EOF
+          python3 .github/workflows/scripts/obs_stability/s3obj.py delete \
+            --key "${{ needs.prepare.outputs.object_key }}"

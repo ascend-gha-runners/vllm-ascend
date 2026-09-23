@@ -1,29 +1,22 @@
 #!/usr/bin/env python3
-"""Upload a random payload to the HK OBS bucket and build the reader matrix."""
+"""Upload a random payload to the HK OBS bucket and build the reader matrix.
+
+Uses only the Python stdlib (runner images have python3 but no pip).
+"""
 
 import argparse
 import hashlib
 import json
 import os
 import sys
-import time
 
-from obs import ObsClient
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from s3obj import S3, S3Error, file_sha256  # noqa: E402
 
 CHUNK = 4 * 1024 * 1024
 
 
-def region_of(tag: str) -> str:
-    if "cn12" in tag:
-        return "cn12"
-    if "gy0" in tag:
-        return "guiyang"
-    if "-hk" in tag:
-        return "hongkong"
-    return "other"
-
-
-def make_payload(size_mb: int, path: str) -> str:
+def make_payload(size_mb, path):
     digest = hashlib.sha256()
     remaining = size_mb * 1024 * 1024
     with open(path, "wb") as f:
@@ -35,10 +28,11 @@ def make_payload(size_mb: int, path: str) -> str:
     return digest.hexdigest()
 
 
-def main() -> int:
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--endpoint", required=True)
     parser.add_argument("--bucket", required=True)
+    parser.add_argument("--region", default="ap-southeast-1")
     parser.add_argument("--key", required=True)
     parser.add_argument("--size-mb", type=int, required=True)
     parser.add_argument("--readers", type=int, required=True)
@@ -53,30 +47,24 @@ def main() -> int:
     normalized = []
     for entry in pool:
         if isinstance(entry, str):
-            normalized.append({"tag": entry, "region": region_of(entry)})
+            normalized.append({"tag": entry, "region": entry})
         else:
-            tag = entry["tag"]
-            normalized.append({"tag": tag, "region": entry.get("region", region_of(tag))})
+            normalized.append({"tag": entry["tag"], "region": entry.get("region", entry["tag"])})
 
     payload = "/tmp/obs-stability-payload.bin"
     sha256 = make_payload(args.size_mb, payload)
     size_bytes = os.path.getsize(payload)
     print(f"payload: {args.size_mb} MB sha256={sha256}")
 
-    client = ObsClient(
-        access_key_id=os.environ["HW_OBS_AK"],
-        secret_access_key=os.environ["HW_OBS_SK"],
-        server=args.endpoint,
-    )
-    start = time.perf_counter()
-    resp = client.putFile(args.bucket, args.key, payload)
-    elapsed = time.perf_counter() - start
-    if resp.status >= 300:
-        print(f"upload failed: status={resp.status} error={resp.errorMessage}", file=sys.stderr)
+    client = S3(args.endpoint, args.bucket, args.region, os.environ["HW_OBS_AK"], os.environ["HW_OBS_SK"])
+    try:
+        elapsed = client.put_file(args.key, payload)
+    except S3Error as exc:
+        print(f"upload failed: {exc}", file=sys.stderr)
         return 1
     mbps = size_bytes * 8 / elapsed / 1e6
     print(f"uploaded {args.key} in {elapsed:.2f}s ({mbps:.1f} Mbps)")
-    client.close()
+    assert file_sha256(payload) == sha256
 
     matrix = [
         {
