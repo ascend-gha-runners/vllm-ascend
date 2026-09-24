@@ -6,7 +6,6 @@ import hashlib
 import json
 import os
 import sys
-import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from s3obj import S3, S3Error  # noqa: E402
@@ -52,7 +51,6 @@ def main():
     snapshot_key = f"{args.prefix}/snapshot.bin"
     client = S3(args.endpoint, args.bucket, args.region, os.environ["HW_OBS_AK"], os.environ["HW_OBS_SK"])
     try:
-        t0 = time.perf_counter()
         elapsed, parts, perr = client.multipart_put_file(snapshot_key, payload)
     except S3Error as exc:
         print(f"snapshot upload failed: {exc}", file=sys.stderr)
@@ -63,7 +61,7 @@ def main():
     def matrix(count, kind):
         return [
             {
-                f"{kind}_id": i,
+                ("writer_id" if kind == "write" else "reader_id"): i,
                 "runner": normalized[i % len(normalized)]["tag"],
                 "region": normalized[i % len(normalized)]["region"],
                 "image": normalized[i % len(normalized)]["image"],
