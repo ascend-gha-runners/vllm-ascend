@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Aggregate per-reader result JSONs into a markdown summary."""
+"""Aggregate per-writer/per-reader result JSONs into a markdown summary."""
 
 import contextlib
 import glob
@@ -25,29 +25,45 @@ def fmt(values, unit=""):
     )
 
 
-def main() -> int:
+def main():
     results_root = sys.argv[1] if len(sys.argv) > 1 else "results"
-    object_key = sys.argv[2] if len(sys.argv) > 2 else "n/a"
-    upload_mbps = sys.argv[3] if len(sys.argv) > 3 else "n/a"
+    snapshot_key = sys.argv[2] if len(sys.argv) > 2 else "n/a"
+    setup_mbps = sys.argv[3] if len(sys.argv) > 3 else "n/a"
 
-    regions = {}
+    readers = {}
+    writers = {}
     failures = []
     sha_mismatch = []
-    for dirpath in sorted(glob.glob(os.path.join(results_root, "result-*"))):
+    for dirpath in sorted(glob.glob(os.path.join(results_root, "*"))):
         result_file = os.path.join(dirpath, "result.json")
-        if not os.path.exists(result_file):
+        write_file = os.path.join(dirpath, "write.json")
+        path = result_file if os.path.exists(result_file) else write_file
+        if not os.path.exists(path):
             continue
-        with open(result_file) as f:
+        with open(path) as f:
             data = json.load(f)
         region = data.get("region", "other")
-        if data.get("attempts") and any(a.get("ok") for a in data["attempts"]):
-            if not data.get("sha256_verified", True):
-                sha_mismatch.append(data.get("reader_id"))
-        stats = regions.setdefault(
+        if data.get("kind") == "write":
+            w = writers.setdefault(region, {"jobs": 0, "ok": 0, "bad": 0, "mbps": [], "part_errors": 0})
+            w["jobs"] += 1
+            if data.get("ok"):
+                w["ok"] += 1
+                w["mbps"].append(data["mbps"])
+                w["part_errors"] += data.get("part_errors") or 0
+            else:
+                w["bad"] += 1
+                failures.append(
+                    {"job": f"w{data.get('writer_id')}", "runner": data.get("runner_tag"), "error": data.get("error")}
+                )
+            continue
+        stats = readers.setdefault(
             region,
             {"readers": 0, "ok": 0, "bad": 0, "mbps": [], "seconds": [], "curl": []},
         )
         stats["readers"] += 1
+        if data.get("attempts") and any(a.get("ok") for a in data["attempts"]):
+            if not data.get("sha256_verified", True):
+                sha_mismatch.append(data.get("reader_id"))
         for attempt in data.get("attempts", []):
             if attempt.get("ok"):
                 stats["ok"] += 1
@@ -57,10 +73,9 @@ def main() -> int:
                 stats["bad"] += 1
                 failures.append(
                     {
-                        "reader": data.get("reader_id"),
+                        "job": f"r{data.get('reader_id')}",
                         "runner": data.get("runner_tag"),
-                        "attempt": attempt.get("attempt"),
-                        "error": attempt.get("error"),
+                        "error": f"attempt {attempt.get('attempt')}: {attempt.get('error')}",
                     }
                 )
         curl_file = os.path.join(dirpath, "curl.txt")
@@ -72,35 +87,42 @@ def main() -> int:
                         with contextlib.suppress(ValueError):
                             stats["curl"].append(float(parts[5]))
 
-    print("## OBS HK bucket access stability report")
+    print("## OBS HK load-model report (csrc-cache style, PR #16718 traffic shape)")
     print()
-    print(f"- bucket object: `{object_key}`")
-    print(f"- upload (prepare job): {upload_mbps} Mbps")
+    print(f"- snapshot object: `{snapshot_key}`; setup MPU (hk): {setup_mbps} Mbps")
     print()
-    print("| region | readers | ok / fail | download Mbps | curl total (s) |")
-    print("|---|---|---|---|---|")
-    total_bad = 0
-    for region in sorted(regions):
-        stats = regions[region]
-        total_bad += stats["bad"]
-        print(
-            f"| {region} | {stats['readers']} | {stats['ok']} / {stats['bad']} "
-            f"| {fmt(stats['mbps'])} | {fmt(stats['curl'], 's')} |"
-        )
-    print()
+    if writers:
+        print("### Writers (concurrent multipart snapshot uploads)")
+        print()
+        print("| region | writers | ok / fail | upload Mbps | part errors |")
+        print("|---|---|---|---|---|")
+        for region in sorted(writers):
+            w = writers[region]
+            print(f"| {region} | {w['jobs']} | {w['ok']} / {w['bad']} | {fmt(w['mbps'])} | {w['part_errors']} |")
+        print()
+    if readers:
+        print("### Readers (concurrent snapshot downloads)")
+        print()
+        print("| region | readers | ok / fail | download Mbps | curl total (s) |")
+        print("|---|---|---|---|---|")
+        for region in sorted(readers):
+            stats = readers[region]
+            print(
+                f"| {region} | {stats['readers']} | {stats['ok']} / {stats['bad']} "
+                f"| {fmt(stats['mbps'])} | {fmt(stats['curl'], 's')} |"
+            )
+        print()
+    bad = sum(w["bad"] for w in writers.values()) + sum(r["bad"] for r in readers.values())
+    if sha_mismatch:
+        print(f"**sha256 mismatch in reader(s): {sha_mismatch}** — investigate.")
+        print()
     if failures:
-        print("### Failed attempts")
+        print("### Failed jobs/attempts")
         print()
         for item in failures[:80]:
-            print(f"- reader `{item['reader']}` on `{item['runner']}` attempt {item['attempt']}: {item['error']}")
+            print(f"- `{item['job']}` on `{item['runner']}`: {item['error']}")
         print()
-    if sha_mismatch:
-        print(f"**sha256 mismatch in reader(s): {sha_mismatch}** — data corruption, investigate.")
-        print()
-    if total_bad == 0:
-        print("All download attempts succeeded.")
-    else:
-        print(f"**{total_bad} failed attempt(s)** — see details above.")
+    print("All writes/reads succeeded." if bad == 0 else f"**{bad} failure(s)** — see details above.")
     return 0
 
 
