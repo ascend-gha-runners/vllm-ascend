@@ -1,0 +1,182 @@
+name: obs-hk-load-model-test
+
+on:
+  workflow_dispatch:
+    inputs:
+      payload_mb:
+        description: Snapshot size per writer in MB
+        type: number
+        default: 2048
+      writers:
+        description: Concurrent multipart snapshot uploads
+        type: number
+        default: 8
+      readers:
+        description: Concurrent snapshot downloads
+        type: number
+        default: 12
+      downloads_per_reader:
+        description: Downloads per reader
+        type: number
+        default: 2
+      runner_pool:
+        description: JSON array of {tag, region, image}, jobs spread round-robin
+        type: string
+        default: '[{"tag": "linux-amd64-cpu-test-16-hk", "region": "hk", "image": "quay.io/ascend-ci/vllm-ascend:lint"}, {"tag": "linux-amd64-cpu-test-24-hk", "region": "hk", "image": "quay.io/ascend-ci/vllm-ascend:lint"}, {"tag": "linux-aarch64-a3-test-2-cn12-001", "region": "cn12-via-liqo-gy005", "image": "swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/cann:9.0.0-a3-ubuntu22.04-py3.12"}]'
+      keep_payload:
+        description: Keep test objects in the bucket after the run
+        type: boolean
+        default: false
+
+concurrency:
+  group: obs-hk-load-model-test
+  cancel-in-progress: false
+
+env:
+  OBS_ENDPOINT: https://obs.ap-southeast-1.myhuaweicloud.com
+  OBS_BUCKET: ascend-ci-cache-hk
+  OBS_REGION: ap-southeast-1
+
+jobs:
+  setup:
+    name: upload snapshot & plan load
+    runs-on: linux-amd64-cpu-test-8-hk
+    timeout-minutes: 30
+    env:
+      HW_OBS_AK: ${{ secrets.HW_OBS_AK_HK }}
+      HW_OBS_SK: ${{ secrets.HW_OBS_SK_HK }}
+    outputs:
+      prefix: ${{ steps.plan.outputs.prefix }}
+      snapshot_key: ${{ steps.plan.outputs.snapshot_key }}
+      sha256: ${{ steps.plan.outputs.sha256 }}
+      setup_mbps: ${{ steps.plan.outputs.setup_mbps }}
+      matrix_writers: ${{ steps.plan.outputs.matrix_writers }}
+      matrix_readers: ${{ steps.plan.outputs.matrix_readers }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Upload snapshot and build matrices
+        id: plan
+        run: |
+          python3 .github/workflows/scripts/obs_stability/setup_load.py \
+            --endpoint "$OBS_ENDPOINT" \
+            --bucket "$OBS_BUCKET" \
+            --region "$OBS_REGION" \
+            --prefix "load-model/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --size-mb "${{ inputs.payload_mb }}" \
+            --writers "${{ inputs.writers }}" \
+            --readers "${{ inputs.readers }}" \
+            --runner-pool '${{ inputs.runner_pool }}' \
+            --output-file "$GITHUB_OUTPUT"
+
+  write:
+    name: write-${{ matrix.writer_id }} (${{ matrix.region }})
+    needs: setup
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.setup.outputs.matrix_writers) }}
+    container:
+      image: ${{ matrix.image }}
+    env:
+      HW_OBS_AK: ${{ secrets.HW_OBS_AK_HK }}
+      HW_OBS_SK: ${{ secrets.HW_OBS_SK_HK }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Multipart snapshot upload
+        run: |
+          python3 .github/workflows/scripts/obs_stability/write.py \
+            --endpoint "$OBS_ENDPOINT" \
+            --bucket "$OBS_BUCKET" \
+            --region "$OBS_REGION" \
+            --key "${{ matrix.key }}" \
+            --size-mb "${{ inputs.payload_mb }}" \
+            --writer-id "${{ matrix.writer_id }}" \
+            --region-label "${{ matrix.region }}" \
+            --runner-tag "${{ matrix.runner }}" \
+            --out /tmp/obs-test/write.json
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: write-${{ matrix.writer_id }}
+          path: /tmp/obs-test/
+
+  read:
+    name: read-${{ matrix.reader_id }} (${{ matrix.region }})
+    needs: setup
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.setup.outputs.matrix_readers) }}
+    container:
+      image: ${{ matrix.image }}
+    env:
+      HW_OBS_AK: ${{ secrets.HW_OBS_AK_HK }}
+      HW_OBS_SK: ${{ secrets.HW_OBS_SK_HK }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download snapshot repeatedly
+        run: |
+          mkdir -p /tmp/obs-test
+          python3 .github/workflows/scripts/obs_stability/read.py \
+            --endpoint "$OBS_ENDPOINT" \
+            --bucket "$OBS_BUCKET" \
+            --region "$OBS_REGION" \
+            --key "${{ needs.setup.outputs.snapshot_key }}" \
+            --sha256 "${{ needs.setup.outputs.sha256 }}" \
+            --downloads "${{ inputs.downloads_per_reader }}" \
+            --region-label "${{ matrix.region }}" \
+            --reader-id "${{ matrix.reader_id }}" \
+            --runner-tag "${{ matrix.runner }}" \
+            --out /tmp/obs-test/result.json
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: result-${{ matrix.reader_id }}
+          path: /tmp/obs-test/
+
+  report:
+    name: aggregate report
+    needs: [setup, write, read]
+    if: always() && needs.setup.result == 'success'
+    runs-on: linux-amd64-cpu-test-8-hk
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: results
+          merge-multiple: false
+
+      - name: Summary
+        run: |
+          python3 .github/workflows/scripts/obs_stability/report.py results \
+            "${{ needs.setup.outputs.snapshot_key }}" \
+            "${{ needs.setup.outputs.setup_mbps }}" | tee /tmp/obs-report.md
+          cat /tmp/obs-report.md >> "$GITHUB_STEP_SUMMARY"
+
+  cleanup:
+    name: delete test objects
+    needs: [setup, write, read]
+    if: always() && !inputs.keep_payload && needs.setup.result == 'success'
+    runs-on: linux-amd64-cpu-test-8-hk
+    timeout-minutes: 10
+    env:
+      OBS_AK: ${{ secrets.HW_OBS_AK_HK }}
+      OBS_SK: ${{ secrets.HW_OBS_SK_HK }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Delete load-model prefix
+        run: |
+          python3 .github/workflows/scripts/obs_stability/s3obj.py delete-prefix \
+            --key "${{ needs.setup.outputs.prefix }}/"
