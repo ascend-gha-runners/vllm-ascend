@@ -52,7 +52,9 @@ def main():
                 w["part_errors"] += data.get("part_errors") or 0
             else:
                 w["bad"] += 1
-                failures.append({"job": f"w{data.get('writer_id')}", "runner": data.get("runner_tag"), "error": data.get("error")})
+                failures.append(
+                    {"job": f"w{data.get('writer_id')}", "runner": data.get("runner_tag"), "error": data.get("error")}
+                )
             continue
         stats = readers.setdefault(
             region,
@@ -96,10 +98,7 @@ def main():
         print("|---|---|---|---|---|")
         for region in sorted(writers):
             w = writers[region]
-            print(
-                f"| {region} | {w['jobs']} | {w['ok']} / {w['bad']} "
-                f"| {fmt(w['mbps'])} | {w['part_errors']} |"
-            )
+            print(f"| {region} | {w['jobs']} | {w['ok']} / {w['bad']} | {fmt(w['mbps'])} | {w['part_errors']} |")
         print()
     if readers:
         print("### Readers (concurrent snapshot downloads)")

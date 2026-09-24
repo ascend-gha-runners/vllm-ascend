@@ -32,7 +32,8 @@ def main():
         print("runner pool is empty", file=sys.stderr)
         return 1
     normalized = [
-        {"tag": e, "region": e, "image": ""} if isinstance(e, str)
+        {"tag": e, "region": e, "image": ""}
+        if isinstance(e, str)
         else {"tag": e["tag"], "region": e.get("region", e["tag"]), "image": e.get("image", "")}
         for e in pool
     ]
