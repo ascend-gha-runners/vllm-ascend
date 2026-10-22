@@ -1,0 +1,20 @@
+name: arc-fedsched e2e (lab)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: linux-aarch64-310p-2-lab
+    timeout-minutes: 15
+    steps:
+      - name: hello
+        run: |
+          echo "runner=$RUNNER_NAME"
+          echo "os=$RUNNER_OS arch=$RUNNER_ARCH"
+          uname -a
+          nproc
+          echo "arc-fedsched lab ok"
