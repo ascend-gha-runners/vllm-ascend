@@ -1,0 +1,43 @@
+name: squid-gitcode-probe
+
+# 临时验证 workflow（R21）
+# 目标：确认 linux-aarch64-a3-test-2 这个 scale set（gy-005）里
+#   pod postStart 写入的 url.<smart-git-proxy>/gitcode.com/.insteadOf
+# 是否真的让 gitcode.com 的 git 拉取走 smart git proxy，且重复拉取命中缓存。
+#
+# 触发：仓库 → Actions → squid-gitcode-probe → Run workflow
+# 验证完成后本文件可直接删除。
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gitcode-cache:
+    name: gitcode × smart git proxy 缓存
+    runs-on: linux-aarch64-a3-test-2
+    timeout-minutes: 30
+    steps:
+      - name: 拉取测试脚本仓库
+        # 该 runner 的 /root/.gitconfig 已把 github.com 重写到 smart-git-proxy，
+        # 所以这一步同时是"git 通道可用"的顺带检查。
+        run: |
+          rm -rf /tmp/squid-gha-integration-test
+          git clone --depth 1 https://github.com/ascend-gha-runners/squid-gha-integration-test /tmp/squid-gha-integration-test
+
+      - name: 运行 gitcode 缓存验证
+        env:
+          GITCODE_STRICT: '1'   # 重写缺失 / 无缓存收益 → 判红
+          RESULTS_DIR: /tmp/test-squid-results
+        run: bash /tmp/squid-gha-integration-test/test-squid/run-suite.sh --mode gitcode
+
+      - name: 输出结果
+        if: always()
+        run: |
+          for f in /tmp/test-squid-results/timings.tsv /tmp/test-squid-results/probes.tsv; do
+            if [ -f "$f" ]; then echo "===== $f"; cat "$f"; echo; fi
+          done
+          echo "===== clone trace 中的对端与缓存相关头"
+          grep -iE '^(< (cache-status|x-cache|x-cache-status|age|via|server))|Connected to' \
+            /tmp/test-squid-results/gitcode-clone-2.trace 2>/dev/null | head -20 || true
