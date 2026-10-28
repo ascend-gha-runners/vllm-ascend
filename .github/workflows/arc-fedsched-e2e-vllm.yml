@@ -1,0 +1,41 @@
+name: arc-fedsched e2e (vllm-ascend)
+
+# Onboarding rehearsal for the 310p Karmada federation: this repository is the
+# project being onboarded, the runner label below belongs to the scale set
+# added in opensourceways/arc-fedsched (manifests/arc-runner-vllm-310p).
+#
+# Jobs must land only on the federation members (test1 / test2), never on the
+# production karc cluster.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [1, 2]
+    runs-on: linux-aarch64-310p-2-vllm
+    timeout-minutes: 30
+    container:
+      image: swr.cn-north-12.myhuaweicloud.com/atlas_inference/cann:9.2.0_20260928212200-310p-ubuntu22.04-py3.12
+    steps:
+      - name: where am i
+        run: |
+          case "$NODE_NAME" in
+            172.16.0.*)  CLUSTER="test1" ;;
+            172.16.10.*) CLUSTER="test2" ;;
+            179.*|192.168.9.*|10.0.254.*|ecs-k8s-*|ascend*|ai-910b-*) CLUSTER="karc" ;;
+            *)           CLUSTER="unknown" ;;
+          esac
+          echo "::notice::TASK ${{ matrix.task }} -> CLUSTER ${CLUSTER} (node=${NODE_NAME})"
+          echo "============================================================"
+          echo "  TASK    : ${{ matrix.task }}"
+          echo "  CLUSTER : ${CLUSTER}"
+          echo "  node    : ${NODE_NAME}"
+          echo "  pod     : ${POD_NAMESPACE}/${POD_NAME}"
+          echo "============================================================"
+          npu-smi info
